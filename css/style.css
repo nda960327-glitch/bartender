@@ -356,6 +356,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
   background: var(--bg-card); transition: transform .12s;
 }
 .meet-item:active { transform: scale(.98); }
+.meet-item.past { opacity: .55; }
 .meet-top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .meet-region {
   padding: 5px 12px; border-radius: 8px; background: var(--bg-banner);

@@ -536,6 +536,83 @@
     CT(470, "🍯", "핫 토디", "위스키", 10, "위스키 45ml\n꿀 1큰술\n레몬주스 15ml\n뜨거운 물 120ml\n시나몬 스틱", "머그에 꿀·레몬·위스키를 넣고 뜨거운 물을 부어 젓는다.", "감기 기운 있을 때 생각나는 겨울 클래식.")
   );
 
+  /* ---------- 위스키 대확장 v4 (유명 공식 보틀) ---------- */
+  let wid = 2000;
+  const W = (name, abv, price) => SEED_SPIRITS.push({ id: ++wid, kind: "spirit", emoji: "🥃", name, cat: "위스키", abv, price: price || "", note: "", by: "운영자", time: now - ((wid % 300) + 30) * D, reviews: [] });
+  [
+    // 스카치 싱글몰트 — 스페이사이드/하이랜드
+    ["글렌피딕 15년 솔레라", 40, "8~11만원"], ["글렌피딕 18년", 40, "13~17만원"], ["글렌피딕 21년 그랑 레세르바", 40, "25~35만원"],
+    ["글렌피딕 IPA 익스페리먼트", 43, "6~8만원"], ["글렌피딕 파이어 & 케인", 43, "6~8만원"],
+    ["글렌리벳 파운더스 리저브", 40, "4~6만원"], ["글렌리벳 15년", 40, "8~10만원"], ["글렌리벳 18년", 40, "14~18만원"], ["글렌리벳 캡틴스 리저브", 40, "6~8만원"],
+    ["맥캘란 더블캐스크 12년", 40, "11~14만원"], ["맥캘란 더블캐스크 15년", 43, "18~24만원"], ["맥캘란 셰리오크 18년", 43, "45~60만원"],
+    ["발베니 14년 캐리비안 캐스크", 43, "13~17만원"], ["발베니 17년 더블우드", 43, "25~32만원"], ["발베니 21년 포트우드", 40, "40~55만원"],
+    ["글렌모렌지 라산타 12년", 43, "7~9만원"], ["글렌모렌지 퀸타 루반 14년", 46, "8~10만원"], ["글렌모렌지 넥타 도르", 46, "9~12만원"], ["글렌모렌지 18년", 43, "16~20만원"], ["글렌모렌지 시그넷", 46, "28~35만원"],
+    ["글렌드로낙 15년 리바이벌", 46, "12~15만원"], ["글렌드로낙 18년 알라다이스", 46, "18~24만원"], ["글렌드로낙 21년 팔러먼트", 48, "28~36만원"], ["글렌드로낙 포트우드", 46, "10~13만원"],
+    ["글렌알라키 15년", 46, "13~17만원"], ["글렌알라키 10년 캐스크 스트렝스", 58, "13~17만원"], ["글렌알라키 12년 PX 셰리", 48, ""],
+    ["글렌파클라스 15년", 46, "9~12만원"], ["글렌파클라스 17년", 43, "12~15만원"], ["글렌파클라스 21년", 43, "16~21만원"], ["글렌파클라스 25년", 43, "25~33만원"],
+    ["아벨라워 12년 논칠필터드", 48, "8~10만원"], ["아벨라워 16년 더블캐스크", 43, "12~16만원"], ["아벨라워 아부나흐", 60, "16~22만원"],
+    ["글렌고인 15년", 43, "10~13만원"], ["글렌고인 18년", 43, "16~21만원"], ["글렌고인 21년", 43, "26~34만원"],
+    ["달모어 15년", 40, "14~18만원"], ["달모어 18년", 43, "30~40만원"], ["달모어 시가몰트", 44, "16~21만원"],
+    ["벤리악 10년 큐리오시타스", 46, "7~9만원"], ["벤리악 21년", 46, ""], ["벤로막 15년", 43, "10~13만원"], ["벤로막 카스크 스트렝스", 58, ""],
+    ["토마틴 레거시", 43, "4~5만원"], ["토마틴 18년", 46, "13~17만원"], ["글렌그란트 10년", 40, "4~6만원"], ["글렌그란트 아보랄리스", 40, ""],
+    ["스페이번 10년", 40, "4~6만원"], ["글렌 엘긴 12년", 43, ""], ["모틀락 12년", 43, "9~12만원"], ["크라겔라키 13년", 46, "8~11만원"],
+    ["발블레어 15년", 46, "11~14만원"], ["글렌터렛 트리플 우드", 43, ""], ["애버펠디 12년", 40, "5~7만원"], ["애버펠디 21년", 40, ""],
+    ["로크로몬드 12년", 46, "5~7만원"], ["인치머린 12년", 46, "6~8만원"], ["툴리바딘 소버린", 43, "5~7만원"], ["에드라두어 10년", 40, "8~10만원"],
+    ["올드 풀트니 15년", 46, "10~13만원"], ["안녹 18년", 46, ""], ["클라이넬리쉬 게임 오브 스론즈", 51.2, ""], ["로열 브라클라 12년", 46, ""],
+    ["아드모어 레거시", 40, "4~6만원"], ["딘스톤 버진 오크", 46.3, "5~7만원"], ["글렌 스코시아 15년", 46, "9~12만원"], ["글렌 스코시아 빅토리아나", 54.2, ""],
+    ["스프링뱅크 15년", 46, "18~25만원"], ["스프링뱅크 18년", 46, ""], ["헤이즐번 10년", 46, ""], ["롱로우 피티드", 46, "10~14만원"], ["킬커란 12년", 46, "9~12만원"],
+    // 스카치 싱글몰트 — 아일라/아일랜즈
+    ["아드벡 우가달", 54.2, "13~17만원"], ["아드벡 코리브레칸", 57.1, "14~18만원"], ["아드벡 안 오", 46.6, "9~11만원"], ["아드벡 위 비스티 5년", 47.4, "7~9만원"],
+    ["라프로익 쿼터 캐스크", 48, "8~11만원"], ["라프로익 로어", 48, "13~17만원"], ["라프로익 셀렉트", 40, "6~8만원"],
+    ["라가불린 8년", 48, "8~11만원"], ["라가불린 디스틸러스 에디션", 43, "14~18만원"],
+    ["보모어 15년", 43, "11~14만원"], ["보모어 18년", 43, "18~24만원"], ["보모어 No.1", 40, "5~7만원"],
+    ["브룩라디 클래식 라디", 50, "8~10만원"], ["포트 샬롯 10년", 50, "9~12만원"], ["옥토모어 (최신 에디션)", 57, "25~35만원"],
+    ["쿨일라 모흐", 46, "8~10만원"], ["쿨일라 18년", 43, "16~22만원"], ["부나하벤 12년", 46.3, "8~10만원"], ["부나하벤 스튜라다르", 46.3, "6~8만원"],
+    ["킬호만 사닉", 46, "8~10만원"], ["킬호만 로크 곰", 46, "9~12만원"], ["아드나호 5년", 50, ""], ["포트 엘렌 (희귀)", 55, ""],
+    ["탈리스커 스톰", 45.8, "7~9만원"], ["탈리스커 10년 57° 노스", 57, "10~13만원"], ["탈리스커 18년", 45.8, "18~24만원"],
+    ["하이랜드 파크 18년 바이킹 프라이드", 43, "20~26만원"], ["하이랜드 파크 카스크 스트렝스", 63, "10~14만원"],
+    ["아란 셰리 캐스크", 55.8, "9~12만원"], ["아란 아마로네 캐스크 피니시", 50, "7~9만원"], ["아란 쿼터 캐스크", 56.2, ""],
+    ["주라 12년", 40, "6~8만원"], ["주라 세븐 우드", 42, "8~10만원"], ["스카파 스키렌", 40, "8~10만원"], ["토버모리 12년", 46.3, ""], ["레첵 10년", 46.3, ""],
+    // 스카치 블렌디드
+    ["조니워커 18년", 40, "10~14만원"], ["조니워커 스윙", 40, "8~11만원"], ["발렌타인 12년", 40, "2~3만원"], ["발렌타인 21년", 40, "13~18만원"], ["발렌타인 30년", 40, "35~50만원"],
+    ["시바스 리갈 18년", 40, "8~11만원"], ["시바스 리갈 미즈나라 12년", 40, "4~5만원"], ["시바스 리갈 25년", 40, "30~40만원"],
+    ["듀어스 15년", 40, "5~7만원"], ["듀어스 18년", 40, "8~10만원"], ["그란츠 트리플 우드", 40, "1~2만원"], ["패스포트", 40, "1~2만원"],
+    ["윈저 12년", 40, "3~4만원"], ["윈저 17년", 40, "7~9만원"], ["윈저 21년", 40, "12~16만원"], ["임페리얼 클래식 12년", 40, "3~4만원"],
+    ["골든블루 사피루스", 36.5, "3~4만원"], ["스카치 블루 인터내셔널", 40, "2~3만원"], ["J&B 레어", 40, "1~2만원"], ["블랙 & 화이트", 40, "1~2만원"],
+    ["나이키드 몰트", 40, "4~5만원"], ["코퍼독", 40, "4~5만원"], ["쉬글모어 스페이사이드", 40, ""],
+    // 아이리시
+    ["제임슨 블랙 배럴", 40, "4~6만원"], ["제임슨 캐스크메이츠 스타우트", 40, "4~5만원"], ["파워스 골드 라벨", 43.2, "4~5만원"],
+    ["옐로우 스팟 12년", 46, "11~14만원"], ["레드브레스트 15년", 46, "13~17만원"], ["레드브레스트 룩스타", 40, ""],
+    ["미들턴 베리 레어", 40, "25~35만원"], ["코네마라 피티드", 40, "5~7만원"], ["라이터스 티어스 코퍼팟", 40, "5~7만원"],
+    ["틸링 싱글그레인", 46, "6~8만원"], ["부시밀즈 10년 싱글몰트", 40, "5~7만원"], ["부시밀즈 16년", 40, "11~14만원"],
+    // 아메리칸 — 버번/테네시/라이
+    ["블랜튼스 오리지널", 46.5, "13~18만원"], ["블랜튼스 골드", 51.5, "20~28만원"], ["이글 레어 10년", 45, "9~13만원"], ["웰러 스페셜 리저브", 45, "12~18만원"],
+    ["E.H. 테일러 스몰배치", 50, "15~22만원"], ["사제락 라이", 45, "7~10만원"], ["스태그 주니어", 64, ""],
+    ["에반 윌리엄스 싱글배럴", 43.3, "5~7만원"], ["헨리 맥켄나 10년 BIB", 50, "9~13만원"], ["엘라이자 크레이그 배럴프루프", 61, "12~16만원"],
+    ["러셀즈 리저브 10년", 45, "6~8만원"], ["와일드 터키 레어브리드", 58.4, "8~11만원"], ["와일드 터키 켄터키 스피릿", 50.5, "9~12만원"], ["와일드 터키 81", 40.5, "3~4만원"],
+    ["포 로지스 싱글배럴", 50, "7~9만원"], ["포 로지스 스몰배치 셀렉트", 52, "9~12만원"],
+    ["놉 크릭 9년 스몰배치", 50, "5~7만원"], ["놉 크릭 라이", 50, "6~8만원"], ["놉 크릭 12년", 50, "10~13만원"],
+    ["베이즐 헤이든", 40, "6~8만원"], ["부커스 (배치)", 63, "13~17만원"], ["베이커스 7년", 53.5, "9~12만원"],
+    ["메이커스 46", 47, "6~8만원"], ["메이커스 마크 캐스크 스트렝스", 55, "9~12만원"],
+    ["우드포드 리저브 더블 오크드", 43.2, "8~11만원"], ["우드포드 리저브 라이", 45.2, "6~8만원"],
+    ["올드 포레스터 86", 43, "4~5만원"], ["올드 포레스터 1920", 57.5, "10~13만원"], ["올드 그랜드대드 114", 57, ""],
+    ["미치터스 US★1 버번", 45.7, "8~10만원"], ["미치터스 US★1 라이", 42.4, "8~10만원"], ["미치터스 아메리칸", 41.7, ""],
+    ["잭 다니엘 라이", 45, "4~6만원"], ["잭 다니엘 12년", 53.5, ""],
+    ["불렛 10년", 45.6, "6~8만원"], ["하이 웨스트 더블 라이", 46, "7~9만원"],
+    ["와일드 터키 롱브랜치", 43, "5~7만원"], ["제퍼슨스 오션", 45, "10~13만원"], ["엔젤스 엔비", 43.3, "9~12만원"],
+    // 캐나디안
+    ["크라운 로얄 노던 하베스트 라이", 45, "5~7만원"], ["크라운 로얄 블랙", 45, "5~6만원"], ["캐나디안 클럽 12년", 40, "3~4만원"],
+    // 재패니즈
+    ["야마자키 18년", 43, "80~120만원"], ["하쿠슈 12년", 43, "25~35만원"], ["하쿠슈 NV", 43, "12~16만원"],
+    ["치타 싱글그레인", 43, "8~11만원"], ["히비키 21년", 43, "70~100만원"], ["히비키 블로섬 하모니", 43, ""],
+    ["다케츠루 퓨어몰트", 43, "12~16만원"], ["슈퍼 니카", 43, "6~8만원"], ["니카 코페이 그레인", 45, "8~10만원"], ["니카 코페이 몰트", 45, "8~10만원"],
+    ["니카 데이즈", 40, "5~7만원"], ["마르스 코마가타케", 50, ""], ["아카시 화이트오크", 40, "4~6만원"], ["이치로즈 몰트 & 그레인", 46.5, "13~18만원"],
+    // 월드
+    ["카발란 솔리스트 셰리", 57, "18~25만원"], ["카발란 솔리스트 버번", 57, "14~19만원"], ["카발란 디스틸러리 셀렉트", 40, "5~7만원"],
+    ["폴 존 클래식", 55.2, "10~13만원"], ["폴 존 브릴리언스", 46, "7~9만원"], ["램푸르 셀렉트", 43, "8~10만원"],
+    ["스타워드 노바", 41.3, "8~10만원"], ["울프번 노스랜드", 46, "8~10만원"], ["밀스톤 (네덜란드)", 46, ""], ["펜더린 마데이라", 46, "8~10만원"],
+  ].forEach((w) => W(w[0], w[1], w[2]));
+
   SEED_MEETS.push(
     { id: 501, region: "서울", title: "이태원 바 호핑 투어 🍸", date: now + 3 * D, place: "이태원역 2번 출구 집결", max: 8, joined: 5, desc: "이태원 유명 바 3곳을 도는 호핑 투어. 각자 한 잔씩, 좋은 바 공유해요.", host: "익명", hostColor: 0, isJoined: false, comments: [
       { color: 2, text: "코스 미리 알 수 있을까요?", time: now - 6 * H },
@@ -608,7 +685,7 @@
     worklog: store.get("worklog", []),
     noti: store.get("noti", []),
     chats: store.get("chats", []),
-    dark: store.get("dark", false),
+    dark: store.get("dark", !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)),
     push: store.get("push", true),
     view: "home",
     commTab: "all",
@@ -652,7 +729,7 @@
   const saveWorklog = () => store.set("worklog", state.worklog);
 
   /* ---------- 시드 병합 (앱 업데이트 시 새 데이터 추가) ---------- */
-  const SEED_V = 3;
+  const SEED_V = 4;
   if (store.get("seedv", 1) < SEED_V) {
     const mergeSeed = (arr, seed) => {
       const ids = new Set(arr.map((x) => x.id));
@@ -673,6 +750,7 @@
   function esc(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
+  const has = (hay, q) => String(hay).toLowerCase().includes(String(q).toLowerCase());
   function fmtTime(t) {
     const d = new Date(t);
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -753,7 +831,10 @@
 
   /* ---------- 화면 전환 ---------- */
   const NAV_VIEWS = ["home", "dogam", "meet", "community", "mypage"];
-  function show(view) {
+  function show(view, fromPop) {
+    if (!fromPop && view !== state.view && view !== "onboard") {
+      try { history.pushState({ view }, "", "#" + view); } catch {}
+    }
     state.view = view;
     $$(".view").forEach((v) => { v.hidden = v.id !== "view-" + view; });
     $("#bottom-nav").style.display = view === "onboard" ? "none" : "";
@@ -911,7 +992,7 @@
     const list = SEED_JOBS.filter((j) =>
       (state.filterRegion === "전체" || j.region === state.filterRegion) &&
       (state.filterJob === "전체" || j.type === state.filterJob) &&
-      (!q || j.title.includes(q) || j.shop.includes(q))
+      (!q || has(j.title, q) || has(j.shop, q))
     );
     $("#job-list").innerHTML = list.length
       ? list.map(jobItemHTML).join("")
@@ -945,7 +1026,7 @@
     const list = state.spirits.filter((sp) =>
       sp.kind === state.dogamKind &&
       (state.dogamCat === "전체" || (sp.kind === "spirit" ? sp.cat : sp.base) === state.dogamCat) &&
-      (!q || sp.name.includes(q))
+      (!q || has(sp.name, q))
     ).sort((a, b) =>
       state.dogamSort === "stars" ? avgStars(b) - avgStars(a) :
       state.dogamSort === "reviews" ? b.reviews.length - a.reviews.length :
@@ -1102,17 +1183,19 @@
     $$("#meet-regions .chip").forEach((ch) =>
       ch.addEventListener("click", () => { state.meetRegion = ch.dataset.r; renderMeets(); }));
 
+    const isPast = (m) => m.date < Date.now();
     const list = state.meets
       .filter((m) => state.meetRegion === "전체" || m.region === state.meetRegion)
-      .sort((a, b) => a.date - b.date);
+      .sort((a, b) => (isPast(a) - isPast(b)) || (isPast(a) ? b.date - a.date : a.date - b.date));
     $("#meet-list").innerHTML = list.length
       ? list.map((m) => {
+        const past = isPast(m);
         const full = m.joined >= m.max;
         return `
-        <div class="meet-item" data-id="${m.id}">
+        <div class="meet-item ${past ? "past" : ""}" data-id="${m.id}">
           <div class="meet-top">
             <span class="meet-region">${esc(m.region)}</span>
-            <span class="meet-state ${full ? "closed" : ""}">${full ? "마감" : "모집중"}</span>
+            <span class="meet-state ${past || full ? "closed" : ""}">${past ? "종료" : full ? "마감" : "모집중"}</span>
             ${m.mine ? '<span class="my-tag">내 모임</span>' : ""}
           </div>
           <div class="meet-title">${esc(m.title)}</div>
@@ -1153,7 +1236,8 @@
           <div class="md-info-row"><span class="ic">👤</span><span>주최 · ${esc(m.host)}</span></div>
         </div>
         <div class="md-desc">${esc(m.desc)}</div>
-        ${m.mine ? "" : `
+        ${m.mine ? "" : m.date < Date.now() ? `
+        <button class="join-btn full" disabled>종료된 모임이에요</button>` : `
         <button class="join-btn ${m.isJoined ? "joined" : ""} ${full ? "full" : ""}" id="meet-join">
           ${m.isJoined ? "참여 취소하기" : full ? "모집이 마감되었어요" : "참여하기 🙋"}
         </button>
@@ -1237,7 +1321,7 @@
     let list = [...state.posts];
     if (state.commTab === "hot") list = list.filter((p) => p.cat === "hot" || p.likes + p.comments.length >= 10);
     else if (state.commTab !== "all") list = list.filter((p) => p.cat === state.commTab);
-    if (q) list = list.filter((p) => p.title.includes(q) || p.body.includes(q));
+    if (q) list = list.filter((p) => has(p.title, q) || has(p.body, q));
     list.sort((a, b) => b.time - a.time);
 
     const ph = { all: "커뮤니티 전체 검색", hot: "커뮤니티 인기 검색", free: "커뮤니티 자유 검색", promo: "커뮤니티 홍보 검색" };
@@ -1634,7 +1718,7 @@
     const q = $("#store-search").value.trim();
     const list = PRODUCTS.filter((p) =>
       (state.storeCat === "전체" || p.cat === state.storeCat) &&
-      (!q || p.name.includes(q) || p.desc.includes(q)));
+      (!q || has(p.name, q) || has(p.desc, q)));
 
     $("#product-grid").innerHTML = list.length
       ? list.map((p) => `
@@ -1720,6 +1804,7 @@
     }
     const ship = subtotal >= 30000 ? 0 : 3000;
     const maxP = Math.min(state.user.points, subtotal + ship);
+    const ship0 = store.get("shipInfo", {});
     $("#cart-area").innerHTML = `
       ${state.cart.map((c) => {
         const p = product(c.pid);
@@ -1739,11 +1824,17 @@
         </div>`;
       }).join("")}
       <div class="cart-summary">
+        <label class="form-label">받는 분</label>
+        <input type="text" class="input" id="ship-name" placeholder="이름" value="${esc(ship0.name || "")}">
+        <label class="form-label">연락처</label>
+        <input type="tel" class="input" id="ship-phone" placeholder="010-0000-0000" value="${esc(ship0.phone || "")}">
+        <label class="form-label">배송지 주소</label>
+        <input type="text" class="input" id="ship-addr" placeholder="주소를 입력해주세요" value="${esc(ship0.addr || "")}">
         <label class="form-label">포인트 사용 (보유 ${fmtNum(state.user.points)}P)</label>
         <input type="number" class="input" id="cart-points" placeholder="0" min="0" max="${maxP}" inputmode="numeric">
         <div class="calc-result show" id="cart-total"></div>
         <button class="big-btn accent ready" id="cart-order" style="margin-top:16px">주문하기</button>
-        <p class="sheet-note">주문 후 안내되는 계좌로 입금하면 배송이 시작돼요. (데모: 실제 결제는 PG 연동이 필요해요)</p>
+        <p class="sheet-note">주문 후 안내되는 계좌로 입금하면 배송이 시작돼요. 배송 정보는 내 기기에만 저장돼요. (데모: 실제 결제는 PG 연동이 필요해요)</p>
       </div>
       <div style="height:24px"></div>`;
     const renderTotal = () => {
@@ -1772,12 +1863,23 @@
       });
     });
     $("#cart-order").addEventListener("click", () => {
+      const shipInfo = {
+        name: $("#ship-name").value.trim(),
+        phone: $("#ship-phone").value.trim(),
+        addr: $("#ship-addr").value.trim(),
+      };
+      if (!shipInfo.name || !shipInfo.phone || !shipInfo.addr) {
+        toast("배송 정보(이름·연락처·주소)를 모두 입력해주세요.");
+        return;
+      }
+      store.set("shipInfo", shipInfo);
       const used = renderTotal();
       const id = Math.max(0, ...state.orders.map((o) => o.id)) + 1;
       state.orders.push({
         id,
         items: state.cart.map((c) => ({ name: product(c.pid).name, price: product(c.pid).price, qty: c.qty })),
         subtotal, ship, used, total: subtotal + ship - used,
+        shipTo: shipInfo,
         time: Date.now(), status: "입금 대기",
       });
       saveOrders();
@@ -1879,6 +1981,39 @@
     const rows = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5]
       .map((oz) => `<div class="cr-row"><span>${oz} oz</span><b>${Math.round(oz * OZ * 10) / 10} ml <small style="color:var(--text-sub);font-weight:500">(현장 ${Math.round(oz * 30)}ml)</small></b></div>`).join("");
     $("#unit-table").innerHTML = rows;
+  }
+
+  /* ---------- 데이터 백업/복원 ---------- */
+  function exportData() {
+    const data = {};
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith("bartalk_"))
+      .forEach((k) => { data[k] = localStorage.getItem(k); });
+    const blob = new Blob([JSON.stringify({ app: "bartalk", ver: 1, exportedAt: Date.now(), data })], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    const d = new Date();
+    a.download = `bartalk-backup-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast("백업 파일을 저장했어요. 💾");
+  }
+  function importData(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if (parsed.app !== "bartalk" || !parsed.data) throw new Error("bad");
+        if (!confirm("백업 데이터로 복원할까요? 현재 데이터는 백업 내용으로 바뀌어요.")) return;
+        Object.entries(parsed.data).forEach(([k, v]) => {
+          if (k.startsWith("bartalk_")) localStorage.setItem(k, v);
+        });
+        location.reload();
+      } catch {
+        toast("올바른 바텐톡 백업 파일이 아니에요.");
+      }
+    };
+    reader.readAsText(file);
   }
 
   /* ---------- 도구: 공통 ---------- */
@@ -2136,6 +2271,18 @@
   $("#pd-cart-btn").addEventListener("click", () => show("cart"));
   $("#btn-orders").addEventListener("click", () => show("orders"));
 
+  // 데이터 백업/복원
+  $("#btn-backup").addEventListener("click", () =>
+    openSheet("데이터 백업/복원", ["📤 백업 파일 내려받기", "📥 백업 파일에서 복원"], null, (v) => {
+      if (v.includes("내려받기")) exportData();
+      else $("#restore-file").click();
+    }));
+  $("#restore-file").addEventListener("change", (e) => {
+    const f = e.target.files[0];
+    if (f) importData(f);
+    e.target.value = "";
+  });
+
   // 근무일지
   $("#wl-prev").addEventListener("click", () => { state.wlOffset--; renderWorklog(); });
   $("#wl-next").addEventListener("click", () => { if (state.wlOffset < 0) { state.wlOffset++; renderWorklog(); } });
@@ -2310,11 +2457,17 @@
   /* ---------- 초기화 ---------- */
   applyTheme();
   updateBadge();
+  // 브라우저/안드로이드 뒤로가기 지원
+  window.addEventListener("popstate", (e) => {
+    if (state.view === "onboard") { history.forward(); return; }
+    show((e.state && e.state.view) || "home", true);
+  });
   if (state.user.onboarded && state.user.nick) {
-    show("home");
+    try { history.replaceState({ view: "home" }, "", "#home"); } catch {}
+    show("home", true);
   } else {
     state.obColor = state.user.color;
     renderOnboard();
-    show("onboard");
+    show("onboard", true);
   }
 })();
