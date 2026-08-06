@@ -846,6 +846,11 @@
   }
 
   /* ---------- 화면 전환 ---------- */
+  const scrollMem = {};
+  function rememberScroll(view) {
+    const sa = $("#view-" + view + " .scroll-area");
+    if (sa) scrollMem[view] = sa.scrollTop;
+  }
   const NAV_VIEWS = ["home", "dogam", "meet", "community", "mypage"];
   function show(view, fromPop) {
     if (!fromPop && view !== state.view && view !== "onboard") {
@@ -865,6 +870,11 @@
     if (view === "units") renderUnits();
     if (view === "cellar") renderCellar();
     if (view === "search") setTimeout(() => $("#global-search").focus(), 50);
+    // 목록 스크롤 위치 복원
+    if (["community", "dogam", "meet", "market"].includes(view)) {
+      const sa = $("#view-" + view + " .scroll-area");
+      if (sa) requestAnimationFrame(() => { sa.scrollTop = scrollMem[view] || 0; });
+    }
     if (view === "finder") renderFinder();
     if (view === "quiz") renderQuiz();
     if (view === "calc") renderCalc();
@@ -903,6 +913,8 @@
       addNoti("🎉", `${nick}님, 바텐톡에 오신 걸 환영해요! 가입 축하 500P를 드렸어요.`);
     }
     show("home");
+    dailyAttend();
+    checkMeetReminders();
   }
 
   /* ---------- 위스키 지역 분류 ---------- */
@@ -1401,7 +1413,8 @@
   function renderHome() {
     const h = new Date().getHours();
     const greet = h < 6 ? "새벽 마감까지 고생 많아요 🌙" : h < 12 ? "좋은 아침이에요 ☀️" : h < 18 ? "오픈 준비 잘 되고 있나요? 😊" : "오늘 장사도 화이팅! 🔥";
-    $("#home-greet").innerHTML = `${esc(state.user.nick)}님, 안녕하세요!<small>${greet}</small>`;
+    const streak = state.user.attendStreak >= 2 ? ` <span class="streak-tag">🔥 ${state.user.attendStreak}일 연속</span>` : "";
+    $("#home-greet").innerHTML = `${esc(state.user.nick)}님, 안녕하세요!${streak}<small>${greet}</small>`;
 
     // 오늘의 칵테일 (날짜 기반 고정 추천)
     const cts = state.spirits.filter((s) => s.kind === "cocktail");
@@ -1578,7 +1591,13 @@
       state.dogamSort === "reviews" ? b.reviews.length - a.reviews.length :
       b.time - a.time);
 
-    $("#spirit-list").innerHTML = list.length
+    // 점진 렌더: 필터가 바뀌면 100개부터 다시
+    const sig = [state.dogamKind, state.dogamCat, state.dogamRegion, state.dogamAbv, state.dogamPrice, state.dogamSort, q].join("|");
+    if (sig !== state._dogamSig) { state._dogamSig = sig; state.dogamLimit = 100; }
+    const full = list.length;
+    if (full > state.dogamLimit) list.length = state.dogamLimit;
+
+    $("#spirit-list").innerHTML = (list.length
       ? list.map((sp) => `
         <div class="spirit-item" data-id="${sp.id}">
           <span class="spirit-emoji">${thumbHTML(sp)}</span>
@@ -1591,14 +1610,23 @@
             <div class="cnt">리뷰 ${sp.reviews.length}</div>
           </div>
         </div>`).join("")
-      : '<div class="empty-state">아직 등록된 항목이 없어요.<br>오른쪽 아래 + 버튼으로 등록해보세요!</div>';
+      : '<div class="empty-state">아직 등록된 항목이 없어요.<br>오른쪽 아래 + 버튼으로 등록해보세요!</div>') +
+      (full > state.dogamLimit ? `<button class="host-chat-btn" id="dogam-more" style="margin:12px 16px;width:calc(100% - 32px)">더 보기 (${fmtNum(full - state.dogamLimit)}개 남음)</button>` : "");
     $$("#spirit-list .spirit-item").forEach((el) =>
       el.addEventListener("click", () => openSpirit(+el.dataset.id)));
+    const moreBtn = $("#dogam-more");
+    if (moreBtn) moreBtn.addEventListener("click", () => {
+      state.dogamLimit += 100;
+      const keep = $("#view-dogam .scroll-area").scrollTop;
+      renderDogam();
+      $("#view-dogam .scroll-area").scrollTop = keep;
+    });
     wireImgFallback("#spirit-list");
   }
 
   /* ---------- 술 상세 ---------- */
   function openSpirit(id) {
+    rememberScroll("dogam");
     state.curSpirit = id;
     state.reviewStars = 5;
     state.ctMult = 1;
@@ -1641,13 +1669,14 @@
         <div class="sp-by">등록 · ${esc(sp.by)} · ${fmtTime(sp.time)}</div>
       </div>
       <div class="comment-sec-title">리뷰 ${sp.reviews.length}</div>
-      ${sp.reviews.map((r) => `
+      ${sp.reviews.map((r, vi) => `
         <div class="review-item">
           <span class="avatar" style="background:${COLORS[r.color]}"></span>
           <div class="review-body">
             <div class="review-head">
-              <span class="review-nick">익명</span>
+              <span class="review-nick">익명${r.mine ? " (나)" : ""}</span>
               <span class="review-stars">${starStr(r.stars)}</span>
+              ${r.mine ? `<button class="cmt-del" data-vi="${vi}">삭제</button>` : ""}
               <span class="review-time">${fmtTime(r.time)}</span>
             </div>
             ${r.text ? `<div class="review-text">${esc(r.text)}</div>` : ""}
@@ -1660,6 +1689,14 @@
       im.addEventListener("click", () => openLightbox(im.src)));
     $("#cellar-tried").addEventListener("click", () => { toggleCellar("tried", sp.id); renderSpiritDetail(); });
     $("#cellar-wish").addEventListener("click", () => { toggleCellar("wish", sp.id); renderSpiritDetail(); });
+    $$("#spirit-detail .cmt-del").forEach((b) =>
+      b.addEventListener("click", () => {
+        if (!confirm("리뷰를 삭제할까요?")) return;
+        sp.reviews.splice(+b.dataset.vi, 1);
+        saveSpirits();
+        renderSpiritDetail();
+      }));
+    $("#spirit-delete").hidden = !sp.mine;
     $$("#spirit-detail .mult-btn").forEach((b) =>
       b.addEventListener("click", () => { state.ctMult = +b.dataset.m; renderSpiritDetail(); }));
     const hero = $("#spirit-detail .sp-hero-media img.thumb-img");
@@ -1688,7 +1725,7 @@
     if (!text && !pendingImg.review) return;
     const sp = state.spirits.find((x) => x.id === state.curSpirit);
     if (!sp) return;
-    const rv = { color: state.user.color, stars: state.reviewStars, text, time: Date.now() };
+    const rv = { color: state.user.color, stars: state.reviewStars, text, time: Date.now(), mine: true };
     if (pendingImg.review) rv.img = pendingImg.review;
     sp.reviews.push(rv);
     state.user.myReviews++;
@@ -1732,6 +1769,9 @@
   }
   function submitSpirit() {
     if ($("#sw-submit").disabled) return;
+    const newName = $("#sw-name").value.trim();
+    if (state.spirits.some((s) => s.name === newName) &&
+      !confirm(`'${newName}'은(는) 이미 도감에 있어요. 그래도 등록할까요?`)) return;
     const id = Math.max(0, ...state.spirits.map((s) => s.id)) + 1;
     const item = {
       id, kind: state.swKind, emoji: EMOJIS[state.swEmoji],
@@ -1798,6 +1838,7 @@
   }
 
   function openMeet(id) {
+    rememberScroll("meet");
     state.curMeet = id;
     renderMeetDetail();
     show("meet-detail");
@@ -1821,7 +1862,8 @@
           <div class="md-info-row"><span class="ic">👤</span><span>주최 · ${esc(m.host)}</span></div>
         </div>
         <div class="md-desc">${esc(m.desc)}</div>
-        ${m.mine ? "" : m.date < Date.now() ? `
+        ${m.mine ? `
+        <button class="join-btn joined" id="meet-delete">모임 삭제하기</button>` : m.date < Date.now() ? `
         <button class="join-btn full" disabled>종료된 모임이에요</button>` : `
         <button class="join-btn ${m.isJoined ? "joined" : ""} ${full ? "full" : ""}" id="meet-join">
           ${m.isJoined ? "참여 취소하기" : full ? "모집이 마감되었어요" : "참여하기 🙋"}
@@ -1829,11 +1871,11 @@
         <button class="host-chat-btn" id="meet-host-chat">💬 주최자에게 1:1 채팅</button>`}
       </div>
       <div class="comment-sec-title">댓글 ${m.comments.length}</div>
-      ${m.comments.map((c) => `
+      ${m.comments.map((c, mi) => `
         <div class="comment-item">
           <span class="avatar" style="background:${COLORS[c.color]}"></span>
           <div class="comment-body">
-            <div class="comment-head"><span class="comment-nick">익명</span><span class="comment-time">${fmtTime(c.time)}</span></div>
+            <div class="comment-head"><span class="comment-nick">익명${c.mine ? " (나)" : ""}</span><span class="comment-time">${fmtTime(c.time)}</span>${c.mine ? `<button class="cmt-del" data-mi="${mi}">삭제</button>` : ""}</div>
             ${c.text ? `<div class="comment-text">${esc(c.text)}</div>` : ""}
             ${c.img ? `<img class="cmt-img" src="${c.img}" alt="댓글 사진">` : ""}
           </div>
@@ -1841,6 +1883,13 @@
       <div style="height:24px"></div>`;
     $$("#meet-detail .cmt-img").forEach((im) =>
       im.addEventListener("click", () => openLightbox(im.src)));
+    $$("#meet-detail .cmt-del").forEach((b) =>
+      b.addEventListener("click", () => {
+        if (!confirm("댓글을 삭제할까요?")) return;
+        m.comments.splice(+b.dataset.mi, 1);
+        saveMeets();
+        renderMeetDetail();
+      }));
     const joinBtn = $("#meet-join");
     if (joinBtn) joinBtn.addEventListener("click", () => {
       if (full) return;
@@ -1859,13 +1908,21 @@
     const chatBtn = $("#meet-host-chat");
     if (chatBtn) chatBtn.addEventListener("click", () =>
       openChatWith(m.hostColor, `meet:${m.id}`, `모임 '${m.title}' 주최자`));
+    const delMeet = $("#meet-delete");
+    if (delMeet) delMeet.addEventListener("click", () => {
+      if (!confirm("모임을 삭제할까요? 참여자들에게는 취소로 표시돼요.")) return;
+      state.meets = state.meets.filter((x) => x.id !== m.id);
+      saveMeets();
+      show("meet");
+      toast("모임을 삭제했어요.");
+    });
   }
   function addMeetComment() {
     const text = $("#meet-comment-input").value.trim();
     if (!text && !pendingImg.meet) return;
     const m = state.meets.find((x) => x.id === state.curMeet);
     if (!m) return;
-    const c = { color: state.user.color, text, time: Date.now() };
+    const c = { color: state.user.color, text, time: Date.now(), mine: true };
     if (pendingImg.meet) c.img = pendingImg.meet;
     m.comments.push(c);
     state.user.myComments++;
@@ -1962,6 +2019,7 @@
 
   /* ---------- 게시글 상세 ---------- */
   function openPost(id) {
+    rememberScroll("community");
     state.curPost = id;
     renderPostDetail();
     show("post");
@@ -1996,15 +2054,15 @@
         <div class="comment-item">
           <span class="avatar" style="background:${COLORS[c.color]}"></span>
           <div class="comment-body">
-            <div class="comment-head"><span class="comment-nick">익명</span><span class="comment-time">${fmtTime(c.time)}</span>
-              <button class="reply-btn" data-ci="${ci}">답글</button></div>
+            <div class="comment-head"><span class="comment-nick">익명${c.mine ? " (나)" : ""}</span><span class="comment-time">${fmtTime(c.time)}</span>
+              <button class="reply-btn" data-ci="${ci}">답글</button>${c.mine ? `<button class="cmt-del" data-ci="${ci}">삭제</button>` : ""}</div>
             ${c.text ? `<div class="comment-text">${esc(c.text)}</div>` : ""}
             ${c.img ? `<img class="cmt-img" src="${c.img}" alt="댓글 사진">` : ""}
-            ${(c.replies || []).map((rp) => `
+            ${(c.replies || []).map((rp, ri) => `
               <div class="reply-item">
                 <span class="avatar" style="background:${COLORS[rp.color]}"></span>
                 <div class="comment-body">
-                  <div class="comment-head"><span class="comment-nick">익명</span><span class="comment-time">${fmtTime(rp.time)}</span></div>
+                  <div class="comment-head"><span class="comment-nick">익명${rp.mine ? " (나)" : ""}</span><span class="comment-time">${fmtTime(rp.time)}</span>${rp.mine ? `<button class="cmt-del" data-ci="${ci}" data-ri="${ri}">삭제</button>` : ""}</div>
                   ${rp.text ? `<div class="comment-text">${esc(rp.text)}</div>` : ""}
                   ${rp.img ? `<img class="cmt-img" src="${rp.img}" alt="댓글 사진">` : ""}
                 </div>
@@ -2017,6 +2075,15 @@
         state.replyTo = +b.dataset.ci;
         $("#reply-bar").hidden = false;
         $("#comment-input").focus();
+      }));
+    $$("#post-detail .cmt-del").forEach((b) =>
+      b.addEventListener("click", () => {
+        if (!confirm("댓글을 삭제할까요?")) return;
+        const ci = +b.dataset.ci;
+        if (b.dataset.ri !== undefined) p.comments[ci].replies.splice(+b.dataset.ri, 1);
+        else p.comments.splice(ci, 1);
+        savePosts();
+        renderPostDetail();
       }));
     $$("#post-detail .cmt-img").forEach((im) =>
       im.addEventListener("click", () => openLightbox(im.src)));
@@ -2037,7 +2104,7 @@
     if (!text && !pendingImg.post) return;
     const p = state.posts.find((x) => x.id === state.curPost);
     if (!p) return;
-    const c = { color: state.user.color, text, time: Date.now() };
+    const c = { color: state.user.color, text, time: Date.now(), mine: true };
     if (pendingImg.post) c.img = pendingImg.post;
     if (state.replyTo !== null && p.comments[state.replyTo]) {
       const parent = p.comments[state.replyTo];
@@ -2137,6 +2204,7 @@
     savePosts(); saveUser();
     checkBadges();
     checkKeywords(title, body);
+    store.set("draft", null);
     $("#write-title").value = "";
     $("#write-body").value = "";
     setPendingImg(null);
@@ -2927,7 +2995,11 @@
       renderDogam();
     })
   );
-  $("#spirit-search").addEventListener("input", renderDogam);
+  let dogamSearchTimer;
+  $("#spirit-search").addEventListener("input", () => {
+    clearTimeout(dogamSearchTimer);
+    dogamSearchTimer = setTimeout(renderDogam, 150);
+  });
   $("#fab-spirit").addEventListener("click", () => {
     state.swKind = state.dogamKind;
     renderSpiritWrite();
@@ -2942,6 +3014,18 @@
   $("#review-send").addEventListener("click", addReview);
   $("#review-input").addEventListener("keydown", (e) => { if (e.key === "Enter") addReview(); });
   $("#spirit-share").addEventListener("click", shareSpirit);
+  $("#spirit-delete").addEventListener("click", () => {
+    const sp = state.spirits.find((x) => x.id === state.curSpirit);
+    if (!sp || !sp.mine) return;
+    if (!confirm(`'${sp.name}'을(를) 도감에서 삭제할까요?`)) return;
+    state.spirits = state.spirits.filter((x) => x.id !== sp.id);
+    state.user.cellar.tried = state.user.cellar.tried.filter((i) => i !== sp.id);
+    state.user.cellar.wish = state.user.cellar.wish.filter((i) => i !== sp.id);
+    state.user.mySpiritIds = state.user.mySpiritIds.filter((i) => i !== sp.id);
+    saveSpirits(); saveUser();
+    show("dogam");
+    toast("도감에서 삭제했어요.");
+  });
 
   // 스토어
   $("#store-search").addEventListener("input", renderStore);
@@ -3008,8 +3092,29 @@
   $("#fab-write").addEventListener("click", () => {
     state.editPost = null;
     $("#view-write .topbar-title").textContent = "글쓰기";
+    // 임시저장 복원
+    const d = store.get("draft", null);
+    if (d && !$("#write-title").value && !$("#write-body").value) {
+      $("#write-title").value = d.title || "";
+      $("#write-body").value = d.body || "";
+      state.writeCat = d.cat || "free";
+      $$(".cat-chip").forEach((x) => x.classList.toggle("active", x.dataset.cat === state.writeCat));
+      updateSubmit();
+      toast("작성 중이던 글을 불러왔어요. ✍️");
+    }
     show("write");
   });
+  let draftTimer;
+  const saveDraft = () => {
+    if (state.editPost !== null) return;
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(() => {
+      const t = $("#write-title").value, b = $("#write-body").value;
+      store.set("draft", t.trim() || b.trim() ? { title: t, body: b, cat: state.writeCat } : null);
+    }, 400);
+  };
+  $("#write-title").addEventListener("input", saveDraft);
+  $("#write-body").addEventListener("input", saveDraft);
 
   // 알림 탭
   $$("[data-atab]").forEach((t) =>
