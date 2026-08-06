@@ -723,6 +723,70 @@ textarea.input { height: auto; }
   background: var(--text); color: var(--bg); font-weight: 700; font-size: 15px; cursor: pointer; flex-shrink: 0;
 }
 
+/* ---------- 마켓 ---------- */
+.market-item {
+  display: flex; gap: 13px; padding: 15px 16px;
+  border-bottom: 1px solid var(--line); cursor: pointer;
+}
+.market-item:active { background: var(--bg-gray); }
+.market-item.sold { opacity: .55; }
+.market-thumb {
+  width: clamp(76px, 22vw, 92px); height: clamp(76px, 22vw, 92px);
+  border-radius: 14px; background: var(--bg-gray); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 34px;
+  overflow: hidden;
+}
+.market-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.market-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.market-title {
+  font-size: 15.5px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.market-price { font-size: 17px; font-weight: 800; }
+.market-meta { font-size: 13px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.market-badges { display: flex; align-items: center; gap: 6px; }
+.mk-state {
+  font-size: 11.5px; font-weight: 700; padding: 3px 8px; border-radius: 6px;
+  background: var(--accent-soft); color: var(--accent);
+}
+.mk-state.reserved { background: rgba(255, 176, 32, .15); color: #d98f00; }
+.mk-state.sold { background: var(--chip-bg); color: var(--text-muted); }
+.market-like { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--text-sub); flex-shrink: 0; align-self: flex-end; }
+.market-like svg { width: 15px; height: 15px; }
+
+.mkd-hero { background: var(--bg-gray); }
+.mkd-hero img { width: 100%; max-height: 320px; object-fit: cover; display: block; }
+.mkd-hero .mkd-emoji { height: 180px; display: flex; align-items: center; justify-content: center; font-size: 72px; }
+.mkd-body { padding: 20px; border-bottom: 8px solid var(--bg-gray); }
+.mkd-title { font-size: 19px; font-weight: 700; margin: 8px 0 6px; word-break: keep-all; }
+.mkd-price { font-size: 23px; font-weight: 800; margin-bottom: 8px; }
+.mkd-meta { font-size: 13.5px; color: var(--text-sub); margin-bottom: 14px; }
+.mkd-desc { font-size: 15.5px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; }
+.mkd-actions { display: flex; gap: 10px; padding: 16px 20px; }
+.mkd-like-btn {
+  width: 56px; height: 52px; border: 1.5px solid var(--line-strong); border-radius: 14px;
+  background: none; color: var(--text-sub); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.mkd-like-btn svg { width: 24px; height: 24px; }
+.mkd-like-btn.on { color: var(--accent); border-color: var(--accent); }
+.mkd-like-btn.on svg { fill: var(--accent); stroke: var(--accent); }
+.mkd-chat-btn {
+  flex: 1; height: 52px; border: none; border-radius: 14px;
+  background: var(--accent); color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+}
+.mkd-chat-btn:disabled { background: var(--chip-bg); color: var(--text-muted); }
+.mk-photo-row { display: flex; gap: 12px; align-items: flex-start; }
+.mk-photo-btn {
+  width: 92px; height: 92px; border: 1.5px dashed var(--line-strong); border-radius: 14px;
+  background: none; color: var(--text-sub); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-size: 12.5px;
+}
+.mk-photo-btn svg { width: 26px; height: 26px; }
+.mk-photo-row .img-preview { margin-top: 0; }
+.mk-photo-row .img-preview img { max-height: 92px; border-radius: 14px; }
+
 /* ---------- 오늘의 칵테일 ---------- */
 .daily-card {
   display: flex; align-items: center; gap: 16px;

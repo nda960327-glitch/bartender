@@ -46,7 +46,7 @@
         <button class="quick-item pressable" data-go="jobs"><span class="quick-ic">💼</span><span>채용정보</span></button>
         <button class="quick-item pressable" data-go="dogam"><span class="quick-ic">🥃</span><span>술도감</span></button>
         <button class="quick-item pressable" data-go="meet"><span class="quick-ic">🍻</span><span>모임</span></button>
-        <button class="quick-item pressable" data-go="community"><span class="quick-ic">💬</span><span>커뮤니티</span></button>
+        <button class="quick-item pressable" data-go="market"><span class="quick-ic">🛒</span><span>마켓</span></button>
       </div>
 
       <div class="home-sec">
@@ -66,6 +66,14 @@
           <button class="tool-item pressable" data-go="calc"><span class="tool-ic">🧮</span><span class="tool-name">원가 계산기</span><span class="tool-desc">잔당 원가·판매가</span></button>
           <button class="tool-item pressable" data-go="pay"><span class="tool-ic">💰</span><span class="tool-name">급여 계산기</span><span class="tool-desc">주급·월급 예상</span></button>
         </div>
+      </div>
+
+      <div class="home-sec">
+        <div class="home-sec-head">
+          <h2>마켓 새 매물 🛒</h2>
+          <button class="more-btn" data-go="market">더보기</button>
+        </div>
+        <div id="home-market"></div>
       </div>
 
       <div class="home-sec">
@@ -503,6 +511,91 @@
         <span>동의하기</span>
       </button>
       <button class="big-btn danger" id="btn-withdraw" disabled>탈퇴하기</button>
+      <div style="height:24px"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 마켓 ===================== -->
+  <section class="view" id="view-market" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="home">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">마켓</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="chip-scroll" id="market-cats"></div>
+    <div class="scroll-area">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" class="search-ic"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input type="text" id="market-search" placeholder="매물 검색">
+      </div>
+      <div class="banner static">
+        <span class="banner-ic">⚠️</span>
+        <span class="banner-txt">주류(술) 개인 거래는 법으로 금지돼요. 바 용품만 거래해주세요!</span>
+      </div>
+      <div id="market-list"></div>
+      <div style="height:88px"></div>
+    </div>
+    <button class="fab pressable" id="fab-market" aria-label="매물 등록">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </section>
+
+  <!-- ===================== 마켓 상세 ===================== -->
+  <section class="view" id="view-market-detail" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="market">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area" id="market-detail"></div>
+  </section>
+
+  <!-- ===================== 매물 등록 ===================== -->
+  <section class="view" id="view-market-write" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="market">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">매물 등록</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area form-area">
+      <label class="form-label">사진 (선택)</label>
+      <input type="file" id="mk-file" accept="image/*" hidden>
+      <div class="mk-photo-row">
+        <button class="mk-photo-btn" id="mk-photo-btn">
+          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4.5 17.5l5-5 4 4 3-3 3 3"/></svg>
+          <span>사진 추가</span>
+        </button>
+        <div class="img-preview" id="mk-img-preview" hidden>
+          <img id="mk-img-el" alt="매물 사진">
+          <button class="img-remove" id="mk-img-remove" aria-label="사진 삭제">✕</button>
+        </div>
+      </div>
+      <label class="form-label">아이콘 (사진이 없을 때 표시)</label>
+      <div class="emoji-row" id="mk-emoji"></div>
+      <label class="form-label">카테고리</label>
+      <div class="chip-wrap" id="mk-cat"></div>
+      <label class="form-label">제목</label>
+      <input type="text" class="input" id="mk-title" placeholder="예) 보스턴 셰이커 + 지거 세트">
+      <div class="form-2col">
+        <div>
+          <label class="form-label">가격 (원)</label>
+          <input type="number" class="input" id="mk-price" placeholder="25000" inputmode="numeric">
+        </div>
+        <div>
+          <label class="form-label">상태</label>
+          <div class="chip-wrap" id="mk-cond"></div>
+        </div>
+      </div>
+      <label class="form-label">지역</label>
+      <div class="chip-wrap" id="mk-region"></div>
+      <label class="form-label">설명</label>
+      <textarea class="input textarea" id="mk-desc" placeholder="구매 시기, 사용감, 거래 방법 등을 적어주세요."></textarea>
+      <button class="big-btn accent" id="mk-submit" disabled>등록하기</button>
       <div style="height:24px"></div>
     </div>
   </section>
