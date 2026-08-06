@@ -890,6 +890,12 @@
 
   /* ---------- 술 이미지: 칵테일 대표사진 + 병 일러스트 ---------- */
   const saveImgCache = () => store.set("imgCache", state.imgCache);
+  // v2: 예전 대표사진 캐시(증류소 풍경 섞임) 폐기 → 병 사진 로직으로 재수집
+  if (store.get("imgv", 1) < 2) {
+    Object.keys(state.imgCache).forEach((k) => { if (k.startsWith("b:")) delete state.imgCache[k]; });
+    saveImgCache();
+    store.set("imgv", 2);
+  }
   const COCKTAIL_EN = {
     "네그로니": "Negroni", "올드 패션드": "Old Fashioned", "모히토": "Mojito", "진 토닉": "Gin And Tonic",
     "위스키 사워": "Whiskey Sour", "마티니": "Dry Martini", "맨해튼": "Manhattan", "다이키리": "Daiquiri",
@@ -974,11 +980,17 @@
     const key = "b:" + brand;
     if (state.imgCache[key] !== undefined) return;
     state.imgCache[key] = "…";
+    const BAD = /distillery|brewery|building|map|logo|exterior|interior|warehouse|cask|still|visitor|centre|center|museum|sign|entrance|landscape|street|house|hall|plant|factory|washback|fermen|mash|tun\b|barrel|advert|poster|portrait|founder|statue|plaque|\.svg$/i;
+    const GOOD = /bottle|bottling|flasche|botella/i;
     imgQueue.push(() =>
-      fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(BRAND_EN[brand]))
+      fetch("https://en.wikipedia.org/api/rest_v1/page/media-list/" + encodeURIComponent(BRAND_EN[brand]))
         .then((r) => r.json())
         .then((j) => {
-          state.imgCache[key] = (j && j.thumbnail && j.thumbnail.source) || "x";
+          const items = ((j && j.items) || []).filter((it) =>
+            it.type === "image" && it.srcset && it.srcset[0] && !/\.svg/i.test(it.title || ""));
+          const pick = items.find((it) => GOOD.test(it.title || "")) ||
+            items.find((it) => !BAD.test(it.title || ""));
+          state.imgCache[key] = pick ? "https:" + pick.srcset[0].src.replace(/^https?:/, "") : "x";
         })
         .catch(() => { state.imgCache[key] = "x"; })
         .finally(() => {
@@ -1070,8 +1082,8 @@
     return svgBottle(sp);
   }
   function wireImgFallback(sel) {
-    $$(sel + " img.thumb-img").forEach((img) =>
-      img.addEventListener("error", () => {
+    $$(sel + " img.thumb-img").forEach((img) => {
+      const fail = () => {
         const sp = state.spirits.find((s) => s.id === +img.dataset.fb);
         if (sp) {
           if (sp.img) { delete sp.img; saveSpirits(); }
@@ -1083,7 +1095,29 @@
         span.style.cssText = "width:100%;height:100%;display:flex;align-items:center;justify-content:center";
         span.innerHTML = sp ? (sp.kind === "cocktail" ? svgGlass(sp) : svgBottle(sp)) : "🥃";
         img.replaceWith(span);
-      }, { once: true }));
+      };
+      img.addEventListener("error", fail, { once: true });
+      // 가로(풍경) 사진은 병이 아니라고 판단 → 일러스트로 교체 (직접 등록한 이미지는 예외)
+      img.addEventListener("load", () => {
+        const sp = state.spirits.find((s) => s.id === +img.dataset.fb);
+        if (sp && sp.kind === "spirit" && !sp.img && img.naturalWidth > img.naturalHeight * 1.15) fail();
+      }, { once: true });
+    });
+  }
+  function biggerURL(u) {
+    if (!u) return u;
+    if (u.includes("Special:FilePath")) return u.replace(/width=\d+/, "width=1000");
+    return u.replace(/\/(\d+)px-/, "/1000px-");
+  }
+  function openLightbox(src) {
+    const big = biggerURL(src);
+    const bd = document.createElement("div");
+    bd.className = "lightbox";
+    bd.innerHTML = `<img src="${esc(big)}" alt=""><button class="lb-close" aria-label="닫기">✕</button>`;
+    bd.addEventListener("click", () => bd.remove());
+    if (big !== src)
+      bd.querySelector("img").addEventListener("error", function () { this.src = src; }, { once: true });
+    $("#app").appendChild(bd);
   }
 
   /* ---------- 홈 ---------- */
@@ -1301,6 +1335,11 @@
         </div>`).join("") || '<div class="empty-state" style="padding:32px 0">첫 리뷰를 남겨보세요!</div>'}
       <div style="height:24px"></div>`;
     wireImgFallback("#spirit-detail");
+    const hero = $("#spirit-detail .big-emoji img.thumb-img");
+    if (hero) {
+      hero.style.cursor = "zoom-in";
+      hero.addEventListener("click", (e) => { e.stopPropagation(); openLightbox(hero.src); });
+    }
   }
   function renderStarPick() {
     $("#star-pick").innerHTML = [1, 2, 3, 4, 5].map((n) =>
@@ -1607,6 +1646,11 @@
           </div>
         </div>`).join("")}
       <div style="height:24px"></div>`;
+    const dImg = $("#post-detail .detail-img");
+    if (dImg) {
+      dImg.style.cursor = "zoom-in";
+      dImg.addEventListener("click", () => openLightbox(dImg.src));
+    }
     $("#detail-like").addEventListener("click", () => {
       p.likedByMe = !p.likedByMe;
       p.likes += p.likedByMe ? 1 : -1;
