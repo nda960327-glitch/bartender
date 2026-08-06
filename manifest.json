@@ -1,0 +1,15 @@
+{
+  "name": "바텐톡 - 바텐더 익명 커뮤니티",
+  "short_name": "바텐톡",
+  "description": "바텐더들의 익명 커뮤니티. 술도감, 칵테일 레시피, 모임, 채용정보까지.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#ff5c35",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

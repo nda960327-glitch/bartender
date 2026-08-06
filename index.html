@@ -3,25 +3,96 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#17181c" media="(prefers-color-scheme: dark)">
+<meta name="description" content="바텐더 익명 커뮤니티 - 술도감, 칵테일 레시피, 모임, 채용정보">
 <title>바텐톡 - 바텐더 익명 커뮤니티</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <div id="app">
 
-  <!-- ===================== 홈 (채용정보) ===================== -->
-  <section class="view" id="view-home">
-    <header class="topbar center">
-      <h1>채용정보</h1>
+  <!-- ===================== 온보딩 ===================== -->
+  <section class="view onboard" id="view-onboard" hidden>
+    <div class="onboard-inner">
+      <div class="onboard-logo">🍸</div>
+      <h1 class="onboard-title">바텐톡</h1>
+      <p class="onboard-sub">바텐더들의 익명 커뮤니티</p>
+      <label class="form-label">닉네임</label>
+      <input type="text" class="input" id="ob-nick" placeholder="사용할 닉네임을 입력해주세요." maxlength="10">
+      <label class="form-label">프로필 색상</label>
+      <div class="ob-colors" id="ob-colors"></div>
+      <button class="big-btn accent" id="ob-start" disabled>시작하기</button>
+      <p class="onboard-hint">익명 커뮤니티예요. 닉네임은 나만 보이고,<br>글은 모두 "익명"으로 올라가요.</p>
+    </div>
+  </section>
+
+  <!-- ===================== 홈 (대시보드) ===================== -->
+  <section class="view" id="view-home" hidden>
+    <header class="topbar home-bar">
+      <h1 class="logo">바텐톡 <span class="logo-ic">🍸</span></h1>
+      <span class="flex-1"></span>
+      <button class="icon-btn bell" id="btn-alerts" aria-label="알림">
+        <svg viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15L6 16z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+        <span class="bell-badge" id="bell-badge" hidden></span>
+      </button>
+    </header>
+    <div class="scroll-area">
+      <div class="greet" id="home-greet"></div>
+      <div class="quick-grid">
+        <button class="quick-item pressable" data-go="jobs"><span class="quick-ic">💼</span><span>채용정보</span></button>
+        <button class="quick-item pressable" data-go="dogam"><span class="quick-ic">🥃</span><span>술도감</span></button>
+        <button class="quick-item pressable" data-go="meet"><span class="quick-ic">🍻</span><span>모임</span></button>
+        <button class="quick-item pressable" data-go="community"><span class="quick-ic">💬</span><span>커뮤니티</span></button>
+      </div>
+
+      <div class="home-sec">
+        <div class="home-sec-head">
+          <h2>요즘 인기 술 🔥</h2>
+          <button class="more-btn" data-go="dogam">더보기</button>
+        </div>
+        <div class="hscroll" id="home-spirits"></div>
+      </div>
+
+      <div class="home-sec">
+        <div class="home-sec-head">
+          <h2>다가오는 모임 🍻</h2>
+          <button class="more-btn" data-go="meet">더보기</button>
+        </div>
+        <div id="home-meets"></div>
+      </div>
+
+      <div class="home-sec">
+        <div class="home-sec-head">
+          <h2>커뮤니티 인기글 💬</h2>
+          <button class="more-btn" data-go="community">더보기</button>
+        </div>
+        <div id="home-posts"></div>
+      </div>
+      <div style="height:24px"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 채용정보 (서브) ===================== -->
+  <section class="view" id="view-jobs" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="home">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">채용정보</h1>
+      <span class="topbar-spacer"></span>
     </header>
     <div class="scroll-area">
       <div class="filter-row">
-        <button class="filter-select" id="filter-region">
+        <button class="filter-select pressable" id="filter-region">
           <span class="filter-label">지역</span>
           <span class="filter-value" id="filter-region-value">전체</span>
           <svg viewBox="0 0 24 24" class="chev"><path d="M6 9l6 6 6-6"/></svg>
         </button>
-        <button class="filter-select" id="filter-job">
+        <button class="filter-select pressable" id="filter-job">
           <span class="filter-label">직종</span>
           <span class="filter-value" id="filter-job-value">전체</span>
           <svg viewBox="0 0 24 24" class="chev"><path d="M6 9l6 6 6-6"/></svg>
@@ -31,12 +102,195 @@
         <svg viewBox="0 0 24 24" class="search-ic"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
         <input type="text" id="job-search" placeholder="채용정보 검색">
       </div>
-      <button class="banner" id="live-talk-banner">
-        <span class="banner-ic">💬</span>
-        <span class="banner-txt">실시간 바텐톡</span>
-        <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
-      </button>
       <div id="job-list"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 관심알바 ===================== -->
+  <section class="view" id="view-favjobs" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="mypage">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">관심알바</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area">
+      <div id="favjob-list"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 내가 쓴 글 ===================== -->
+  <section class="view" id="view-myposts" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="mypage">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">내가 쓴 글</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area">
+      <div id="mypost-list"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 술도감 ===================== -->
+  <section class="view" id="view-dogam" hidden>
+    <header class="topbar center">
+      <h1>술도감</h1>
+    </header>
+    <div class="seg" id="dogam-seg">
+      <button class="seg-btn active" data-kind="spirit">🥃 술</button>
+      <button class="seg-btn" data-kind="cocktail">🍸 칵테일</button>
+    </div>
+    <div class="chip-scroll" id="dogam-cats"></div>
+    <div class="scroll-area">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" class="search-ic"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input type="text" id="spirit-search" placeholder="이름 검색">
+      </div>
+      <div id="spirit-list"></div>
+      <div style="height:88px"></div>
+    </div>
+    <button class="fab pressable" id="fab-spirit" aria-label="술 등록">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </section>
+
+  <!-- ===================== 술 상세 ===================== -->
+  <section class="view" id="view-spirit" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="dogam">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area" id="spirit-detail"></div>
+    <footer class="review-footer">
+      <div class="star-pick" id="star-pick"></div>
+      <div class="review-input-row">
+        <input type="text" id="review-input" placeholder="이 술 어때요? 리뷰를 남겨주세요.">
+        <button class="icon-btn send-btn" id="review-send">
+          <svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-6-7-2z"/></svg>
+        </button>
+      </div>
+    </footer>
+  </section>
+
+  <!-- ===================== 술/칵테일 등록 ===================== -->
+  <section class="view" id="view-spirit-write" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="dogam">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title" id="sw-heading">술 등록</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area form-area">
+      <div class="seg no-mx" id="sw-kind">
+        <button class="seg-btn active" data-kind="spirit">🥃 술</button>
+        <button class="seg-btn" data-kind="cocktail">🍸 칵테일</button>
+      </div>
+      <label class="form-label">아이콘</label>
+      <div class="emoji-row" id="sw-emoji"></div>
+      <label class="form-label" id="sw-cat-label">종류</label>
+      <div class="chip-wrap" id="sw-cat"></div>
+      <label class="form-label">이름</label>
+      <input type="text" class="input" id="sw-name" placeholder="예) 글렌피딕 12년">
+      <div class="form-2col">
+        <div>
+          <label class="form-label">도수 (%)</label>
+          <input type="number" class="input" id="sw-abv" placeholder="40" inputmode="decimal">
+        </div>
+        <div id="sw-price-wrap">
+          <label class="form-label">가격대</label>
+          <input type="text" class="input" id="sw-price" placeholder="예) 5~7만원">
+        </div>
+      </div>
+      <div id="sw-cocktail-fields" hidden>
+        <label class="form-label">재료</label>
+        <textarea class="input textarea sm" id="sw-ings" placeholder="예)
+진 45ml
+토닉워터 120ml
+라임 1조각"></textarea>
+        <label class="form-label">만드는 법</label>
+        <textarea class="input textarea sm" id="sw-recipe" placeholder="예) 얼음을 채운 하이볼 글라스에 진을 붓고 토닉워터를 채운 뒤 라임으로 가니시"></textarea>
+      </div>
+      <label class="form-label" id="sw-note-label">테이스팅 노트 / 설명</label>
+      <textarea class="input textarea" id="sw-note" placeholder="향, 맛, 피니시, 추천 칵테일 등 자유롭게 적어주세요."></textarea>
+      <button class="big-btn accent" id="sw-submit" disabled>등록하기</button>
+      <div style="height:24px"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 모임 ===================== -->
+  <section class="view" id="view-meet" hidden>
+    <header class="topbar center">
+      <h1>모임</h1>
+    </header>
+    <div class="chip-scroll" id="meet-regions"></div>
+    <div class="scroll-area">
+      <div class="banner static">
+        <span class="banner-ic">🤝</span>
+        <span class="banner-txt">바텐더끼리 만나요! 매너있는 모임 문화</span>
+      </div>
+      <div id="meet-list"></div>
+      <div style="height:88px"></div>
+    </div>
+    <button class="fab pressable" id="fab-meet" aria-label="모임 만들기">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </section>
+
+  <!-- ===================== 모임 상세 ===================== -->
+  <section class="view" id="view-meet-detail" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="meet">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area" id="meet-detail"></div>
+    <footer class="comment-footer">
+      <input type="text" id="meet-comment-input" placeholder="댓글을 작성해 주세요.">
+      <button class="icon-btn send-btn" id="meet-comment-send">
+        <svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-6-7-2z"/></svg>
+      </button>
+    </footer>
+  </section>
+
+  <!-- ===================== 모임 만들기 ===================== -->
+  <section class="view" id="view-meet-write" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="meet">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">모임 만들기</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area form-area">
+      <label class="form-label">모임 이름</label>
+      <input type="text" class="input" id="mw-title" placeholder="예) 강남 위스키 시음 번개">
+      <label class="form-label">지역</label>
+      <div class="chip-wrap" id="mw-region"></div>
+      <div class="form-2col">
+        <div>
+          <label class="form-label">날짜</label>
+          <input type="date" class="input" id="mw-date">
+        </div>
+        <div>
+          <label class="form-label">시간</label>
+          <input type="time" class="input" id="mw-time">
+        </div>
+      </div>
+      <label class="form-label">장소</label>
+      <input type="text" class="input" id="mw-place" placeholder="예) 강남역 O번 출구 OO바">
+      <label class="form-label">최대 인원</label>
+      <input type="number" class="input" id="mw-max" placeholder="6" min="2" max="30" inputmode="numeric">
+      <label class="form-label">설명</label>
+      <textarea class="input textarea" id="mw-desc" placeholder="어떤 모임인지 소개해주세요."></textarea>
+      <button class="big-btn accent" id="mw-submit" disabled>모임 만들기</button>
+      <div style="height:24px"></div>
     </div>
   </section>
 
@@ -59,13 +313,17 @@
         <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
       </button>
       <div id="post-list"></div>
+      <div style="height:88px"></div>
     </div>
+    <button class="fab pressable" id="fab-write" aria-label="글쓰기">
+      <svg viewBox="0 0 24 24"><path d="M4 20l4-1L20 7.5 16.5 4 5 15.5 4 20z"/></svg>
+    </button>
   </section>
 
   <!-- ===================== 글쓰기 ===================== -->
   <section class="view" id="view-write" hidden>
     <header class="topbar">
-      <button class="icon-btn" id="write-back">
+      <button class="icon-btn back-btn" data-back="community">
         <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
       </button>
       <h1 class="topbar-title">글쓰기</h1>
@@ -80,8 +338,13 @@
       <textarea id="write-body" class="write-body" placeholder="내용을 입력해주세요.
 
 광고, 비난, 도배성 글을 남기면 커뮤니티 이용이 제한될 수 있어요. 건강한 커뮤니티 문화를 함께 만들어가요."></textarea>
+      <div class="img-preview" id="write-img-preview" hidden>
+        <img id="write-img-el" alt="첨부 이미지">
+        <button class="img-remove" id="write-img-remove" aria-label="이미지 삭제">✕</button>
+      </div>
     </div>
     <footer class="write-footer">
+      <input type="file" id="write-file" accept="image/*" hidden>
       <button class="icon-btn img-btn" id="write-img" title="사진 첨부">
         <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4.5 17.5l5-5 4 4 3-3 3 3"/></svg>
       </button>
@@ -89,23 +352,66 @@
     </footer>
   </section>
 
-  <!-- ===================== 알림 ===================== -->
+  <!-- ===================== 게시글 상세 ===================== -->
+  <section class="view" id="view-post" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="community">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <span class="flex-1"></span>
+      <button class="icon-btn" id="post-chat" aria-label="1:1 채팅">
+        <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/></svg>
+      </button>
+      <button class="icon-btn" id="post-delete" hidden aria-label="삭제">
+        <svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>
+      </button>
+    </header>
+    <div class="scroll-area" id="post-detail"></div>
+    <footer class="comment-footer">
+      <input type="text" id="comment-input" placeholder="댓글을 작성해 주세요.">
+      <button class="icon-btn send-btn" id="comment-send">
+        <svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-6-7-2z"/></svg>
+      </button>
+    </footer>
+  </section>
+
+  <!-- ===================== 알림 (서브) ===================== -->
   <section class="view" id="view-alerts" hidden>
-    <header class="tabbar two">
-      <button class="tab active" data-atab="noti">알림</button>
-      <button class="tab" data-atab="chat">1:1 채팅</button>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="home">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <div class="tabbar inline">
+        <button class="tab active" data-atab="noti">알림</button>
+        <button class="tab" data-atab="chat">1:1 채팅</button>
+      </div>
+      <span class="topbar-spacer"></span>
     </header>
     <div class="scroll-area" id="alerts-noti">
-      <button class="banner">
-        <span class="banner-ic">🔔</span>
-        <span class="banner-txt">키워드알림 설정</span>
-        <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
-      </button>
-      <div class="empty-state">알림이 없어요.</div>
+      <div id="noti-list"></div>
     </div>
     <div class="scroll-area" id="alerts-chat" hidden>
-      <div class="empty-state">채팅이 없어요.</div>
+      <div id="chat-list"></div>
     </div>
+  </section>
+
+  <!-- ===================== 1:1 채팅방 ===================== -->
+  <section class="view" id="view-chat" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="alerts">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <span class="avatar" id="chat-avatar"></span>
+      <h1 class="topbar-title left" id="chat-title">익명</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area chat-area" id="chat-msgs"></div>
+    <footer class="comment-footer">
+      <input type="text" id="chat-input" placeholder="메시지를 입력해주세요.">
+      <button class="icon-btn send-btn" id="chat-send">
+        <svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-6-7-2z"/></svg>
+      </button>
+    </footer>
   </section>
 
   <!-- ===================== 마이페이지 ===================== -->
@@ -121,17 +427,22 @@
         <button class="text-btn muted" id="btn-logout">로그아웃</button>
         <button class="text-btn strong" id="btn-settings">계정설정</button>
       </div>
-      <div class="card row-link" id="btn-points">
+      <div class="card stat-row">
+        <div class="stat"><b id="stat-spirits">0</b><span>등록한 술</span></div>
+        <div class="stat"><b id="stat-meets">0</b><span>참여 모임</span></div>
+        <div class="stat"><b id="stat-posts">0</b><span>작성 글</span></div>
+      </div>
+      <div class="card row-link pressable" id="btn-points">
         <span class="row-label">포인트</span>
         <span class="flex-1"></span>
-        <span class="row-value" id="my-points">3,478원</span>
+        <span class="row-value" id="my-points">0P</span>
         <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
       </div>
       <div class="card menu-list">
-        <button class="row-link"><span class="row-label">관심알바</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
-        <button class="row-link"><span class="row-label">바텐위키</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
-        <button class="row-link"><span class="row-label">고객센터</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
-        <button class="row-link" id="btn-darkmode">
+        <button class="row-link pressable" id="btn-favjobs"><span class="row-label">관심알바</span><span class="flex-1"></span><span class="row-badge" id="favjob-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="row-link pressable" id="btn-myposts"><span class="row-label">내가 쓴 글</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="row-link pressable" id="btn-support"><span class="row-label">고객센터</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="row-link pressable" id="btn-darkmode">
           <span class="row-label">다크모드</span><span class="flex-1"></span>
           <svg viewBox="0 0 24 24" class="mode-ic" id="mode-icon"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
         </button>
@@ -140,27 +451,27 @@
           <button class="toggle on" id="toggle-push" role="switch" aria-checked="true"><span class="knob"></span></button>
         </div>
       </div>
+      <p class="app-ver">바텐톡 v1.0</p>
     </div>
   </section>
 
   <!-- ===================== 계정설정 ===================== -->
   <section class="view" id="view-settings" hidden>
     <header class="topbar">
-      <button class="icon-btn" id="settings-back">
+      <button class="icon-btn back-btn" data-back="mypage">
         <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
       </button>
       <h1 class="topbar-title">계정설정</h1>
       <span class="topbar-spacer"></span>
     </header>
     <div class="scroll-area settings-area">
-      <h2 class="section-title">프로필 변경</h2>
+      <h2 class="section-title">닉네임 변경</h2>
+      <input type="text" class="input" id="nick-input" placeholder="새 닉네임" maxlength="10">
+      <button class="big-btn" id="btn-nick-save" disabled>변경하기</button>
+
+      <h2 class="section-title mt">프로필 변경</h2>
       <div class="color-grid card" id="color-grid"></div>
       <button class="big-btn" id="btn-profile-save" disabled>변경하기</button>
-
-      <h2 class="section-title mt">비밀번호 변경</h2>
-      <input type="password" class="input" id="pw-current" placeholder="현재 비밀번호를 입력해주세요.">
-      <input type="password" class="input" id="pw-new" placeholder="변경할 비밀번호를 입력해주세요.">
-      <button class="big-btn" id="btn-pw-save" disabled>변경하기</button>
 
       <h2 class="section-title mt">회원탈퇴</h2>
       <p class="warn-text">탈퇴 시 모든 정보가 삭제돼요. 삭제된 데이터는 복구할 수 없으므로 신중하게 선택해주세요. 커뮤니티에 작성된 게시글과 댓글은 "탈퇴한 회원"으로 작성자가 변경되어 삭제할 수 없어요.</p>
@@ -169,42 +480,31 @@
         <span>동의하기</span>
       </button>
       <button class="big-btn danger" id="btn-withdraw" disabled>탈퇴하기</button>
+      <div style="height:24px"></div>
     </div>
-  </section>
-
-  <!-- ===================== 게시글 상세 ===================== -->
-  <section class="view" id="view-post" hidden>
-    <header class="topbar">
-      <button class="icon-btn" id="post-back">
-        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
-      </button>
-      <span class="topbar-spacer"></span>
-    </header>
-    <div class="scroll-area" id="post-detail"></div>
-    <footer class="comment-footer">
-      <input type="text" id="comment-input" placeholder="댓글을 작성해 주세요.">
-      <button class="icon-btn send-btn" id="comment-send">
-        <svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-6-7-2z"/></svg>
-      </button>
-    </footer>
   </section>
 
   <!-- ===================== 하단 네비 ===================== -->
   <nav class="bottom-nav" id="bottom-nav">
-    <button class="nav-btn active" data-view="home" aria-label="홈">
+    <button class="nav-btn active" data-view="home">
       <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19v-8z"/></svg>
+      <span>홈</span>
     </button>
-    <button class="nav-btn" data-view="community" aria-label="커뮤니티">
+    <button class="nav-btn" data-view="dogam">
+      <svg viewBox="0 0 24 24"><path d="M8 3h8l-1 7a4 4 0 0 1-2 3v6h3v2H8v-2h3v-6a4 4 0 0 1-2-3L8 3z"/></svg>
+      <span>술도감</span>
+    </button>
+    <button class="nav-btn" data-view="meet">
+      <svg viewBox="0 0 24 24"><circle cx="8.5" cy="9" r="2.8"/><circle cx="15.5" cy="9" r="2.8"/><path d="M3.5 19c.6-3 2.7-4.5 5-4.5s4.4 1.5 5 4.5M12.5 15.2c.9-.5 1.9-.7 3-.7 2.3 0 4.4 1.5 5 4.5"/></svg>
+      <span>모임</span>
+    </button>
+    <button class="nav-btn" data-view="community">
       <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 10h8M8 14h5"/></svg>
+      <span>커뮤니티</span>
     </button>
-    <button class="nav-btn" data-view="write" aria-label="글쓰기">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
-    </button>
-    <button class="nav-btn" data-view="alerts" aria-label="알림">
-      <svg viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15L6 16z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
-    </button>
-    <button class="nav-btn" data-view="mypage" aria-label="마이페이지">
+    <button class="nav-btn" data-view="mypage">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-4 4.5-5.5 7-5.5S18 16 19 20"/></svg>
+      <span>마이</span>
     </button>
   </nav>
 
