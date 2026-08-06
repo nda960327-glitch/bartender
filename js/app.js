@@ -129,6 +129,10 @@
     swEmoji: 0,
     swCat: null,
     mwRegion: null,
+    dogamSort: "new",
+    finderSel: [],
+    quiz: null,
+    calcRows: [{ name: "", price: "", vol: "", use: "" }, { name: "", price: "", vol: "", use: "" }],
     reviewStars: 5,
     obColor: 2,
     selColor: null,
@@ -233,9 +237,13 @@
     $$(".view").forEach((v) => { v.hidden = v.id !== "view-" + view; });
     $("#bottom-nav").style.display = view === "onboard" ? "none" : "";
     const navView = NAV_VIEWS.includes(view) ? view
-      : { jobs: "home", alerts: "home", chat: "home", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage" }[view] || "home";
+      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage" }[view] || "home";
     $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === navView));
     if (view === "home") renderHome();
+    if (view === "finder") renderFinder();
+    if (view === "quiz") renderQuiz();
+    if (view === "calc") renderCalc();
+    if (view === "pay") renderPay();
     if (view === "jobs") renderJobs();
     if (view === "favjobs") renderFavJobs();
     if (view === "myposts") renderMyPosts();
@@ -277,6 +285,21 @@
     const h = new Date().getHours();
     const greet = h < 6 ? "새벽 마감까지 고생 많아요 🌙" : h < 12 ? "좋은 아침이에요 ☀️" : h < 18 ? "오픈 준비 잘 되고 있나요? 😊" : "오늘 장사도 화이팅! 🔥";
     $("#home-greet").innerHTML = `${esc(state.user.nick)}님, 안녕하세요!<small>${greet}</small>`;
+
+    // 오늘의 칵테일 (날짜 기반 고정 추천)
+    const cts = state.spirits.filter((s) => s.kind === "cocktail");
+    if (cts.length) {
+      const d = new Date();
+      const pick = cts[(d.getFullYear() * 372 + d.getMonth() * 31 + d.getDate()) % cts.length];
+      $("#daily-cocktail").innerHTML = `
+        <span class="dc-emoji">${pick.emoji}</span>
+        <div class="dc-body">
+          <div class="dc-name">${esc(pick.name)}</div>
+          <div class="dc-sub">${esc(pick.base)} 베이스 · 오늘 한 잔 어때요?</div>
+        </div>
+        <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>`;
+      $("#daily-cocktail").onclick = () => openSpirit(pick.id);
+    }
 
     const top = [...state.spirits]
       .sort((a, b) => (b.reviews.length * 10 + avgStars(b)) - (a.reviews.length * 10 + avgStars(a)))
@@ -374,12 +397,21 @@
     $$("#dogam-cats .chip").forEach((ch) =>
       ch.addEventListener("click", () => { state.dogamCat = ch.dataset.c; renderDogam(); }));
 
+    const SORTS = [["new", "최신순"], ["stars", "별점순"], ["reviews", "리뷰순"]];
+    $("#dogam-sort").innerHTML = SORTS.map(([k, l]) =>
+      `<button class="chip ${k === state.dogamSort ? "active" : ""}" data-s="${k}">${l}</button>`).join("");
+    $$("#dogam-sort .chip").forEach((ch) =>
+      ch.addEventListener("click", () => { state.dogamSort = ch.dataset.s; renderDogam(); }));
+
     const q = $("#spirit-search").value.trim();
     const list = state.spirits.filter((sp) =>
       sp.kind === state.dogamKind &&
       (state.dogamCat === "전체" || (sp.kind === "spirit" ? sp.cat : sp.base) === state.dogamCat) &&
       (!q || sp.name.includes(q))
-    ).sort((a, b) => b.time - a.time);
+    ).sort((a, b) =>
+      state.dogamSort === "stars" ? avgStars(b) - avgStars(a) :
+      state.dogamSort === "reviews" ? b.reviews.length - a.reviews.length :
+      b.time - a.time);
 
     $("#spirit-list").innerHTML = list.length
       ? list.map((sp) => `
@@ -1042,6 +1074,219 @@
       <p class="sheet-note">규칙 위반 시 게시글 삭제 및 이용 제한이 있을 수 있어요.</p>`);
   }
 
+  /* ---------- 도구: 공통 ---------- */
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  function ingName(line) {
+    const words = line.replace(/\(선택\)/g, "").trim().split(/\s+/);
+    const idx = words.findIndex((w) => /^\d/.test(w) || /^(반|한|두)$/.test(w));
+    return (idx > 0 ? words.slice(0, idx) : words).join(" ");
+  }
+  const cocktailIngs = (sp) => (sp.ings || "").split("\n").map((l) => ingName(l)).filter(Boolean);
+
+  /* ---------- 재료로 칵테일 찾기 ---------- */
+  function renderFinder() {
+    const cts = state.spirits.filter((s) => s.kind === "cocktail");
+    const all = [...new Set(cts.flatMap(cocktailIngs))].sort((a, b) => a.localeCompare(b, "ko"));
+    state.finderSel = state.finderSel.filter((x) => all.includes(x));
+    $("#finder-ings").innerHTML = all.map((ing) =>
+      `<button class="chip ${state.finderSel.includes(ing) ? "active" : ""}" data-ing="${esc(ing)}">${esc(ing)}</button>`).join("");
+    $$("#finder-ings .chip").forEach((ch) =>
+      ch.addEventListener("click", () => {
+        const v = ch.dataset.ing;
+        const i = state.finderSel.indexOf(v);
+        if (i >= 0) state.finderSel.splice(i, 1); else state.finderSel.push(v);
+        renderFinder();
+      }));
+
+    if (!state.finderSel.length) {
+      $("#finder-result-title").textContent = "";
+      $("#finder-results").innerHTML = '<div class="empty-state" style="padding:40px 20px">재료를 선택하면 결과가 나와요.</div>';
+      return;
+    }
+    const matches = cts.map((c) => {
+      const ings = cocktailIngs(c);
+      const have = ings.filter((i) => state.finderSel.includes(i)).length;
+      return { c, have, total: ings.length };
+    }).filter((m) => m.have > 0)
+      .sort((a, b) => (b.have / b.total) - (a.have / a.total) || b.have - a.have);
+    $("#finder-result-title").textContent = `만들 수 있는 칵테일 ${matches.filter((m) => m.have === m.total).length}개 · 아쉽게 부족 ${matches.filter((m) => m.have < m.total).length}개`;
+    $("#finder-results").innerHTML = matches.length
+      ? matches.map((m) => `
+        <div class="spirit-item" data-id="${m.c.id}">
+          <span class="spirit-emoji">${m.c.emoji}</span>
+          <div class="spirit-info">
+            <div class="spirit-name">${esc(m.c.name)}</div>
+            <div class="spirit-meta">${esc(cocktailIngs(m.c).join(", "))}</div>
+          </div>
+          <span class="finder-match">${m.have === m.total ? "✅ 완성 가능" : `${m.have}/${m.total} 보유`}</span>
+        </div>`).join("")
+      : '<div class="empty-state" style="padding:40px 20px">선택한 재료로 만들 수 있는 칵테일이 없어요.</div>';
+    $$("#finder-results .spirit-item").forEach((el) =>
+      el.addEventListener("click", () => openSpirit(+el.dataset.id)));
+  }
+
+  /* ---------- 레시피 퀴즈 ---------- */
+  function renderQuiz() {
+    state.quiz = null;
+    $("#quiz-area").innerHTML = `
+      <div class="quiz-start">
+        <div class="qs-emoji">🎯</div>
+        <h2>레시피 퀴즈</h2>
+        <p>재료를 보고 어떤 칵테일인지 맞혀보세요.<br>5문제 · 하루 첫 완료 시 +20P!</p>
+        <button class="big-btn accent ready" id="quiz-start-btn">시작하기</button>
+      </div>`;
+    $("#quiz-start-btn").addEventListener("click", startQuiz);
+  }
+  function startQuiz() {
+    const cts = state.spirits.filter((s) => s.kind === "cocktail" && s.ings);
+    if (cts.length < 4) {
+      toast("칵테일이 4개 이상 등록되어야 퀴즈를 풀 수 있어요.");
+      return;
+    }
+    const qs = shuffle(cts).slice(0, 5).map((c) => ({
+      c,
+      options: shuffle([c.name, ...shuffle(cts.filter((x) => x.id !== c.id)).slice(0, 3).map((x) => x.name)]),
+    }));
+    state.quiz = { qs, i: 0, score: 0, answered: false };
+    renderQuizQ();
+  }
+  function renderQuizQ() {
+    const qz = state.quiz;
+    const q = qz.qs[qz.i];
+    $("#quiz-area").innerHTML = `
+      <div class="quiz-box">
+        <div class="quiz-progress"><b>${qz.i + 1}</b> / ${qz.qs.length} · 맞힌 개수 ${qz.score}</div>
+        <div class="quiz-q">
+          <h3>이 재료로 만드는 칵테일은? 🍸</h3>
+          <p>${esc(q.c.ings)}</p>
+        </div>
+        ${q.options.map((o) => `<button class="quiz-opt" data-name="${esc(o)}">${esc(o)}</button>`).join("")}
+      </div>`;
+    qz.answered = false;
+    $$("#quiz-area .quiz-opt").forEach((b) =>
+      b.addEventListener("click", () => {
+        if (qz.answered) return;
+        qz.answered = true;
+        const right = b.dataset.name === q.c.name;
+        if (right) qz.score++;
+        $$("#quiz-area .quiz-opt").forEach((x) => {
+          if (x.dataset.name === q.c.name) x.classList.add("correct");
+          else if (x === b) x.classList.add("wrong");
+        });
+        setTimeout(() => {
+          qz.i++;
+          if (qz.i < qz.qs.length) renderQuizQ();
+          else finishQuiz();
+        }, 900);
+      }));
+  }
+  function finishQuiz() {
+    const qz = state.quiz;
+    const today = new Date().toDateString();
+    let bonus = "";
+    if (store.get("quizDay", "") !== today) {
+      store.set("quizDay", today);
+      addPoints(20, "퀴즈 완료");
+      bonus = "오늘의 첫 퀴즈 완료로 20P를 받았어요!";
+    }
+    const msg = qz.score === qz.qs.length ? "완벽해요! 진짜 바텐더시네요 🏆"
+      : qz.score >= 3 ? "좋아요! 조금만 더 연습해봐요 💪"
+      : "레시피를 술도감에서 복습해보세요 📖";
+    $("#quiz-area").innerHTML = `
+      <div class="quiz-result">
+        <div class="qs-emoji">${qz.score === qz.qs.length ? "🏆" : "🎯"}</div>
+        <div class="qr-score">${qz.score} / ${qz.qs.length}</div>
+        <p>${msg}${bonus ? "<br>" + bonus : ""}</p>
+        <button class="big-btn accent ready" id="quiz-retry">다시 풀기</button>
+        <button class="big-btn" id="quiz-home" style="margin-top:10px">홈으로</button>
+      </div>`;
+    $("#quiz-retry").addEventListener("click", startQuiz);
+    $("#quiz-home").addEventListener("click", () => show("home"));
+  }
+
+  /* ---------- 원가 계산기 ---------- */
+  function renderCalc() {
+    $("#calc-rows").innerHTML = `
+      <div class="calc-head"><span>재료명</span><span>병 가격(원)</span><span>용량(ml)</span><span>사용(ml)</span><span></span></div>
+      ${state.calcRows.map((r, i) => `
+        <div class="calc-row">
+          <input type="text" data-i="${i}" data-f="name" value="${esc(r.name)}" placeholder="진">
+          <input type="number" data-i="${i}" data-f="price" value="${esc(r.price)}" placeholder="40000" inputmode="numeric">
+          <input type="number" data-i="${i}" data-f="vol" value="${esc(r.vol)}" placeholder="700" inputmode="numeric">
+          <input type="number" data-i="${i}" data-f="use" value="${esc(r.use)}" placeholder="45" inputmode="decimal">
+          <button class="rm" data-i="${i}" aria-label="삭제">✕</button>
+        </div>`).join("")}`;
+    $$("#calc-rows input").forEach((inp) =>
+      inp.addEventListener("input", () => {
+        state.calcRows[+inp.dataset.i][inp.dataset.f] = inp.value;
+        calcCompute();
+      }));
+    $$("#calc-rows .rm").forEach((b) =>
+      b.addEventListener("click", () => {
+        if (state.calcRows.length <= 1) return;
+        state.calcRows.splice(+b.dataset.i, 1);
+        renderCalc();
+      }));
+    calcCompute();
+  }
+  function calcCompute() {
+    const valid = state.calcRows.filter((r) => +r.price > 0 && +r.vol > 0 && +r.use > 0);
+    const box = $("#calc-result");
+    if (!valid.length) { box.classList.remove("show"); return; }
+    const total = valid.reduce((a, r) => a + (+r.price / +r.vol) * +r.use, 0);
+    const sell = +$("#calc-price").value;
+    const suggest = Math.ceil(total / 0.2 / 100) * 100;
+    box.classList.add("show");
+    box.innerHTML = `
+      <div class="cr-row hl"><span>잔당 원가</span><b>${fmtNum(Math.round(total))}원</b></div>
+      ${sell > 0 ? `
+      <div class="cr-row"><span>원가율 (판매가 ${fmtNum(sell)}원)</span><b>${(total / sell * 100).toFixed(1)}%</b></div>
+      <div class="cr-row"><span>잔당 마진</span><b>${fmtNum(Math.round(sell - total))}원</b></div>` : ""}
+      <div class="cr-row"><span>추천 판매가 (원가율 20%)</span><b>${fmtNum(suggest)}원</b></div>
+      <div class="cr-note">가니시·얼음·인건비는 포함되지 않은 재료 원가 기준이에요.</div>`;
+  }
+
+  /* ---------- 급여 계산기 ---------- */
+  function renderPay() { payCompute(); }
+  function payCompute() {
+    const wage = +$("#pay-wage").value;
+    const hours = +$("#pay-hours").value;
+    const days = +$("#pay-days").value;
+    const box = $("#pay-result");
+    if (!(wage > 0 && hours > 0 && days > 0 && days <= 7)) { box.classList.remove("show"); return; }
+    const weeklyHours = hours * days;
+    const jhu = weeklyHours >= 15 ? wage * Math.min(hours, 8) : 0;
+    const weekly = wage * weeklyHours + jhu;
+    const monthly = Math.round(weekly * 4.345);
+    box.classList.add("show");
+    box.innerHTML = `
+      <div class="cr-row"><span>주 근무시간</span><b>${weeklyHours}시간</b></div>
+      <div class="cr-row"><span>주휴수당 (주)</span><b>${jhu ? fmtNum(jhu) + "원" : "해당 없음"}</b></div>
+      <div class="cr-row"><span>주급 (주휴 포함)</span><b>${fmtNum(weekly)}원</b></div>
+      <div class="cr-row hl"><span>월급 예상</span><b>${fmtNum(monthly)}원</b></div>`;
+  }
+
+  /* ---------- 레시피 공유 ---------- */
+  function shareSpirit() {
+    const sp = state.spirits.find((x) => x.id === state.curSpirit);
+    if (!sp) return;
+    const text = sp.kind === "cocktail"
+      ? `🍸 ${sp.name} (${sp.base} 베이스 · 약 ${sp.abv}%)\n\n[재료]\n${sp.ings}\n\n[만드는 법]\n${sp.recipe}${sp.note ? "\n\n💡 " + sp.note : ""}\n\n- 바텐톡`
+      : `🥃 ${sp.name} (${sp.cat} · ${sp.abv}%${sp.price ? " · " + sp.price : ""})\n\n${sp.note || ""}\n\n- 바텐톡`;
+    if (navigator.share) {
+      navigator.share({ title: sp.name, text }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => toast("레시피를 클립보드에 복사했어요."));
+    }
+  }
+
   /* ---------- 이벤트 바인딩 ---------- */
   $$(".nav-btn").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
   $$("[data-go]").forEach((b) => b.addEventListener("click", () => show(b.dataset.go)));
@@ -1076,6 +1321,16 @@
   $("#sw-submit").addEventListener("click", submitSpirit);
   $("#review-send").addEventListener("click", addReview);
   $("#review-input").addEventListener("keydown", (e) => { if (e.key === "Enter") addReview(); });
+  $("#spirit-share").addEventListener("click", shareSpirit);
+
+  // 도구
+  $("#calc-add-row").addEventListener("click", () => {
+    state.calcRows.push({ name: "", price: "", vol: "", use: "" });
+    renderCalc();
+  });
+  $("#calc-price").addEventListener("input", calcCompute);
+  ["pay-wage", "pay-hours", "pay-days"].forEach((i) =>
+    $("#" + i).addEventListener("input", payCompute));
 
   // 모임
   $("#fab-meet").addEventListener("click", () => { renderMeetWrite(); show("meet-write"); });

@@ -51,6 +51,25 @@
 
       <div class="home-sec">
         <div class="home-sec-head">
+          <h2>오늘의 칵테일 ✨</h2>
+        </div>
+        <div class="daily-card pressable" id="daily-cocktail"></div>
+      </div>
+
+      <div class="home-sec">
+        <div class="home-sec-head">
+          <h2>바텐더 도구 🛠️</h2>
+        </div>
+        <div class="tool-grid">
+          <button class="tool-item pressable" data-go="finder"><span class="tool-ic">🔍</span><span class="tool-name">재료로 칵테일 찾기</span><span class="tool-desc">있는 재료로 뭐 만들지?</span></button>
+          <button class="tool-item pressable" data-go="quiz"><span class="tool-ic">🎯</span><span class="tool-name">레시피 퀴즈</span><span class="tool-desc">조주 실력 테스트</span></button>
+          <button class="tool-item pressable" data-go="calc"><span class="tool-ic">🧮</span><span class="tool-name">원가 계산기</span><span class="tool-desc">잔당 원가·판매가</span></button>
+          <button class="tool-item pressable" data-go="pay"><span class="tool-ic">💰</span><span class="tool-name">급여 계산기</span><span class="tool-desc">주급·월급 예상</span></button>
+        </div>
+      </div>
+
+      <div class="home-sec">
+        <div class="home-sec-head">
           <h2>요즘 인기 술 🔥</h2>
           <button class="more-btn" data-go="dogam">더보기</button>
         </div>
@@ -149,6 +168,7 @@
         <svg viewBox="0 0 24 24" class="search-ic"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
         <input type="text" id="spirit-search" placeholder="이름 검색">
       </div>
+      <div class="sort-row" id="dogam-sort"></div>
       <div id="spirit-list"></div>
       <div style="height:88px"></div>
     </div>
@@ -163,7 +183,10 @@
       <button class="icon-btn back-btn" data-back="dogam">
         <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
       </button>
-      <span class="topbar-spacer"></span>
+      <span class="flex-1"></span>
+      <button class="icon-btn" id="spirit-share" aria-label="공유하기">
+        <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="17" cy="6" r="2.5"/><circle cx="17" cy="18" r="2.5"/><path d="M8.3 10.8l6.4-3.6M8.3 13.2l6.4 3.6"/></svg>
+      </button>
     </header>
     <div class="scroll-area" id="spirit-detail"></div>
     <footer class="review-footer">
@@ -480,6 +503,85 @@
         <span>동의하기</span>
       </button>
       <button class="big-btn danger" id="btn-withdraw" disabled>탈퇴하기</button>
+      <div style="height:24px"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 재료로 칵테일 찾기 ===================== -->
+  <section class="view" id="view-finder" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="home">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">재료로 칵테일 찾기</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area">
+      <p class="tool-guide">지금 갖고 있는 재료를 선택하면<br>만들 수 있는 칵테일을 찾아드려요. 🔍</p>
+      <div class="chip-wrap finder-chips" id="finder-ings"></div>
+      <div class="comment-sec-title" id="finder-result-title"></div>
+      <div id="finder-results"></div>
+      <div style="height:24px"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 레시피 퀴즈 ===================== -->
+  <section class="view" id="view-quiz" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="home">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">레시피 퀴즈</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area" id="quiz-area"></div>
+  </section>
+
+  <!-- ===================== 원가 계산기 ===================== -->
+  <section class="view" id="view-calc" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="home">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">원가 계산기</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area form-area">
+      <p class="tool-guide no-pad">재료별 병 가격·용량·사용량을 넣으면<br>칵테일 한 잔의 원가를 계산해드려요. 🧮</p>
+      <div id="calc-rows"></div>
+      <button class="host-chat-btn" id="calc-add-row">+ 재료 추가</button>
+      <label class="form-label">판매가 (원)</label>
+      <input type="number" class="input" id="calc-price" placeholder="예) 15000" inputmode="numeric">
+      <div class="calc-result" id="calc-result"></div>
+      <div style="height:24px"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 급여 계산기 ===================== -->
+  <section class="view" id="view-pay" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="home">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">급여 계산기</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area form-area">
+      <p class="tool-guide no-pad">시급과 근무 패턴을 넣으면<br>주급·월급을 예상해드려요. 💰</p>
+      <label class="form-label">시급 (원)</label>
+      <input type="number" class="input" id="pay-wage" placeholder="10,320 (2026 최저시급)" inputmode="numeric">
+      <div class="form-2col">
+        <div>
+          <label class="form-label">하루 근무시간</label>
+          <input type="number" class="input" id="pay-hours" placeholder="8" inputmode="decimal">
+        </div>
+        <div>
+          <label class="form-label">주 근무일수</label>
+          <input type="number" class="input" id="pay-days" placeholder="5" min="1" max="7" inputmode="numeric">
+        </div>
+      </div>
+      <div class="calc-result" id="pay-result"></div>
+      <p class="sheet-note">주 15시간 이상 근무 시 주휴수당(1일치, 최대 8시간)을 포함해 계산해요. 세전 금액이며 실제 지급액과 다를 수 있어요.</p>
       <div style="height:24px"></div>
     </div>
   </section>
