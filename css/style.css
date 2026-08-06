@@ -736,6 +736,22 @@ textarea.input { height: auto; }
   background: var(--text); color: var(--bg); font-weight: 700; font-size: 15px; cursor: pointer; flex-shrink: 0;
 }
 
+/* ---------- 댓글/리뷰 사진 ---------- */
+.cmt-img {
+  display: block; max-width: min(220px, 60%); max-height: 180px;
+  border-radius: 12px; margin-top: 8px; cursor: zoom-in;
+  border: 1px solid var(--line);
+}
+.cmt-img-btn { font-size: 20px; width: 40px; flex-shrink: 0; }
+.cmt-attach { position: relative; width: 44px; height: 44px; flex-shrink: 0; }
+.cmt-attach img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
+.cmt-attach-rm {
+  position: absolute; top: -7px; right: -7px;
+  width: 20px; height: 20px; border: none; border-radius: 50%;
+  background: var(--text); color: var(--bg); font-size: 10px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+
 /* ---------- 라이트박스 ---------- */
 .lightbox {
   position: absolute; inset: 0; z-index: 120;

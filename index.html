@@ -202,6 +202,9 @@
     <footer class="review-footer">
       <div class="star-pick" id="star-pick"></div>
       <div class="review-input-row">
+        <input type="file" id="review-file" accept="image/*" hidden>
+        <button class="icon-btn cmt-img-btn" id="review-img-btn" aria-label="사진 첨부">📷</button>
+        <span class="cmt-attach" id="review-attach" hidden><img id="review-attach-img" alt=""><button class="cmt-attach-rm" id="review-attach-rm" aria-label="삭제">✕</button></span>
         <input type="text" id="review-input" placeholder="이 술 어때요? 리뷰를 남겨주세요.">
         <button class="icon-btn send-btn" id="review-send">
           <svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-6-7-2z"/></svg>
@@ -287,6 +290,9 @@
     </header>
     <div class="scroll-area" id="meet-detail"></div>
     <footer class="comment-footer">
+      <input type="file" id="meet-comment-file" accept="image/*" hidden>
+      <button class="icon-btn cmt-img-btn" id="meet-comment-img-btn" aria-label="사진 첨부">📷</button>
+      <span class="cmt-attach" id="meet-comment-attach" hidden><img id="meet-comment-attach-img" alt=""><button class="cmt-attach-rm" id="meet-comment-attach-rm" aria-label="삭제">✕</button></span>
       <input type="text" id="meet-comment-input" placeholder="댓글을 작성해 주세요.">
       <button class="icon-btn send-btn" id="meet-comment-send">
         <svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-6-7-2z"/></svg>
@@ -403,6 +409,9 @@
     </header>
     <div class="scroll-area" id="post-detail"></div>
     <footer class="comment-footer">
+      <input type="file" id="comment-file" accept="image/*" hidden>
+      <button class="icon-btn cmt-img-btn" id="comment-img-btn" aria-label="사진 첨부">📷</button>
+      <span class="cmt-attach" id="comment-attach" hidden><img id="comment-attach-img" alt=""><button class="cmt-attach-rm" id="comment-attach-rm" aria-label="삭제">✕</button></span>
       <input type="text" id="comment-input" placeholder="댓글을 작성해 주세요.">
       <button class="icon-btn send-btn" id="comment-send">
         <svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-6-7-2z"/></svg>

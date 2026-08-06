@@ -1421,11 +1421,14 @@
               <span class="review-stars">${starStr(r.stars)}</span>
               <span class="review-time">${fmtTime(r.time)}</span>
             </div>
-            <div class="review-text">${esc(r.text)}</div>
+            ${r.text ? `<div class="review-text">${esc(r.text)}</div>` : ""}
+            ${r.img ? `<img class="cmt-img" src="${r.img}" alt="리뷰 사진">` : ""}
           </div>
         </div>`).join("") || '<div class="empty-state" style="padding:32px 0">첫 리뷰를 남겨보세요!</div>'}
       <div style="height:24px"></div>`;
     wireImgFallback("#spirit-detail");
+    $$("#spirit-detail .cmt-img").forEach((im) =>
+      im.addEventListener("click", () => openLightbox(im.src)));
     const hero = $("#spirit-detail .sp-hero-media img.thumb-img");
     if (hero) {
       hero.style.cursor = "zoom-in";
@@ -1438,14 +1441,26 @@
     $$("#star-pick button").forEach((b) =>
       b.addEventListener("click", () => { state.reviewStars = +b.dataset.n; renderStarPick(); }));
   }
+  /* ---------- 댓글/리뷰 사진 첨부 상태 ---------- */
+  const CMT_KEY = { "comment": "post", "meet-comment": "meet", "review": "review" };
+  const pendingImg = { post: null, meet: null, review: null };
+  function clearCmtAttach(prefix) {
+    pendingImg[CMT_KEY[prefix]] = null;
+    $("#" + prefix + "-attach").hidden = true;
+    $("#" + prefix + "-file").value = "";
+  }
+
   function addReview() {
     const text = $("#review-input").value.trim();
-    if (!text) return;
+    if (!text && !pendingImg.review) return;
     const sp = state.spirits.find((x) => x.id === state.curSpirit);
     if (!sp) return;
-    sp.reviews.push({ color: state.user.color, stars: state.reviewStars, text, time: Date.now() });
+    const rv = { color: state.user.color, stars: state.reviewStars, text, time: Date.now() };
+    if (pendingImg.review) rv.img = pendingImg.review;
+    sp.reviews.push(rv);
     saveSpirits();
     $("#review-input").value = "";
+    clearCmtAttach("review");
     renderSpiritDetail();
     addPoints(30, "리뷰 작성");
   }
@@ -1584,10 +1599,13 @@
           <span class="avatar" style="background:${COLORS[c.color]}"></span>
           <div class="comment-body">
             <div class="comment-head"><span class="comment-nick">익명</span><span class="comment-time">${fmtTime(c.time)}</span></div>
-            <div class="comment-text">${esc(c.text)}</div>
+            ${c.text ? `<div class="comment-text">${esc(c.text)}</div>` : ""}
+            ${c.img ? `<img class="cmt-img" src="${c.img}" alt="댓글 사진">` : ""}
           </div>
         </div>`).join("")}
       <div style="height:24px"></div>`;
+    $$("#meet-detail .cmt-img").forEach((im) =>
+      im.addEventListener("click", () => openLightbox(im.src)));
     const joinBtn = $("#meet-join");
     if (joinBtn) joinBtn.addEventListener("click", () => {
       if (full) return;
@@ -1606,12 +1624,15 @@
   }
   function addMeetComment() {
     const text = $("#meet-comment-input").value.trim();
-    if (!text) return;
+    if (!text && !pendingImg.meet) return;
     const m = state.meets.find((x) => x.id === state.curMeet);
     if (!m) return;
-    m.comments.push({ color: state.user.color, text, time: Date.now() });
+    const c = { color: state.user.color, text, time: Date.now() };
+    if (pendingImg.meet) c.img = pendingImg.meet;
+    m.comments.push(c);
     saveMeets();
     $("#meet-comment-input").value = "";
+    clearCmtAttach("meet-comment");
     renderMeetDetail();
   }
 
@@ -1733,10 +1754,13 @@
           <span class="avatar" style="background:${COLORS[c.color]}"></span>
           <div class="comment-body">
             <div class="comment-head"><span class="comment-nick">익명</span><span class="comment-time">${fmtTime(c.time)}</span></div>
-            <div class="comment-text">${esc(c.text)}</div>
+            ${c.text ? `<div class="comment-text">${esc(c.text)}</div>` : ""}
+            ${c.img ? `<img class="cmt-img" src="${c.img}" alt="댓글 사진">` : ""}
           </div>
         </div>`).join("")}
       <div style="height:24px"></div>`;
+    $$("#post-detail .cmt-img").forEach((im) =>
+      im.addEventListener("click", () => openLightbox(im.src)));
     const dImg = $("#post-detail .detail-img");
     if (dImg) {
       dImg.style.cursor = "zoom-in";
@@ -1751,12 +1775,15 @@
   }
   function addComment() {
     const text = $("#comment-input").value.trim();
-    if (!text) return;
+    if (!text && !pendingImg.post) return;
     const p = state.posts.find((x) => x.id === state.curPost);
     if (!p) return;
-    p.comments.push({ color: state.user.color, text, time: Date.now() });
+    const c = { color: state.user.color, text, time: Date.now() };
+    if (pendingImg.post) c.img = pendingImg.post;
+    p.comments.push(c);
     savePosts();
     $("#comment-input").value = "";
+    clearCmtAttach("comment");
     renderPostDetail();
   }
   function deletePost() {
@@ -1783,21 +1810,26 @@
     $("#write-img").classList.toggle("has-img", !!dataUrl);
     if (dataUrl) $("#write-img-el").src = dataUrl;
   }
-  function compressImage(file, cb) {
+  function compressImage(file, cb, maxSize = 900, quality = 0.72) {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
-      const MAX = 900;
-      let { width: w, height: h } = img;
-      if (w > MAX || h > MAX) {
-        const r = Math.min(MAX / w, MAX / h);
-        w = Math.round(w * r); h = Math.round(h * r);
-      }
-      const cv = document.createElement("canvas");
-      cv.width = w; cv.height = h;
-      cv.getContext("2d").drawImage(img, 0, 0, w, h);
       URL.revokeObjectURL(url);
-      cb(cv.toDataURL("image/jpeg", 0.72));
+      const draw = (max, q) => {
+        let { width: w, height: h } = img;
+        if (w > max || h > max) {
+          const r = Math.min(max / w, max / h);
+          w = Math.round(w * r); h = Math.round(h * r);
+        }
+        const cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        cv.getContext("2d").drawImage(img, 0, 0, w, h);
+        return cv.toDataURL("image/jpeg", q);
+      };
+      let out = draw(maxSize, quality);
+      // 저장소 보호: 압축 결과가 크면 한 단계 더 줄임
+      if (out.length > 400000) out = draw(Math.min(maxSize, 560), 0.55);
+      cb(out);
     };
     img.onerror = () => { URL.revokeObjectURL(url); toast("이미지를 불러올 수 없어요."); };
     img.src = url;
@@ -2718,6 +2750,22 @@
     compressImage(f, setPendingImg);
   });
   $("#write-img-remove").addEventListener("click", () => { setPendingImg(null); $("#write-file").value = ""; });
+
+  // 댓글/리뷰 사진 첨부 (자동 압축)
+  Object.keys(CMT_KEY).forEach((prefix) => {
+    $("#" + prefix + "-img-btn").addEventListener("click", () => $("#" + prefix + "-file").click());
+    $("#" + prefix + "-file").addEventListener("change", (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      if (!f.type.startsWith("image/")) { toast("이미지 파일만 첨부할 수 있어요."); e.target.value = ""; return; }
+      compressImage(f, (d) => {
+        pendingImg[CMT_KEY[prefix]] = d;
+        $("#" + prefix + "-attach-img").src = d;
+        $("#" + prefix + "-attach").hidden = false;
+      }, 640, 0.6);
+    });
+    $("#" + prefix + "-attach-rm").addEventListener("click", () => clearCmtAttach(prefix));
+  });
 
   // 게시글 상세
   $("#comment-send").addEventListener("click", addComment);
