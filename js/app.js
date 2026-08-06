@@ -890,13 +890,18 @@
 
   /* ---------- 술 이미지: 칵테일 대표사진 + 병 일러스트 ---------- */
   const saveImgCache = () => store.set("imgCache", state.imgCache);
-  // v3: 커먼즈 검색 폴백 추가 → 실패했던 항목 전부 재수집 (성공한 칵테일 사진은 유지)
-  if (store.get("imgv", 1) < 3) {
+  // v4: 병/잔 이미지 분류 검증 도입 → 검증 없이 수집된 사진 전부 재수집
+  // (칵테일DB 출처 사진은 애초에 칵테일 사진이라 유지)
+  if (store.get("imgv", 1) < 4) {
     Object.keys(state.imgCache).forEach((k) => {
-      if (k.startsWith("b:") || state.imgCache[k] === "x" || state.imgCache[k] === "…") delete state.imgCache[k];
+      const v = state.imgCache[k];
+      if (k.startsWith("b:") || v === "x" || v === "…" ||
+        (typeof v === "string" && v.startsWith("http") && !v.includes("thecocktaildb"))) {
+        delete state.imgCache[k];
+      }
     });
     saveImgCache();
-    store.set("imgv", 3);
+    store.set("imgv", 4);
   }
   const COCKTAIL_EN = {
     "네그로니": "Negroni", "올드 패션드": "Old Fashioned", "모히토": "Mojito", "진 토닉": "Gin And Tonic",
@@ -977,17 +982,18 @@
     }
   }
   const BAD_IMG = /distillery|brewery|building|map|logo|exterior|interior|warehouse|cask|still\b|visitor|centre|center|museum|sign|entrance|landscape|street|house|hall|plant|factory|washback|fermen|mash|tun\b|barrel|advert|poster|portrait|founder|statue|plaque|\.svg$/i;
-  const wikiBottle = (title) =>
+  const wikiBottleCands = (title) =>
     fetch("https://en.wikipedia.org/api/rest_v1/page/media-list/" + encodeURIComponent(title))
       .then((r) => r.json())
       .then((j) => {
         const items = ((j && j.items) || []).filter((it) =>
-          it.type === "image" && it.srcset && it.srcset[0] && !/\.svg/i.test(it.title || ""));
-        const pick = items.find((it) => /bottle|bottling|flasche|botella/i.test(it.title || "")) ||
-          items.find((it) => !BAD_IMG.test(it.title || ""));
-        return pick ? "https:" + pick.srcset[0].src.replace(/^https?:/, "") : null;
+          it.type === "image" && it.srcset && it.srcset[0] && !/\.svg|\.gif/i.test(it.title || ""));
+        const src = (it) => "https:" + it.srcset[0].src.replace(/^https?:/, "");
+        const good = items.filter((it) => /bottle|bottling|flasche|botella/i.test(it.title || "")).map(src);
+        const neutral = items.filter((it) => !BAD_IMG.test(it.title || "")).map(src);
+        return [...new Set([...good, ...neutral])];
       })
-      .catch(() => null);
+      .catch(() => []);
   function fetchSpiritImg(sp) {
     const brand = brandOf(sp.name);
     if (!brand) return;
@@ -996,9 +1002,11 @@
     state.imgCache[key] = "…";
     const clean = BRAND_EN[brand].replace(/\s*\(.*\)/, "").replace(/\s*distillery/i, "");
     imgQueue.push(async () => {
-      let url = await wikiBottle(BRAND_EN[brand]);
-      if (!url) url = await commonsSearch(clean + " bottle");
-      if (!url) url = await commonsSearch(clean);
+      const cands = [
+        ...await wikiBottleCands(BRAND_EN[brand]),
+        ...await commonsSearchList(clean + " bottle"),
+      ];
+      const url = await firstBottleOf([...new Set(cands)]);
       setImgResult(key, url);
     });
     pumpImgQueue();
@@ -1037,17 +1045,58 @@
       .then((r) => r.json())
       .then((j) => (j && j.thumbnail && j.thumbnail.source) || null)
       .catch(() => null);
-  const commonsSearch = (term) =>
+  const commonsSearchList = (term) =>
     fetch("https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=8&gsrsearch=" +
       encodeURIComponent(term) + "&prop=imageinfo&iiprop=url&iiurlwidth=480")
       .then((r) => r.json())
-      .then((j) => {
-        const pages = Object.values((j && j.query && j.query.pages) || {})
-          .sort((a, b) => a.index - b.index)
-          .filter((p) => p.imageinfo && p.imageinfo[0] && !BAD_IMG.test(p.title) && !/\.svg$|\.pdf$|\.tiff?$|\.webm$|\.ogv$/i.test(p.title));
-        return pages.length ? (pages[0].imageinfo[0].thumburl || pages[0].imageinfo[0].url) : null;
-      })
-      .catch(() => null);
+      .then((j) => Object.values((j && j.query && j.query.pages) || {})
+        .sort((a, b) => a.index - b.index)
+        .filter((p) => p.imageinfo && p.imageinfo[0] && !BAD_IMG.test(p.title) && !/\.svg$|\.pdf$|\.tiff?$|\.webm$|\.ogv$|\.gif$/i.test(p.title))
+        .map((p) => p.imageinfo[0].thumburl || p.imageinfo[0].url))
+      .catch(() => []);
+
+  /* ---------- 병/잔 이미지 검증 (온디바이스 분류) ---------- */
+  let bottleModel = null, bottleModelLoading = null;
+  function loadBottleModel() {
+    if (bottleModelLoading) return bottleModelLoading;
+    bottleModelLoading = new Promise((resolve) => {
+      const s1 = document.createElement("script");
+      s1.src = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js";
+      s1.onload = () => {
+        const s2 = document.createElement("script");
+        s2.src = "https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js";
+        s2.onload = () => {
+          window.mobilenet.load({ version: 2, alpha: 0.5 })
+            .then((m) => { bottleModel = m; resolve(m); })
+            .catch(() => resolve(null));
+        };
+        s2.onerror = () => resolve(null);
+        document.head.appendChild(s2);
+      };
+      s1.onerror = () => resolve(null);
+      document.head.appendChild(s1);
+    });
+    return bottleModelLoading;
+  }
+  const BOTTLE_LABELS = /bottle|jug|wine|goblet|beer glass|cocktail|eggnog|flask|pitcher|carboy|beaker|whiskey/i;
+  async function looksLikeBottle(url) {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+      if (img.naturalWidth > img.naturalHeight * 1.15) return false; // 가로(풍경) 컷
+      await loadBottleModel();
+      if (!bottleModel) return true; // 모델 로드 실패 시 기존 필터만으로 통과
+      const preds = await bottleModel.classify(img, 5);
+      return preds.some((p) => BOTTLE_LABELS.test(p.className));
+    } catch { return true; }
+  }
+  async function firstBottleOf(cands) {
+    for (const c of cands.slice(0, 8)) {
+      if (c && await looksLikeBottle(c)) return c;
+    }
+    return null;
+  }
   function fetchCocktailImg(sp) {
     if (sp.kind !== "cocktail" || sp.img) return;
     if (state.imgCache[sp.id] !== undefined) return;
@@ -1063,8 +1112,12 @@
           .then((j) => (j && j.drinks && j.drinks[0] && j.drinks[0].strDrinkThumb) || null)
           .catch(() => null);
       }
-      if (!url && wikiTitle) url = await wikiLead(wikiTitle);
-      if (!url) url = await commonsSearch((en || wikiTitle.replace(/\s*\(.*\)/, "")) + " cocktail");
+      if (!url) {
+        const cands = [];
+        if (wikiTitle) cands.push(await wikiLead(wikiTitle));
+        cands.push(...await commonsSearchList((en || wikiTitle.replace(/\s*\(.*\)/, "")) + " cocktail"));
+        url = await firstBottleOf(cands.filter(Boolean));
+      }
       setImgResult(sp.id, url);
     });
     pumpImgQueue();
