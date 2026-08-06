@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>바텐톡 - 바텐더 익명 커뮤니티</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================== 홈 (채용정보) ===================== -->
+  <section class="view" id="view-home">
+    <header class="topbar center">
+      <h1>채용정보</h1>
+    </header>
+    <div class="scroll-area">
+      <div class="filter-row">
+        <button class="filter-select" id="filter-region">
+          <span class="filter-label">지역</span>
+          <span class="filter-value" id="filter-region-value">전체</span>
+          <svg viewBox="0 0 24 24" class="chev"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <button class="filter-select" id="filter-job">
+          <span class="filter-label">직종</span>
+          <span class="filter-value" id="filter-job-value">전체</span>
+          <svg viewBox="0 0 24 24" class="chev"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      </div>
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" class="search-ic"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input type="text" id="job-search" placeholder="채용정보 검색">
+      </div>
+      <button class="banner" id="live-talk-banner">
+        <span class="banner-ic">💬</span>
+        <span class="banner-txt">실시간 바텐톡</span>
+        <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+      <div id="job-list"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 커뮤니티 ===================== -->
+  <section class="view" id="view-community" hidden>
+    <header class="tabbar" id="community-tabs">
+      <button class="tab active" data-tab="all">전체</button>
+      <button class="tab" data-tab="hot">인기</button>
+      <button class="tab" data-tab="free">자유</button>
+      <button class="tab" data-tab="promo">홍보</button>
+    </header>
+    <div class="scroll-area">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" class="search-ic"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input type="text" id="post-search" placeholder="커뮤니티 전체 검색">
+      </div>
+      <button class="banner" id="rules-banner">
+        <span class="banner-ic">📢</span>
+        <span class="banner-txt">커뮤니티 이용규칙</span>
+        <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+      <div id="post-list"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 글쓰기 ===================== -->
+  <section class="view" id="view-write" hidden>
+    <header class="topbar">
+      <button class="icon-btn" id="write-back">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">글쓰기</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area write-area">
+      <div class="write-cat-row">
+        <button class="cat-chip active" data-cat="free">자유</button>
+        <button class="cat-chip" data-cat="promo">홍보</button>
+      </div>
+      <input type="text" id="write-title" class="write-title" placeholder="제목을 입력해주세요.">
+      <textarea id="write-body" class="write-body" placeholder="내용을 입력해주세요.
+
+광고, 비난, 도배성 글을 남기면 커뮤니티 이용이 제한될 수 있어요. 건강한 커뮤니티 문화를 함께 만들어가요."></textarea>
+    </div>
+    <footer class="write-footer">
+      <button class="icon-btn img-btn" id="write-img" title="사진 첨부">
+        <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4.5 17.5l5-5 4 4 3-3 3 3"/></svg>
+      </button>
+      <button class="submit-btn" id="write-submit" disabled>등록</button>
+    </footer>
+  </section>
+
+  <!-- ===================== 알림 ===================== -->
+  <section class="view" id="view-alerts" hidden>
+    <header class="tabbar two">
+      <button class="tab active" data-atab="noti">알림</button>
+      <button class="tab" data-atab="chat">1:1 채팅</button>
+    </header>
+    <div class="scroll-area" id="alerts-noti">
+      <button class="banner">
+        <span class="banner-ic">🔔</span>
+        <span class="banner-txt">키워드알림 설정</span>
+        <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+      <div class="empty-state">알림이 없어요.</div>
+    </div>
+    <div class="scroll-area" id="alerts-chat" hidden>
+      <div class="empty-state">채팅이 없어요.</div>
+    </div>
+  </section>
+
+  <!-- ===================== 마이페이지 ===================== -->
+  <section class="view" id="view-mypage" hidden>
+    <header class="topbar center">
+      <h1>마이페이지</h1>
+    </header>
+    <div class="scroll-area gray-bg">
+      <div class="card profile-row">
+        <span class="avatar md" id="my-avatar"></span>
+        <span class="my-nick" id="my-nick">버블</span>
+        <span class="flex-1"></span>
+        <button class="text-btn muted" id="btn-logout">로그아웃</button>
+        <button class="text-btn strong" id="btn-settings">계정설정</button>
+      </div>
+      <div class="card row-link" id="btn-points">
+        <span class="row-label">포인트</span>
+        <span class="flex-1"></span>
+        <span class="row-value" id="my-points">3,478원</span>
+        <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+      <div class="card menu-list">
+        <button class="row-link"><span class="row-label">관심알바</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="row-link"><span class="row-label">바텐위키</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="row-link"><span class="row-label">고객센터</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="row-link" id="btn-darkmode">
+          <span class="row-label">다크모드</span><span class="flex-1"></span>
+          <svg viewBox="0 0 24 24" class="mode-ic" id="mode-icon"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+        </button>
+        <div class="row-link no-tap">
+          <span class="row-label">푸시알림</span><span class="flex-1"></span>
+          <button class="toggle on" id="toggle-push" role="switch" aria-checked="true"><span class="knob"></span></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 계정설정 ===================== -->
+  <section class="view" id="view-settings" hidden>
+    <header class="topbar">
+      <button class="icon-btn" id="settings-back">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">계정설정</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area settings-area">
+      <h2 class="section-title">프로필 변경</h2>
+      <div class="color-grid card" id="color-grid"></div>
+      <button class="big-btn" id="btn-profile-save" disabled>변경하기</button>
+
+      <h2 class="section-title mt">비밀번호 변경</h2>
+      <input type="password" class="input" id="pw-current" placeholder="현재 비밀번호를 입력해주세요.">
+      <input type="password" class="input" id="pw-new" placeholder="변경할 비밀번호를 입력해주세요.">
+      <button class="big-btn" id="btn-pw-save" disabled>변경하기</button>
+
+      <h2 class="section-title mt">회원탈퇴</h2>
+      <p class="warn-text">탈퇴 시 모든 정보가 삭제돼요. 삭제된 데이터는 복구할 수 없으므로 신중하게 선택해주세요. 커뮤니티에 작성된 게시글과 댓글은 "탈퇴한 회원"으로 작성자가 변경되어 삭제할 수 없어요.</p>
+      <button class="agree-row" id="withdraw-agree">
+        <svg viewBox="0 0 24 24" class="check-ic"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>
+        <span>동의하기</span>
+      </button>
+      <button class="big-btn danger" id="btn-withdraw" disabled>탈퇴하기</button>
+    </div>
+  </section>
+
+  <!-- ===================== 게시글 상세 ===================== -->
+  <section class="view" id="view-post" hidden>
+    <header class="topbar">
+      <button class="icon-btn" id="post-back">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area" id="post-detail"></div>
+    <footer class="comment-footer">
+      <input type="text" id="comment-input" placeholder="댓글을 작성해 주세요.">
+      <button class="icon-btn send-btn" id="comment-send">
+        <svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-6-7-2z"/></svg>
+      </button>
+    </footer>
+  </section>
+
+  <!-- ===================== 하단 네비 ===================== -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <button class="nav-btn active" data-view="home" aria-label="홈">
+      <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19v-8z"/></svg>
+    </button>
+    <button class="nav-btn" data-view="community" aria-label="커뮤니티">
+      <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 10h8M8 14h5"/></svg>
+    </button>
+    <button class="nav-btn" data-view="write" aria-label="글쓰기">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+    </button>
+    <button class="nav-btn" data-view="alerts" aria-label="알림">
+      <svg viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15L6 16z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+    </button>
+    <button class="nav-btn" data-view="mypage" aria-label="마이페이지">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-4 4.5-5.5 7-5.5S18 16 19 20"/></svg>
+    </button>
+  </nav>
+
+  <!-- 토스트 -->
+  <div id="toast" class="toast" hidden></div>
+</div>
+<script src="js/app.js"></script>
+</body>
+</html>
