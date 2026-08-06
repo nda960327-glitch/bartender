@@ -98,6 +98,226 @@
     { id: 12, cat: "promo", color: 1, nick: "미나언니", time: now - 173 * M, title: "칵테일 클래스 ■원데이 클래스■ 수강생 모집", body: "《기초부터》《소수정예》《밀착케어》", likes: 0, comments: [], emoji: "🥂" },
   ];
 
+  /* ---------- 확장 시드 데이터 v2 ---------- */
+  SEED_JOBS.push(
+    { id: 9, shop: "어반테일", days: 21, title: "성수 감성 칵테일바 바텐더 모집 (주5일)", pay: "시급 16,000원", region: "서울", area: "서울 성동구", type: "칵테일바" },
+    { id: 10, shop: "블루문펍", days: 44, title: "해운대 오션뷰 펍 바텐더/서버 대모집", pay: "시급 13,500원", region: "부산", area: "부산 해운대구", type: "펍/호프" },
+    { id: 11, shop: "오크룸", days: 66, title: "대구 위스키바 경력 바텐더 우대 채용", pay: "시급 15,000원", region: "대구", area: "대구 중구", type: "위스키바" },
+    { id: 12, shop: "살루드", days: 9, title: "이태원 스페인바 정규직 바텐더 채용", pay: "월급 300만원", region: "서울", area: "서울 용산구", type: "칵테일바" },
+    { id: 13, shop: "하이볼스탠드", days: 27, title: "판교 하이볼 전문점 야간 바텐더 급구", pay: "시급 14,000원", region: "경기", area: "경기 성남시", type: "이자카야" },
+    { id: 14, shop: "라비니아", days: 88, title: "송도 와인바 소믈리에 지망생 환영", pay: "시급 15,000원", region: "인천", area: "인천 연수구", type: "와인바" },
+    { id: 15, shop: "더몰트", days: 15, title: "둔산동 몰트바 위스키 러버 바텐더 모집", pay: "시급 14,500원", region: "대전", area: "대전 서구", type: "위스키바" },
+    { id: 16, shop: "네온사인", days: 33, title: "동명동 칵테일바 주말 바텐더 모집", pay: "시급 14,000원", region: "광주", area: "광주 동구", type: "칵테일바" }
+  );
+
+  SEED_SPIRITS.push(
+    // ===== 위스키 (스카치 싱글몰트) =====
+    { id: 201, kind: "spirit", emoji: "🥃", name: "글렌리벳 12년", cat: "위스키", abv: 40, price: "5~7만원", note: "부드러운 과일향의 스페이사이드 대표 입문 몰트. 글렌피딕과 함께 첫 싱글몰트로 가장 많이 추천돼요.", by: "익명", time: now - 40 * D, reviews: [
+      { color: 4, stars: 4, text: "무난 그 자체. 입문용으로 좋아요", time: now - 12 * D },
+    ] },
+    { id: 202, kind: "spirit", emoji: "🥃", name: "발베니 12년 더블우드", cat: "위스키", abv: 40, price: "11~14만원", note: "버번 캐스크 숙성 후 셰리 캐스크로 마무리. 꿀과 바닐라, 은은한 셰리 단맛이 매력이라 선물용으로도 인기.", by: "익명", time: now - 39 * D, reviews: [
+      { color: 7, stars: 5, text: "달달한 몰트 좋아하는 손님한테 늘 추천", time: now - 8 * D },
+      { color: 2, stars: 5, text: "구하기 힘든 게 단점", time: now - 3 * D },
+    ] },
+    { id: 203, kind: "spirit", emoji: "🥃", name: "맥캘란 12년 셰리오크", cat: "위스키", abv: 40, price: "12~16만원", note: "셰리 캐스크 숙성의 교과서. 건포도·다크초콜릿 뉘앙스로 바에서 지명률이 가장 높은 몰트 중 하나.", by: "익명", time: now - 38 * D, reviews: [
+      { color: 9, stars: 5, text: "손님들이 이름만 듣고 시키는 술 1위", time: now - 10 * D },
+    ] },
+    { id: 204, kind: "spirit", emoji: "🥃", name: "글렌모렌지 오리지널 10년", cat: "위스키", abv: 40, price: "4~6만원", note: "시트러스와 복숭아 향이 산뜻한 하이랜드 몰트. 가볍고 깨끗해서 하이볼 베이스로도 아깝지 않아요.", by: "익명", time: now - 37 * D, reviews: [] },
+    { id: 205, kind: "spirit", emoji: "🥃", name: "아드벡 10년", cat: "위스키", abv: 46, price: "8~10만원", note: "강렬한 피트와 스모크 뒤에 숨은 단맛. 피트 입문을 끝낸 손님에게 다음 단계로 권하기 좋아요.", by: "익명", time: now - 36 * D, reviews: [
+      { color: 0, stars: 5, text: "피트 좋아하면 무조건", time: now - 6 * D },
+    ] },
+    { id: 206, kind: "spirit", emoji: "🥃", name: "라가불린 16년", cat: "위스키", abv: 43, price: "12~15만원", note: "묵직한 피트와 요오드, 긴 피니시. 아일라의 왕이라 불리는 클래식.", by: "익명", time: now - 35 * D, reviews: [] },
+    { id: 207, kind: "spirit", emoji: "🥃", name: "라프로익 10년", cat: "위스키", abv: 40, price: "8~10만원", note: "소독약 같다는 말이 칭찬이 되는 술. 호불호 최강이지만 빠지면 헤어나올 수 없어요.", by: "익명", time: now - 34 * D, reviews: [
+      { color: 5, stars: 4, text: "첫 모금은 충격, 세 모금째 사랑", time: now - 9 * D },
+    ] },
+    { id: 208, kind: "spirit", emoji: "🥃", name: "탈리스커 10년", cat: "위스키", abv: 45.8, price: "7~9만원", note: "후추처럼 알싸한 스파이시함과 바다 내음. 스카이 섬의 개성이 뚜렷해요.", by: "익명", time: now - 33 * D, reviews: [] },
+    { id: 209, kind: "spirit", emoji: "🥃", name: "하이랜드 파크 12년", cat: "위스키", abv: 40, price: "7~9만원", note: "헤더 꿀의 단맛과 은은한 피트의 밸런스. 두루두루 호평받는 올라운더.", by: "익명", time: now - 32 * D, reviews: [] },
+    { id: 210, kind: "spirit", emoji: "🥃", name: "글렌드로낙 12년", cat: "위스키", abv: 43, price: "8~10만원", note: "진한 셰리 몰트를 합리적인 가격에. 맥캘란 대안으로 자주 권합니다.", by: "익명", time: now - 31 * D, reviews: [
+      { color: 3, stars: 5, text: "가성비 셰리는 이거죠", time: now - 5 * D },
+    ] },
+    { id: 211, kind: "spirit", emoji: "🥃", name: "보모어 12년", cat: "위스키", abv: 40, price: "6~8만원", note: "부드러운 피트 입문용. 스모크와 과일향의 균형이 좋아 피트 첫 경험으로 추천.", by: "익명", time: now - 30 * D, reviews: [] },
+    { id: 212, kind: "spirit", emoji: "🥃", name: "오반 14년", cat: "위스키", abv: 43, price: "10~13만원", note: "가벼운 스모크와 오렌지 껍질, 소금기. 하이랜드와 아일라의 중간 성격.", by: "익명", time: now - 29 * D, reviews: [] },
+    // ===== 위스키 (블렌디드) =====
+    { id: 213, kind: "spirit", emoji: "🥃", name: "조니워커 블랙 12년", cat: "위스키", abv: 40, price: "3~5만원", note: "블렌디드의 기준점. 은은한 스모크가 있어 하이볼부터 온더락까지 다 어울려요.", by: "익명", time: now - 28 * D, reviews: [
+      { color: 6, stars: 4, text: "바 기본템. 없는 데가 없죠", time: now - 7 * D },
+    ] },
+    { id: 214, kind: "spirit", emoji: "🥃", name: "발렌타인 17년", cat: "위스키", abv: 40, price: "7~9만원", note: "한국에서 유독 사랑받는 블렌디드. 부드럽고 고급스러워 접대 자리 단골.", by: "익명", time: now - 27 * D, reviews: [] },
+    { id: 215, kind: "spirit", emoji: "🥃", name: "시바스 리갈 12년", cat: "위스키", abv: 40, price: "3~4만원", note: "달콤하고 순한 블렌디드. 위스키 처음 마시는 손님에게 부담이 없어요.", by: "익명", time: now - 26 * D, reviews: [] },
+    { id: 216, kind: "spirit", emoji: "🥃", name: "제임슨", cat: "위스키", abv: 40, price: "3~4만원", note: "3회 증류로 가볍고 매끈한 아이리시 위스키. 진저에일과 섞는 '제임슨 진저'가 유명해요.", by: "익명", time: now - 25 * D, reviews: [
+      { color: 1, stars: 4, text: "아이리시 하이볼 최고", time: now - 4 * D },
+    ] },
+    // ===== 위스키 (아메리칸/버번) =====
+    { id: 217, kind: "spirit", emoji: "🥃", name: "메이커스 마크", cat: "위스키", abv: 45, price: "4~5만원", note: "밀을 쓴 부드러운 버번. 빨간 왁스 캡이 시그니처. 올드 패션드 베이스로 무난 그 이상.", by: "익명", time: now - 24 * D, reviews: [] },
+    { id: 218, kind: "spirit", emoji: "🥃", name: "버팔로 트레이스", cat: "위스키", abv: 45, price: "4~6만원", note: "바닐라·카라멜의 정석 버번. 칵테일과 니트 모두 커버하는 가성비 갑.", by: "익명", time: now - 23 * D, reviews: [
+      { color: 8, stars: 5, text: "우리 바 버번 칵테일은 다 이걸로", time: now - 2 * D },
+    ] },
+    { id: 219, kind: "spirit", emoji: "🥃", name: "와일드 터키 101", cat: "위스키", abv: 50.5, price: "4~6만원", note: "높은 도수의 펀치력. 위스키 사워처럼 시트러스와 붙어도 존재감이 살아있어요.", by: "익명", time: now - 22 * D, reviews: [] },
+    { id: 220, kind: "spirit", emoji: "🥃", name: "우드포드 리저브", cat: "위스키", abv: 43.2, price: "6~8만원", note: "곱고 우아한 프리미엄 버번. 민트 줄렙 공식 위스키로도 유명하죠.", by: "익명", time: now - 21 * D, reviews: [] },
+    { id: 221, kind: "spirit", emoji: "🥃", name: "잭 다니엘 올드 No.7", cat: "위스키", abv: 40, price: "3~5만원", note: "차콜 멜로잉을 거친 테네시 위스키. 잭콕 하나로 전 세계 바 필수템이 됐어요.", by: "익명", time: now - 20 * D, reviews: [] },
+    { id: 222, kind: "spirit", emoji: "🥃", name: "불렛 버번", cat: "위스키", abv: 45, price: "4~6만원", note: "라이 비율이 높아 스파이시한 버번. 칵테일에 넣으면 심이 잡혀요.", by: "익명", time: now - 19 * D, reviews: [] },
+    // ===== 위스키 (재패니즈) =====
+    { id: 223, kind: "spirit", emoji: "🥃", name: "야마자키 12년", cat: "위스키", abv: 43, price: "20~30만원", note: "일본 위스키 붐의 주역. 미즈나라 오크의 향신료 뉘앙스가 독특합니다. 구하기가 일.", by: "익명", time: now - 18 * D, reviews: [
+      { color: 2, stars: 5, text: "들어오는 족족 팔림", time: now - 1 * D },
+    ] },
+    { id: 224, kind: "spirit", emoji: "🥃", name: "히비키 하모니", cat: "위스키", abv: 43, price: "13~18만원", note: "이름처럼 조화로운 블렌디드. 병 디자인만으로도 바 백바가 살아나요.", by: "익명", time: now - 17 * D, reviews: [] },
+    { id: 225, kind: "spirit", emoji: "🥃", name: "산토리 가쿠빈", cat: "위스키", abv: 40, price: "3~4만원", note: "일본 하이볼 문화를 만든 술. 하이볼 전용이라 해도 과언이 아니에요.", by: "익명", time: now - 16 * D, reviews: [
+      { color: 4, stars: 4, text: "하이볼 회전율 최고", time: now - 3 * D },
+    ] },
+    { id: 226, kind: "spirit", emoji: "🥃", name: "니카 프롬 더 배럴", cat: "위스키", abv: 51.4, price: "8~11만원", note: "각진 병에 담긴 고도수 블렌디드. 진하고 묵직해서 온더락 진리.", by: "익명", time: now - 15 * D, reviews: [] },
+    // ===== 진 =====
+    { id: 227, kind: "spirit", emoji: "🍸", name: "봄베이 사파이어", cat: "진", abv: 47, price: "3~4만원", note: "10가지 보태니컬의 화사한 향. 파란 병만큼 향도 청량한 스탠다드 진.", by: "익명", time: now - 14 * D, reviews: [] },
+    { id: 228, kind: "spirit", emoji: "🍸", name: "헨드릭스", cat: "진", abv: 44, price: "5~7만원", note: "오이와 장미 인퓨전이 시그니처. 가니시도 라임 대신 오이로 내면 손님들이 신기해해요.", by: "익명", time: now - 13 * D, reviews: [
+      { color: 7, stars: 5, text: "진토닉에 오이 올리면 반응 미쳐요", time: now - 2 * D },
+    ] },
+    { id: 229, kind: "spirit", emoji: "🍸", name: "몽키 47", cat: "진", abv: 47, price: "8~11만원", note: "47가지 보태니컬을 쓴 독일 진. 복잡한 향을 즐기려면 마티니나 니트로.", by: "익명", time: now - 12 * D, reviews: [] },
+    { id: 230, kind: "spirit", emoji: "🍸", name: "로쿠 진", cat: "진", abv: 43, price: "4~5만원", note: "벚꽃·유자 등 일본 보태니컬 6종. 토닉과 만나면 은은한 벚꽃향이 살아나요.", by: "익명", time: now - 11 * D, reviews: [] },
+    // ===== 럼 =====
+    { id: 231, kind: "spirit", emoji: "🍹", name: "바카디 카르타 블랑카", cat: "럼", abv: 40, price: "2~3만원", note: "화이트 럼의 기준. 다이키리·모히토 등 럼 칵테일의 출발점입니다.", by: "익명", time: now - 10 * D, reviews: [] },
+    { id: 232, kind: "spirit", emoji: "🍹", name: "하바나 클럽 3년", cat: "럼", abv: 40, price: "3~4만원", note: "쿠바 스타일의 가벼운 숙성 럼. 모히토를 진짜 쿠바 맛으로 만들어줘요.", by: "익명", time: now - 10 * D, reviews: [] },
+    { id: 233, kind: "spirit", emoji: "🍹", name: "디플로마티코 리세르바", cat: "럼", abv: 40, price: "7~9만원", note: "디저트처럼 달콤한 베네수엘라 다크 럼. 럼 니트 입문으로 실패가 없어요.", by: "익명", time: now - 9 * D, reviews: [
+      { color: 5, stars: 5, text: "달콤한 술 찾는 손님 최종병기", time: now - 1 * D },
+    ] },
+    // ===== 보드카 =====
+    { id: 234, kind: "spirit", emoji: "🍸", name: "앱솔루트", cat: "보드카", abv: 40, price: "2~3만원", note: "깔끔하고 중립적인 스웨덴 보드카. 칵테일 베이스의 일꾼.", by: "익명", time: now - 9 * D, reviews: [] },
+    { id: 235, kind: "spirit", emoji: "🍸", name: "그레이 구스", cat: "보드카", abv: 40, price: "5~7만원", note: "프랑스 밀로 만든 프리미엄 보드카. 마티니를 부드럽게 마시고 싶을 때.", by: "익명", time: now - 8 * D, reviews: [] },
+    { id: 236, kind: "spirit", emoji: "🍸", name: "티토스", cat: "보드카", abv: 40, price: "4~5만원", note: "옥수수 베이스의 미국 크래프트 보드카. 은은한 단맛이 매력.", by: "익명", time: now - 8 * D, reviews: [] },
+    // ===== 데킬라 =====
+    { id: 237, kind: "spirit", emoji: "🥃", name: "돈 훌리오 블랑코", cat: "데킬라", abv: 40, price: "8~10만원", note: "100% 아가베의 깨끗한 단맛. 데킬라 이미지를 바꿔주는 술이에요.", by: "익명", time: now - 7 * D, reviews: [
+      { color: 9, stars: 5, text: "이거 마시고 데킬라 다시 봤다는 손님 많음", time: now - 2 * D },
+    ] },
+    { id: 238, kind: "spirit", emoji: "🥃", name: "호세 쿠엘보 에스페시알", cat: "데킬라", abv: 40, price: "3~4만원", note: "마르가리타 대량 영업의 친구. 슈터로도 제일 많이 나가죠.", by: "익명", time: now - 7 * D, reviews: [] },
+    // ===== 리큐르 =====
+    { id: 239, kind: "spirit", emoji: "🍷", name: "캄파리", cat: "리큐르", abv: 25, price: "3~4만원", note: "허브와 쓴맛의 이탈리안 비터 리큐르. 네그로니·스프리츠의 심장.", by: "익명", time: now - 6 * D, reviews: [] },
+    { id: 240, kind: "spirit", emoji: "🍷", name: "아페롤", cat: "리큐르", abv: 11, price: "3~4만원", note: "캄파리의 순한 동생. 오렌지빛 스프리츠 하나로 여름 매출을 책임집니다.", by: "익명", time: now - 6 * D, reviews: [
+      { color: 3, stars: 4, text: "여름엔 스프리츠가 국룰", time: now - 1 * D },
+    ] },
+    { id: 241, kind: "spirit", emoji: "🍾", name: "깔루아", cat: "리큐르", abv: 16, price: "2~3만원", note: "멕시코 커피 리큐르. 깔루아 밀크부터 에스프레소 마티니까지 활용 무한.", by: "익명", time: now - 5 * D, reviews: [] },
+    { id: 242, kind: "spirit", emoji: "🍾", name: "베일리스", cat: "리큐르", abv: 17, price: "3~4만원", note: "아이리시 크림 리큐르. 얼음에 그냥 부어도 디저트가 돼요.", by: "익명", time: now - 5 * D, reviews: [] },
+    { id: 243, kind: "spirit", emoji: "🍊", name: "코인트로", cat: "리큐르", abv: 40, price: "4~5만원", note: "오렌지 리큐르의 표준. 마르가리타·코스모·사이드카가 다 이 병에서 나옵니다.", by: "익명", time: now - 4 * D, reviews: [] },
+    { id: 244, kind: "spirit", emoji: "🍸", name: "미도리", cat: "리큐르", abv: 20, price: "3~4만원", note: "형광 초록의 멜론 리큐르. 준벅·미도리 사워로 초보 손님 입맛을 사로잡아요.", by: "익명", time: now - 4 * D, reviews: [] },
+    { id: 245, kind: "spirit", emoji: "🥥", name: "말리부", cat: "리큐르", abv: 21, price: "2~3만원", note: "코코넛 향 럼 리큐르. 파인애플 주스만 부어도 휴양지가 됩니다.", by: "익명", time: now - 3 * D, reviews: [] },
+    { id: 246, kind: "spirit", emoji: "🥃", name: "디사론노", cat: "리큐르", abv: 28, price: "4~5만원", note: "아몬드향 아마레또의 대명사. 갓파더·아마레또 사워 필수템.", by: "익명", time: now - 3 * D, reviews: [] },
+    // ===== 브랜디/전통주 =====
+    { id: 247, kind: "spirit", emoji: "🍾", name: "헤네시 VS", cat: "브랜디", abv: 40, price: "7~9만원", note: "세계에서 가장 많이 팔리는 꼬냑. 사이드카 베이스로도, 니트로도.", by: "익명", time: now - 2 * D, reviews: [] },
+    { id: 248, kind: "spirit", emoji: "🍶", name: "안동소주 45", cat: "전통주", abv: 45, price: "2~3만원", note: "전통 증류식 소주의 대표. 도수는 세지만 향은 곱습니다. 한식 안주와 찰떡.", by: "익명", time: now - 2 * D, reviews: [] },
+    { id: 249, kind: "spirit", emoji: "🍶", name: "복순도가 손막걸리", cat: "전통주", abv: 6.5, price: "1~2만원", note: "샴페인처럼 터지는 탄산 막걸리. 외국 손님 반응이 특히 좋아요.", by: "익명", time: now - 1 * D, reviews: [
+      { color: 6, stars: 5, text: "오픈할 때 뚜껑 조심 ㅋㅋ 분수됨", time: now - 10 * H },
+    ] }
+  );
+
+  SEED_SPIRITS.push(
+    // ===== 칵테일 (클래식) =====
+    { id: 301, kind: "cocktail", emoji: "🍸", name: "마티니", base: "진", abv: 28, ings: "진 60ml\n드라이 베르무트 10ml\n올리브 또는 레몬 필", recipe: "믹싱글라스에 얼음과 재료를 넣고 차갑게 스터. 칠링한 마티니 글라스에 스트레인 후 가니시.", note: "베르무트 비율로 드라이함을 조절해요. 손님 취향을 먼저 물어보는 게 좋아요.", by: "익명", time: now - 30 * D, reviews: [
+      { color: 1, stars: 5, text: "바텐더 실력이 그대로 드러나는 술", time: now - 5 * D },
+    ] },
+    { id: 302, kind: "cocktail", emoji: "🥃", name: "맨해튼", base: "위스키", abv: 30, ings: "라이 위스키 50ml\n스위트 베르무트 20ml\n앙고스투라 비터 2대시\n체리", recipe: "믹싱글라스에 얼음과 재료를 넣고 스터. 쿠페 글라스에 스트레인, 체리로 가니시.", note: "마티니와 함께 스터 기본기의 양대산맥. 버번으로 하면 좀 더 달콤해집니다.", by: "익명", time: now - 29 * D, reviews: [] },
+    { id: 303, kind: "cocktail", emoji: "🍹", name: "다이키리", base: "럼", abv: 22, ings: "화이트 럼 45ml\n라임주스 25ml\n설탕시럽 15ml", recipe: "셰이커에 얼음과 재료를 넣고 강하게 셰이크. 칠링한 쿠페에 더블 스트레인.", note: "럼·라임·설탕 세 가지로 셰이킹의 기본을 배우는 술. 밸런스 연습에 최고예요.", by: "익명", time: now - 28 * D, reviews: [
+      { color: 8, stars: 5, text: "심플한 게 제일 어렵다는 걸 알려주는 술", time: now - 4 * D },
+    ] },
+    { id: 304, kind: "cocktail", emoji: "🍋", name: "마르가리타", base: "데킬라", abv: 25, ings: "데킬라 50ml\n코인트로 20ml\n라임주스 15ml\n소금 리밍", recipe: "글라스 림에 라임을 문지르고 소금을 묻힌다. 재료를 셰이크해 스트레인.", note: "소금 리밍은 반만 하면 손님이 선택해서 마실 수 있어요.", by: "익명", time: now - 27 * D, reviews: [] },
+    { id: 305, kind: "cocktail", emoji: "🍸", name: "코스모폴리탄", base: "보드카", abv: 20, ings: "보드카 40ml\n코인트로 15ml\n라임주스 15ml\n크랜베리주스 30ml", recipe: "셰이커에 얼음과 재료를 넣고 셰이크. 마티니 글라스에 스트레인, 오렌지 필로 마무리.", note: "분홍빛 색감이 생명. 크랜베리 양으로 색을 조절해요.", by: "익명", time: now - 26 * D, reviews: [] },
+    { id: 306, kind: "cocktail", emoji: "🍸", name: "에스프레소 마티니", base: "보드카", abv: 18, ings: "보드카 50ml\n깔루아 20ml\n에스프레소 1샷(30ml)\n설탕시럽 5ml", recipe: "모든 재료를 얼음과 함께 아주 강하게 셰이크. 마티니 글라스에 더블 스트레인, 원두 3알 가니시.", note: "크레마 거품이 포인트라 셰이킹을 세게, 길게! 갓 뽑은 에스프레소일수록 좋아요.", by: "익명", time: now - 25 * D, reviews: [
+      { color: 2, stars: 5, text: "요즘 주문 1위. 원두 3알 잊지 마세요", time: now - 3 * D },
+    ] },
+    { id: 307, kind: "cocktail", emoji: "🥂", name: "아페롤 스프리츠", base: "리큐르", abv: 9, ings: "아페롤 60ml\n프로세코 90ml\n소다수 30ml\n오렌지 슬라이스", recipe: "얼음을 채운 와인 글라스에 프로세코, 아페롤, 소다수 순서로 붓고 가볍게 스터. 오렌지 가니시.", note: "순서대로 부어야 아페롤이 가라앉지 않아요. 여름 테라스 최강 메뉴.", by: "익명", time: now - 24 * D, reviews: [] },
+    { id: 308, kind: "cocktail", emoji: "🥃", name: "위스키 하이볼", base: "위스키", abv: 9, ings: "위스키 45ml\n탄산수 120ml\n레몬 필(선택)", recipe: "얼음을 가득 채운 하이볼 글라스에 위스키를 붓고 차가운 탄산수를 조심히 부은 뒤 딱 한 번 스터.", note: "얼음 가득·탄산수 차갑게·젓기는 한 번. 이 세 가지가 하이볼의 전부예요.", by: "익명", time: now - 23 * D, reviews: [
+      { color: 4, stars: 5, text: "가쿠빈+토키 얼음이면 끝", time: now - 2 * D },
+    ] },
+    { id: 309, kind: "cocktail", emoji: "🥥", name: "피나 콜라다", base: "럼", abv: 12, ings: "화이트 럼 50ml\n코코넛 크림 30ml\n파인애플주스 50ml\n파인애플 웨지", recipe: "재료를 크러시드 아이스와 함께 블렌딩하거나 강하게 셰이크. 파인애플과 체리로 가니시.", note: "블렌더 버전이 정석. 얼음 양으로 농도를 맞추세요.", by: "익명", time: now - 22 * D, reviews: [] },
+    { id: 310, kind: "cocktail", emoji: "🍹", name: "롱아일랜드 아이스티", base: "기타", abv: 22, ings: "진 15ml\n럼 15ml\n보드카 15ml\n데킬라 15ml\n코인트로 15ml\n레몬주스 25ml\n콜라 적당량", recipe: "콜라를 제외한 재료를 셰이크 후 얼음 채운 글라스에 붓고 콜라로 채운다. 레몬 가니시.", note: "홍차 없이 홍차 색을 내는 마법. 도수가 세니 손님에게 미리 안내하세요.", by: "익명", time: now - 21 * D, reviews: [
+      { color: 0, stars: 4, text: "만들 때마다 병 5개 꺼내는 게 일 ㅋㅋ", time: now - 6 * D },
+    ] },
+    { id: 311, kind: "cocktail", emoji: "🍾", name: "사이드카", base: "기타", abv: 26, ings: "꼬냑 50ml\n코인트로 20ml\n레몬주스 20ml\n설탕 리밍(선택)", recipe: "재료를 얼음과 셰이크해 쿠페 글라스에 스트레인. 취향에 따라 설탕 리밍.", note: "브랜디 칵테일 입문 1순위. 신맛과 단맛의 밸런스가 관건.", by: "익명", time: now - 20 * D, reviews: [] },
+    { id: 312, kind: "cocktail", emoji: "🍸", name: "김렛", base: "진", abv: 24, ings: "진 60ml\n라임주스 15ml\n설탕시럽 10ml", recipe: "재료를 얼음과 함께 셰이크 후 쿠페에 더블 스트레인. 라임 필 가니시.", note: "레이먼드 챈들러 소설로 유명해진 술. 드라이하게 갈수록 어른의 맛.", by: "익명", time: now - 19 * D, reviews: [] },
+    { id: 313, kind: "cocktail", emoji: "🍋", name: "톰 콜린스", base: "진", abv: 10, ings: "진 45ml\n레몬주스 30ml\n설탕시럽 15ml\n소다수 60ml", recipe: "진·레몬·시럽을 셰이크해 얼음 채운 콜린스 글라스에 붓고 소다수로 채운다. 레몬·체리 가니시.", note: "진 레모네이드라고 생각하면 쉬워요. 여름 낮술로 최고.", by: "익명", time: now - 18 * D, reviews: [] },
+    { id: 314, kind: "cocktail", emoji: "🥂", name: "프렌치 75", base: "진", abv: 15, ings: "진 30ml\n레몬주스 15ml\n설탕시럽 10ml\n샴페인 60ml", recipe: "진·레몬·시럽을 셰이크해 플루트 글라스에 스트레인 후 샴페인으로 채운다. 레몬 필 가니시.", note: "축하 자리에 어울리는 스파클링 칵테일. 샴페인은 마지막에!", by: "익명", time: now - 17 * D, reviews: [] },
+    { id: 315, kind: "cocktail", emoji: "🍈", name: "준벅", base: "리큐르", abv: 10, ings: "미도리 30ml\n말리부 15ml\n바나나 리큐르 15ml\n파인애플주스 60ml\n레몬주스 15ml", recipe: "재료를 얼음과 함께 셰이크해 얼음 채운 글라스에 붓는다. 파인애플·체리 가니시.", note: "초록빛 달콤함으로 술 못 마시는 손님도 사로잡는 국민 입문 칵테일.", by: "익명", time: now - 16 * D, reviews: [
+      { color: 7, stars: 4, text: "여자 손님 테이블에서 제일 많이 나가요", time: now - 3 * D },
+    ] },
+    { id: 316, kind: "cocktail", emoji: "🍈", name: "미도리 사워", base: "리큐르", abv: 10, ings: "미도리 45ml\n레몬주스 20ml\n설탕시럽 10ml\n소다수 60ml", recipe: "미도리·레몬·시럽을 셰이크해 얼음 채운 글라스에 붓고 소다수로 채운다.", note: "형광 초록 비주얼로 사진 찍는 손님이 많아요. 상큼달콤의 대명사.", by: "익명", time: now - 15 * D, reviews: [] },
+    { id: 317, kind: "cocktail", emoji: "🍅", name: "블러디 메리", base: "보드카", abv: 12, ings: "보드카 45ml\n토마토주스 90ml\n레몬주스 15ml\n우스터소스 2대시\n타바스코 약간\n소금·후추", recipe: "재료를 얼음과 함께 롤링(잔 사이로 옮겨 붓기)해 섞고 셀러리 스틱으로 가니시.", note: "해장 칵테일의 전설. 스파이스 양은 손님 취향대로 조절하세요.", by: "익명", time: now - 14 * D, reviews: [] },
+    { id: 318, kind: "cocktail", emoji: "🧉", name: "모스코 뮬", base: "보드카", abv: 10, ings: "보드카 45ml\n진저비어 120ml\n라임주스 10ml\n라임 웨지", recipe: "구리 머그에 얼음을 채우고 보드카·라임주스를 넣은 뒤 진저비어로 채운다.", note: "구리잔이 없으면 하이볼 글라스도 OK. 생강의 알싸함이 포인트.", by: "익명", time: now - 13 * D, reviews: [] },
+    { id: 319, kind: "cocktail", emoji: "🥤", name: "쿠바 리브레", base: "럼", abv: 10, ings: "화이트 럼 50ml\n콜라 120ml\n라임주스 10ml\n라임 웨지", recipe: "얼음 채운 하이볼 글라스에 럼과 라임주스를 넣고 콜라로 채운 뒤 가볍게 스터.", note: "럼콕과의 차이는 라임 한 조각. 그 한 조각이 커요.", by: "익명", time: now - 12 * D, reviews: [] },
+    { id: 320, kind: "cocktail", emoji: "🥛", name: "깔루아 밀크", base: "리큐르", abv: 5, ings: "깔루아 45ml\n우유 120ml", recipe: "얼음을 채운 글라스에 깔루아를 붓고 우유를 부어 층을 만든 뒤 마시기 전에 젓는다.", note: "층 분리를 예쁘게 내려면 우유를 바 스푼 등을 타고 천천히. 알콜 입문 1번 술.", by: "익명", time: now - 11 * D, reviews: [] },
+    { id: 321, kind: "cocktail", emoji: "🍑", name: "섹스 온 더 비치", base: "보드카", abv: 11, ings: "보드카 40ml\n피치 리큐르 20ml\n오렌지주스 40ml\n크랜베리주스 40ml", recipe: "얼음 채운 글라스에 재료를 순서대로 붓고 가볍게 스터. 오렌지 슬라이스 가니시.", note: "그라데이션을 내고 싶으면 크랜베리를 마지막에 천천히.", by: "익명", time: now - 10 * D, reviews: [] },
+    { id: 322, kind: "cocktail", emoji: "🥃", name: "페니실린", base: "위스키", abv: 20, ings: "블렌디드 스카치 45ml\n레몬주스 25ml\n꿀생강시럽 20ml\n아일라 위스키 플로트 7.5ml", recipe: "스카치·레몬·시럽을 셰이크해 얼음 위에 스트레인, 피트 위스키를 띄우고 생강 슬라이스 가니시.", note: "모던 클래식의 대표. 마지막 피트 플로트가 '약' 같은 향을 완성해요.", by: "익명", time: now - 9 * D, reviews: [
+      { color: 9, stars: 5, text: "이거 시키는 손님은 찐이다", time: now - 2 * D },
+    ] },
+    { id: 323, kind: "cocktail", emoji: "🍷", name: "뉴욕 사워", base: "위스키", abv: 18, ings: "버번 45ml\n레몬주스 25ml\n설탕시럽 15ml\n레드와인 플로트 15ml", recipe: "버번·레몬·시럽을 셰이크해 얼음 위에 붓고 레드와인을 스푼 뒷면을 타고 띄운다.", note: "와인 층이 만드는 그라데이션이 시그니처. 사진 맛집 칵테일.", by: "익명", time: now - 8 * D, reviews: [] },
+    { id: 324, kind: "cocktail", emoji: "🥃", name: "갓파더", base: "위스키", abv: 30, ings: "스카치 위스키 45ml\n디사론노 15ml", recipe: "온더락 글라스에 큰 얼음을 넣고 재료를 부은 뒤 가볍게 스터.", note: "재료 두 개로 끝나는 남자의 술. 아마레또 비율로 단맛 조절.", by: "익명", time: now - 7 * D, reviews: [] },
+    { id: 325, kind: "cocktail", emoji: "☕", name: "화이트 러시안", base: "보드카", abv: 15, ings: "보드카 40ml\n깔루아 20ml\n생크림(또는 우유) 20ml", recipe: "온더락 글라스에 얼음, 보드카, 깔루아를 넣고 크림을 위에 띄운다.", note: "영화 위대한 레보스키로 유명해진 술. 크림 대신 우유면 좀 더 가볍게.", by: "익명", time: now - 6 * D, reviews: [] },
+    { id: 326, kind: "cocktail", emoji: "☕", name: "블랙 러시안", base: "보드카", abv: 22, ings: "보드카 50ml\n깔루아 20ml", recipe: "온더락 글라스에 얼음과 재료를 넣고 스터.", note: "화이트 러시안에서 크림만 뺀 심플 버전. 식후주로 좋아요.", by: "익명", time: now - 6 * D, reviews: [] },
+    { id: 327, kind: "cocktail", emoji: "🍹", name: "마이타이", base: "럼", abv: 20, ings: "다크 럼 30ml\n화이트 럼 30ml\n오렌지 퀴라소 15ml\n오르쟈(아몬드시럽) 10ml\n라임주스 20ml\n민트", recipe: "재료를 크러시드 아이스와 셰이크해 글라스에 통째로 붓고 민트와 라임으로 가니시.", note: "티키 칵테일의 왕. 다크 럼 플로트를 얹으면 비주얼 완성.", by: "익명", time: now - 5 * D, reviews: [] },
+    { id: 328, kind: "cocktail", emoji: "🍋", name: "카이피리냐", base: "기타", abv: 22, ings: "카샤사 60ml\n라임 1개(웨지)\n설탕 2티스푼", recipe: "글라스에 라임과 설탕을 넣고 머들링한 뒤 크러시드 아이스와 카샤사를 넣고 스터.", note: "브라질 국민 칵테일. 카샤사가 없으면 럼으로 하면 카이피리시마.", by: "익명", time: now - 5 * D, reviews: [] },
+    { id: 329, kind: "cocktail", emoji: "🌅", name: "데킬라 선라이즈", base: "데킬라", abv: 12, ings: "데킬라 45ml\n오렌지주스 90ml\n그레나딘 시럽 15ml", recipe: "얼음 채운 글라스에 데킬라와 오렌지주스를 붓고 그레나딘을 천천히 가라앉힌다.", note: "일출 그라데이션이 생명. 젓지 말고 그대로 서브하세요.", by: "익명", time: now - 4 * D, reviews: [] },
+    { id: 330, kind: "cocktail", emoji: "🍋", name: "팔로마", base: "데킬라", abv: 10, ings: "데킬라 50ml\n자몽소다 120ml\n라임주스 10ml\n소금 리밍(선택)", recipe: "소금 리밍한 하이볼 글라스에 얼음, 데킬라, 라임주스를 넣고 자몽소다로 채운다.", note: "멕시코 현지에서는 마르가리타보다 인기. 여름 신메뉴로 강추.", by: "익명", time: now - 4 * D, reviews: [] },
+    { id: 331, kind: "cocktail", emoji: "🥂", name: "미모사", base: "기타", abv: 8, ings: "샴페인 75ml\n오렌지주스 75ml", recipe: "플루트 글라스에 오렌지주스를 붓고 샴페인을 천천히 채운다.", note: "브런치의 동반자. 1:1 비율이 기본, 젓지 않아도 됩니다.", by: "익명", time: now - 3 * D, reviews: [] },
+    { id: 332, kind: "cocktail", emoji: "🍑", name: "벨리니", base: "기타", abv: 8, ings: "프로세코 100ml\n복숭아 퓨레 50ml", recipe: "플루트 글라스에 복숭아 퓨레를 넣고 프로세코를 천천히 부어 가볍게 섞는다.", note: "베네치아 해리스바에서 탄생한 클래식. 퓨레는 화이트 피치가 정석.", by: "익명", time: now - 3 * D, reviews: [] },
+    { id: 333, kind: "cocktail", emoji: "🥃", name: "아마레또 사워", base: "리큐르", abv: 14, ings: "디사론노 45ml\n레몬주스 25ml\n설탕시럽 10ml\n달걀 흰자(선택)", recipe: "재료를 드라이 셰이크 후 얼음과 다시 셰이크해 온더락 글라스에 스트레인. 체리 가니시.", note: "아몬드 향과 신맛의 조합이 반칙급. 사워 중 실패 확률 최저.", by: "익명", time: now - 2 * D, reviews: [
+      { color: 6, stars: 5, text: "단골들 최애. 흰자 넣으면 완성도 확 올라감", time: now - 1 * D },
+    ] },
+    { id: 334, kind: "cocktail", emoji: "🍸", name: "진 피즈", base: "진", abv: 10, ings: "진 45ml\n레몬주스 25ml\n설탕시럽 15ml\n소다수 60ml", recipe: "진·레몬·시럽을 셰이크해 얼음 없이 글라스에 붓고 소다수로 채운다.", note: "톰 콜린스와 형제지만 얼음 없이 마시는 게 정석 차이점.", by: "익명", time: now - 2 * D, reviews: [] },
+    { id: 335, kind: "cocktail", emoji: "🍹", name: "신데렐라", base: "논알콜", abv: 0, ings: "오렌지주스 40ml\n파인애플주스 40ml\n레몬주스 20ml\n그레나딘 5ml\n소다수(선택)", recipe: "재료를 얼음과 셰이크해 글라스에 붓고 체리로 가니시.", note: "무알콜 대표 목테일. 운전하는 손님, 임산부 손님에게 자신 있게 권하세요.", by: "익명", time: now - 1 * D, reviews: [] },
+    { id: 336, kind: "cocktail", emoji: "🌿", name: "버진 모히토", base: "논알콜", abv: 0, ings: "라임 반 개\n애플민트 10장\n설탕 2티스푼\n소다수 150ml", recipe: "민트·라임·설탕을 가볍게 머들링하고 크러시드 아이스와 소다수를 채운다.", note: "럼만 뺀 모히토. 낮 영업이나 카페 겸업 바의 효자 메뉴.", by: "익명", time: now - 1 * D, reviews: [] }
+  );
+
+  SEED_MEETS.push(
+    { id: 501, region: "서울", title: "이태원 바 호핑 투어 🍸", date: now + 3 * D, place: "이태원역 2번 출구 집결", max: 8, joined: 5, desc: "이태원 유명 바 3곳을 도는 호핑 투어. 각자 한 잔씩, 좋은 바 공유해요.", host: "익명", hostColor: 0, isJoined: false, comments: [
+      { color: 2, text: "코스 미리 알 수 있을까요?", time: now - 6 * H },
+      { color: 0, text: "집결 후 공개할게요! 기대하셔도 좋아요", time: now - 5 * H },
+    ] },
+    { id: 502, region: "서울", title: "성수 내추럴와인 시음회 🍷", date: now + 6 * D, place: "성수동 와인샵 세미나룸", max: 10, joined: 7, desc: "내추럴와인 5종 블라인드 시음. 와인바 근무자 환영, 시음비 각자 부담입니다.", host: "익명", hostColor: 6, isJoined: false, comments: [] },
+    { id: 503, region: "인천", title: "조주기능사 실기 스터디 📚", date: now + 4 * D, place: "부평 스터디카페", max: 6, joined: 3, desc: "9월 실기 대비 레시피 암기 + 시연 연습. 기물 있으신 분 환영!", host: "익명", hostColor: 3, isJoined: false, comments: [
+      { color: 9, text: "필기만 붙은 상태인데 가도 되나요?", time: now - 8 * H },
+    ] },
+    { id: 504, region: "대구", title: "대구 바텐더 정기모임 🍻", date: now + 9 * D, place: "동성로 OO펍", max: 12, joined: 8, desc: "대구·경산 바텐더 분기 정모입니다. 신입 환영, 명함 챙겨오세요!", host: "익명", hostColor: 1, isJoined: false, comments: [] },
+    { id: 505, region: "광주", title: "광주 칵테일 원데이 클래스", date: now + 12 * D, place: "동명동 카페 2층", max: 6, joined: 2, desc: "사워 3종 만들어보는 원데이 클래스. 재료비 포함, 초보 환영.", host: "익명", hostColor: 7, isJoined: false, comments: [] },
+    { id: 506, region: "대전", title: "대전 홈텐딩 모임 🏠", date: now + 8 * D, place: "둔산동 파티룸", max: 8, joined: 4, desc: "각자 자신있는 칵테일 한 잔씩 만들어서 나눠 마셔요. 재료는 공동 구매!", host: "익명", hostColor: 5, isJoined: false, comments: [] }
+  );
+
+  SEED_POSTS.push(
+    { id: 501, cat: "free", color: 4, nick: "익명", time: now - 2 * H, title: "조주기능사 실기 합격했어요!!", body: "3트만에 드디어 붙었습니다 ㅠㅠ 사이드카에서 계량 실수한 줄 알았는데 합격. 다들 화이팅!", likes: 8, comments: [
+      { color: 1, text: "축하드려요!! 저는 다음달 시험", time: now - 100 * M },
+      { color: 6, text: "3트 존버 승리 ㅋㅋ 축하합니다", time: now - 80 * M },
+      { color: 9, text: "실기 팁 좀 공유해주세요", time: now - 60 * M },
+    ], emoji: "🎉" },
+    { id: 502, cat: "free", color: 8, nick: "익명", time: now - 3 * H, title: "보스턴 vs 코블러 셰이커", body: "여러분은 어떤 거 쓰세요? 저는 보스턴파인데 신입이 코블러 편하다고 해서 갑자기 궁금해짐", likes: 3, comments: [
+      { color: 5, text: "영업은 보스턴, 연습은 코블러요", time: now - 150 * M },
+      { color: 2, text: "코블러 거름망 막히는 거 스트레스라 보스턴", time: now - 120 * M },
+    ] },
+    { id: 503, cat: "free", color: 0, nick: "익명", time: now - 7 * H, title: "오늘 단골손님이 케이크 사옴", body: "우리 바 1주년이라고 케이크 사오셨는데 순간 울컥했다.. 이 맛에 바텐더 하는 듯", likes: 12, comments: [
+      { color: 3, text: "이런 손님 진짜 소중해요 ㅠㅠ", time: now - 6 * H },
+      { color: 7, text: "1주년 축하드려요!!", time: now - 5 * H },
+    ], emoji: "🎂" },
+    { id: 504, cat: "free", color: 6, nick: "익명", time: now - 9 * H, title: "발주 실수로 캄파리 12병 옴", body: "3병 시킨다는게 12병 시킴.. 사장님한테 말하기 전에 네그로니 프로모션 기획서부터 쓰는 중 ㅋㅋㅋ", likes: 9, comments: [
+      { color: 8, text: "ㅋㅋㅋㅋ위기를 기회로", time: now - 8 * H },
+      { color: 4, text: "네그로니 위크 하면 되겠네요", time: now - 7 * H },
+      { color: 1, text: "스프리츠도 팔아요 여름이잖아요", time: now - 6 * H },
+    ] },
+    { id: 505, cat: "free", color: 2, nick: "익명", time: now - 12 * H, title: "얼음 기계 고장났을 때 꿀팁", body: "근처 편의점 각얼음 쓸어오는 것 말고 방법 있나요? 내일 아침에 기사님 오신다는데 오늘 영업이 문제", likes: 2, comments: [
+      { color: 0, text: "근처 바에 SOS 쳐보세요. 은근 다 도와줌", time: now - 11 * H },
+      { color: 9, text: "제빙기 커뮤니티 카페 있어요. 셀프 수리법도 나옴", time: now - 10 * H },
+    ] },
+    { id: 506, cat: "hot", color: 3, nick: "익명", time: now - 18 * H, title: "바텐더 월급 공개해봄 (3년차)", body: "세후 280 + 팁 평균 30. 서울 칵테일바 기준이고 주 5일 밤 근무. 다들 어느 정도 받아요?", likes: 15, comments: Array.from({ length: 28 }, (_, i) => ({ color: (i + 2) % 10, text: ["저랑 비슷하네요", "지방은 그거보다 낮아요 ㅠ", "팁 문화 부럽다", "호텔바는 더 줘요", "5년차인데 320이요"][i % 5], time: now - (1000 - i * 30) * M })), emoji: "💰" },
+    { id: 507, cat: "hot", color: 9, nick: "익명", time: now - 22 * H, title: "진상 대처법 모음 (댓글로 추가해줘)", body: "1. 목소리는 낮추고 속도는 천천히 2. 동료와 아이컨택 3. 사장 콜은 빠르게. 다들 노하우 공유점", likes: 11, comments: Array.from({ length: 17 }, (_, i) => ({ color: (i + 4) % 10, text: ["물 한잔 먼저 드리면 텐션 내려가요", "CCTV 가리키면 조용해짐 ㅋㅋ", "마지막 잔은 무알콜로 슬쩍", "저장했습니다", "이건 국룰"][i % 5], time: now - (1200 - i * 40) * M })) },
+    { id: 508, cat: "free", color: 5, nick: "익명", time: now - 26 * H, title: "시그니처 메뉴 이름 짓는 거 너무 어려움", body: "유자+진+얼그레이 조합인데 이름이 안 떠오름. 공모합니다. 채택되면 오시면 한 잔 쏨", likes: 6, comments: [
+      { color: 7, text: "'달빛유자' 어때요", time: now - 25 * H },
+      { color: 2, text: "얼그레이서울", time: now - 24 * H },
+      { color: 8, text: "시트러스 가든", time: now - 23 * H },
+    ], emoji: "🍋" },
+    { id: 509, cat: "promo", color: 1, nick: "몰트하우스", time: now - 5 * H, title: "[수원] 위스키 시음회 참가자 모집", body: "이번 주 일요일 셰리 캐스크 특집 시음회. 5종 시음 + 안주 포함, 선착순 10명!", likes: 1, comments: [], emoji: "🥃" },
+    { id: 510, cat: "promo", color: 9, nick: "바텐더마켓", time: now - 8 * H, title: "중고 기물 일괄 판매 (폐업 정리)", body: "보스턴 셰이커, 믹싱글라스, 지거 등 일괄 정리합니다. 상태 상급, 직거래 환영.", likes: 0, comments: [
+      { color: 4, text: "쪽지 드렸어요!", time: now - 7 * H },
+    ], emoji: "🛒" },
+    { id: 511, cat: "promo", color: 0, nick: "칵테일챔피언십", time: now - 30 * H, title: "전국 바텐더 칵테일 대회 접수 시작", body: "예선 온라인 레시피 심사 → 본선 라이브 시연. 우승 상금 300만원. 접수는 이달 말까지!", likes: 4, comments: [
+      { color: 6, text: "작년에 나갔는데 경험 자체가 큰 도움됐어요", time: now - 28 * H },
+    ], emoji: "🏆" },
+    { id: 512, cat: "free", color: 7, nick: "익명", time: now - 32 * H, title: "새벽 마감하고 보는 일출", body: "힘든데 이 순간 때문에 버티는 것 같기도. 다들 마감 후 루틴 있어요?", likes: 7, comments: [
+      { color: 3, text: "국밥 먹고 자기. 국룰임", time: now - 30 * H },
+      { color: 5, text: "저는 무조건 반신욕", time: now - 29 * H },
+    ], emoji: "🌅" }
+  );
+
   /* ---------- 상태 ---------- */
   const DEFAULT_USER = {
     nick: "", color: 2, points: 0, onboarded: false,
@@ -144,6 +364,20 @@
   const saveMeets = () => store.set("meets", state.meets);
   const saveNoti = () => store.set("noti", state.noti);
   const saveChats = () => store.set("chats", state.chats);
+
+  /* ---------- 시드 병합 (앱 업데이트 시 새 데이터 추가) ---------- */
+  const SEED_V = 2;
+  if (store.get("seedv", 1) < SEED_V) {
+    const mergeSeed = (arr, seed) => {
+      const ids = new Set(arr.map((x) => x.id));
+      seed.forEach((s) => { if (!ids.has(s.id)) arr.push(s); });
+    };
+    mergeSeed(state.posts, SEED_POSTS);
+    mergeSeed(state.spirits, SEED_SPIRITS);
+    mergeSeed(state.meets, SEED_MEETS);
+    savePosts(); saveSpirits(); saveMeets();
+    store.set("seedv", SEED_V);
+  }
 
   /* ---------- 유틸 ---------- */
   const $ = (s) => document.querySelector(s);
