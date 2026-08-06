@@ -42,6 +42,10 @@
     </header>
     <div class="scroll-area">
       <div class="greet" id="home-greet"></div>
+      <button class="search-box home-search" id="home-search-btn">
+        <svg viewBox="0 0 24 24" class="search-ic"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <span class="hs-ph">술 · 칵테일 · 커뮤니티 · 채용 통합 검색</span>
+      </button>
       <div class="quick-grid">
         <button class="quick-item pressable" data-go="jobs"><span class="quick-ic">💼</span><span>채용정보</span></button>
         <button class="quick-item pressable" data-go="dogam"><span class="quick-ic">🥃</span><span>술도감</span></button>
@@ -102,6 +106,40 @@
         <div id="home-posts"></div>
       </div>
       <div style="height:24px"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 통합 검색 ===================== -->
+  <section class="view" id="view-search" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="home">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <div class="search-box inline-search">
+        <svg viewBox="0 0 24 24" class="search-ic"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input type="text" id="global-search" placeholder="통합 검색">
+      </div>
+    </header>
+    <div class="scroll-area" id="search-results">
+      <div class="empty-state">술, 칵테일, 게시글, 채용, 모임, 상품을<br>한 번에 검색해보세요.</div>
+    </div>
+  </section>
+
+  <!-- ===================== 내 술장 ===================== -->
+  <section class="view" id="view-cellar" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="mypage">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">내 술장</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="seg" id="cellar-seg">
+      <button class="seg-btn active" data-cellar="tried">🥃 마셔봤어요</button>
+      <button class="seg-btn" data-cellar="wish">⭐ 위시리스트</button>
+    </div>
+    <div class="scroll-area">
+      <div id="cellar-list"></div>
     </div>
   </section>
 
@@ -173,6 +211,7 @@
       <button class="seg-btn" data-kind="cocktail">🍸 칵테일</button>
     </div>
     <div class="chip-scroll" id="dogam-cats"></div>
+    <div class="chip-scroll" id="dogam-region" hidden></div>
     <div class="scroll-area">
       <div class="search-box">
         <svg viewBox="0 0 24 24" class="search-ic"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
@@ -400,6 +439,9 @@
         <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
       </button>
       <span class="flex-1"></span>
+      <button class="icon-btn" id="post-edit" hidden aria-label="수정">
+        <svg viewBox="0 0 24 24"><path d="M4 20l4-1L20 7.5 16.5 4 5 15.5 4 20z"/></svg>
+      </button>
       <button class="icon-btn" id="post-chat" aria-label="1:1 채팅">
         <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/></svg>
       </button>
@@ -408,6 +450,10 @@
       </button>
     </header>
     <div class="scroll-area" id="post-detail"></div>
+    <div class="reply-bar" id="reply-bar" hidden>
+      <span>↳ 답글 작성 중</span>
+      <button id="reply-cancel" aria-label="답글 취소">✕</button>
+    </div>
     <footer class="comment-footer">
       <input type="file" id="comment-file" accept="image/*" hidden>
       <button class="icon-btn cmt-img-btn" id="comment-img-btn" aria-label="사진 첨부">📷</button>
@@ -476,6 +522,10 @@
         <div class="stat"><b id="stat-meets">0</b><span>참여 모임</span></div>
         <div class="stat"><b id="stat-posts">0</b><span>작성 글</span></div>
       </div>
+      <div class="card badge-sec">
+        <div class="badge-head"><h3>뱃지</h3><span id="badge-count"></span></div>
+        <div class="badge-grid" id="badge-grid"></div>
+      </div>
       <div class="card row-link pressable" id="btn-points">
         <span class="row-label">포인트</span>
         <span class="flex-1"></span>
@@ -483,6 +533,7 @@
         <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
       </div>
       <div class="card menu-list">
+        <button class="row-link pressable" id="btn-cellar"><span class="row-label">내 술장</span><span class="flex-1"></span><span class="row-badge" id="cellar-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-favjobs"><span class="row-label">관심알바</span><span class="flex-1"></span><span class="row-badge" id="favjob-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-myposts"><span class="row-label">내가 쓴 글</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-orders"><span class="row-label">주문 내역</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>

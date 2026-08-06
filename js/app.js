@@ -710,6 +710,13 @@
     pdQty: 1,
     wlOffset: 0,
     dogamSort: "new",
+    dogamRegion: "전체",
+    dogamAbv: "전체",
+    dogamPrice: "전체",
+    cellarTab: "tried",
+    ctMult: 1,
+    replyTo: null,
+    editPost: null,
     finderSel: [],
     quiz: null,
     calcRows: [{ name: "", price: "", vol: "", use: "" }, { name: "", price: "", vol: "", use: "" }],
@@ -728,6 +735,14 @@
   const saveCart = () => store.set("cart", state.cart);
   const saveOrders = () => store.set("orders", state.orders);
   const saveWorklog = () => store.set("worklog", state.worklog);
+
+  /* ---------- 사용자 필드 보강 (앱 업데이트 시) ---------- */
+  state.user.cellar = state.user.cellar || { tried: [], wish: [] };
+  state.user.badges = state.user.badges || [];
+  state.user.myReviews = state.user.myReviews || 0;
+  state.user.myComments = state.user.myComments || 0;
+  state.user.lastAttend = state.user.lastAttend || "";
+  state.user.attendStreak = state.user.attendStreak || 0;
 
   /* ---------- 시드 병합 (앱 업데이트 시 새 데이터 추가) ---------- */
   const SEED_V = 4;
@@ -840,7 +855,7 @@
     $$(".view").forEach((v) => { v.hidden = v.id !== "view-" + view; });
     $("#bottom-nav").style.display = view === "onboard" ? "none" : "";
     const navView = NAV_VIEWS.includes(view) ? view
-      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", market: "home", "market-detail": "home", cart: "home", worklog: "home", units: "home", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage" }[view] || "home";
+      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", market: "home", "market-detail": "home", cart: "home", worklog: "home", units: "home", search: "home", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage" }[view] || "home";
     $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === navView));
     if (view === "home") renderHome();
     if (view === "market") renderStore();
@@ -848,6 +863,8 @@
     if (view === "orders") renderOrders();
     if (view === "worklog") renderWorklog();
     if (view === "units") renderUnits();
+    if (view === "cellar") renderCellar();
+    if (view === "search") setTimeout(() => $("#global-search").focus(), 50);
     if (view === "finder") renderFinder();
     if (view === "quiz") renderQuiz();
     if (view === "calc") renderCalc();
@@ -886,6 +903,175 @@
       addNoti("🎉", `${nick}님, 바텐톡에 오신 걸 환영해요! 가입 축하 500P를 드렸어요.`);
     }
     show("home");
+  }
+
+  /* ---------- 위스키 지역 분류 ---------- */
+  const WREGION = {};
+  [["스페이사이드", "글렌피딕 글렌리벳 맥캘란 발베니 글렌알라키 글렌파클라스 아벨라워 크래겐모어 크라겔라키 벤리악 벤로막 글렌그란트 스페이번 모틀락 카듀 싱글톤"],
+   ["하이랜드", "글렌모렌지 달모어 글렌고인 글렌드로낙 토마틴 딘스톤 글렌터렛 애버펠디 로크로몬드 인치머린 툴리바딘 에드라두어 안녹 클라이넬리쉬 발블레어 달위니 아드모어 오반"],
+   ["아일라", "아드벡 라프로익 라가불린 보모어 브룩라디 옥토모어 쿨일라 부나하벤 킬호만 아드나호"],
+   ["아일랜즈", "탈리스커 아란 주라 스카파 토버모리 레첵"],
+   ["캠벨타운", "스프링뱅크 헤이즐번 롱로우 킬커란"],
+   ["로우랜드", "글렌킨치"],
+   ["블렌디드", "조니워커 발렌타인 시바스 듀어스 커티삭 몽키 로얄 윈저 임페리얼 골든블루 스카치 J&B 나이키드 코퍼독 쉬글모어 그란츠 패스포트 화이트"],
+   ["아이리시", "제임슨 부시밀즈 레드브레스트 그린 옐로우 털러모어 틸링 코네마라 라이터스 미들턴 파워스"],
+   ["아메리칸", "버팔로 블랜튼스 이글 웰러 E.H. 사제락 에반 헨리 엘라이자 러셀즈 와일드 포 놉 베이즐 부커스 베이커스 메이커스 우드포드 올드 미치터스 잭 젠틀맨 불렛 하이 리튼하우스 짐빔 제퍼슨스 엔젤스 크라운 캐나디안 스태그"],
+   ["재패니즈", "야마자키 히비키 하쿠슈 산토리 니카 슈퍼 다케츠루 치타 마르스 아카시 이치로즈"],
+  ].forEach(([region, brands]) => brands.split(" ").forEach((b) => { WREGION[b] = region; }));
+  const TWO_TOKEN_REGION = { "하이랜드 파크": "아일랜즈", "글렌 스코시아": "캠벨타운", "올드 풀트니": "하이랜드", "포트 샬롯": "아일라", "포트 엘렌": "아일라", "페이머스 그라우스": "블렌디드", "몽키 숄더": "블렌디드", "글렌 엘긴": "스페이사이드" };
+  function regionOfWhisky(name) {
+    const t = String(name).split(/\s+/);
+    return TWO_TOKEN_REGION[t[0] + " " + (t[1] || "")] || WREGION[t[0]] || "기타";
+  }
+  const WHISKY_REGIONS = ["전체", "스페이사이드", "하이랜드", "아일라", "아일랜즈", "캠벨타운", "로우랜드", "블렌디드", "아이리시", "아메리칸", "재패니즈", "기타"];
+  function parsePriceMan(price) {
+    const m = String(price || "").match(/(\d+)/);
+    return m ? +m[1] : null;
+  }
+
+  /* ---------- 내 술장 ---------- */
+  function inCellar(kind, id) { return state.user.cellar[kind].includes(id); }
+  function toggleCellar(kind, id) {
+    const arr = state.user.cellar[kind];
+    const i = arr.indexOf(id);
+    if (i >= 0) arr.splice(i, 1);
+    else {
+      arr.push(id);
+      toast(kind === "tried" ? "내 술장에 추가했어요. 🥃" : "위시리스트에 담았어요. ⭐");
+    }
+    saveUser();
+    checkBadges();
+  }
+  function renderCellar() {
+    $$("#cellar-seg .seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.cellar === state.cellarTab));
+    const ids = state.user.cellar[state.cellarTab];
+    const list = ids.map((id) => state.spirits.find((s) => s.id === id)).filter(Boolean).reverse();
+    $("#cellar-list").innerHTML = list.length
+      ? list.map((sp) => `
+        <div class="spirit-item" data-id="${sp.id}">
+          <span class="spirit-emoji">${thumbHTML(sp)}</span>
+          <div class="spirit-info">
+            <div class="spirit-name">${esc(sp.name)}</div>
+            <div class="spirit-meta">${sp.kind === "cocktail" ? esc(sp.base) + " 베이스" : esc(sp.cat) + " · " + sp.abv + "%"}</div>
+          </div>
+          <div class="spirit-rate"><div class="stars">★ ${avgStars(sp) ? avgStars(sp).toFixed(1) : "-"}</div></div>
+        </div>`).join("")
+      : `<div class="empty-state">${state.cellarTab === "tried" ? "마셔본 술을 술도감에서 추가해보세요!" : "위시리스트가 비어있어요."}</div>`;
+    $$("#cellar-list .spirit-item").forEach((el) =>
+      el.addEventListener("click", () => openSpirit(+el.dataset.id)));
+    wireImgFallback("#cellar-list");
+  }
+
+  /* ---------- 뱃지 ---------- */
+  const BADGES = [
+    { id: "start", ic: "🍸", name: "첫 발걸음", desc: "바텐톡 가입", cond: () => true },
+    { id: "attend7", ic: "🔥", name: "성실왕", desc: "7일 연속 출석", cond: () => state.user.attendStreak >= 7 },
+    { id: "taster", ic: "👅", name: "테이스터", desc: "리뷰 10개 작성", cond: () => state.user.myReviews >= 10 },
+    { id: "collector", ic: "📖", name: "도감 수집가", desc: "술/칵테일 5개 등록", cond: () => (state.user.mySpiritIds || []).length >= 5 },
+    { id: "cellar20", ic: "🥃", name: "술장 부자", desc: "마셔본 술 20개", cond: () => state.user.cellar.tried.length >= 20 },
+    { id: "quizking", ic: "🏆", name: "조주왕", desc: "레시피 퀴즈 만점", cond: () => !!state.user.quizPerfect },
+    { id: "writer", ic: "✍️", name: "이야기꾼", desc: "게시글 5개 작성", cond: () => (state.user.myPostIds || []).length >= 5 },
+    { id: "chatty", ic: "💬", name: "수다쟁이", desc: "댓글 20개 작성", cond: () => state.user.myComments >= 20 },
+    { id: "social", ic: "🍻", name: "인싸 바텐더", desc: "모임 3회 참여", cond: () => state.meets.filter((m) => m.isJoined).length >= 3 },
+    { id: "bighand", ic: "🛒", name: "큰손", desc: "스토어 첫 주문", cond: () => state.orders.length >= 1 },
+  ];
+  function checkBadges() {
+    let earned = false;
+    BADGES.forEach((b) => {
+      if (!state.user.badges.includes(b.id) && b.cond()) {
+        state.user.badges.push(b.id);
+        earned = true;
+        addPoints(50, `뱃지 획득: ${b.name}`);
+        addNoti(b.ic, `뱃지 '${b.name}'을(를) 획득했어요! (+50P)`);
+      }
+    });
+    if (earned) saveUser();
+  }
+
+  /* ---------- 출석 체크 ---------- */
+  function dailyAttend() {
+    const today = new Date().toDateString();
+    if (state.user.lastAttend === today) return;
+    const yesterday = new Date(Date.now() - D).toDateString();
+    state.user.attendStreak = state.user.lastAttend === yesterday ? state.user.attendStreak + 1 : 1;
+    state.user.lastAttend = today;
+    saveUser();
+    const bonus = state.user.attendStreak % 7 === 0 ? 50 : 0;
+    addPoints(10 + bonus, `출석 체크 ${state.user.attendStreak}일째${bonus ? " (7일 보너스!)" : ""}`);
+    checkBadges();
+  }
+
+  /* ---------- 모임 리마인더 ---------- */
+  function checkMeetReminders() {
+    const soon = state.meets.filter((m) =>
+      m.isJoined && !m.reminded && m.date > Date.now() && m.date - Date.now() < 24 * H);
+    if (!soon.length) return;
+    soon.forEach((m) => {
+      m.reminded = true;
+      addNoti("⏰", `내일 모임이 있어요! '${m.title}' — ${fmtDate(m.date)}, ${m.place}`);
+      if ("Notification" in window && Notification.permission === "granted") {
+        try { new Notification("바텐톡 모임 리마인더", { body: `${m.title} — ${fmtDate(m.date)}` }); } catch {}
+      }
+    });
+    saveMeets();
+  }
+
+  /* ---------- 통합 검색 ---------- */
+  function renderSearch() {
+    const q = $("#global-search").value.trim();
+    if (q.length < 1) {
+      $("#search-results").innerHTML = '<div class="empty-state">술, 칵테일, 게시글, 채용, 모임, 상품을<br>한 번에 검색해보세요.</div>';
+      return;
+    }
+    const sec = (title, items) => items.length
+      ? `<div class="comment-sec-title">${title} ${items.length}</div>${items.join("")}` : "";
+    const spirits = state.spirits.filter((s) => has(s.name, q)).slice(0, 5).map((sp) => `
+      <div class="home-mini" data-go-spirit="${sp.id}">
+        <span class="hm-emoji">${sp.kind === "cocktail" ? "🍸" : "🥃"}</span>
+        <div class="hm-body"><div class="hm-title">${esc(sp.name)}</div>
+        <div class="hm-sub">${sp.kind === "cocktail" ? esc(sp.base) + " 베이스" : esc(sp.cat)} · ★ ${avgStars(sp) ? avgStars(sp).toFixed(1) : "-"}</div></div>
+      </div>`);
+    const posts = state.posts.filter((p) => has(p.title, q) || has(p.body, q)).slice(0, 5).map((p) => `
+      <div class="home-mini" data-go-post="${p.id}">
+        <span class="hm-emoji">💬</span>
+        <div class="hm-body"><div class="hm-title">${esc(p.title)}</div>
+        <div class="hm-sub">공감 ${p.likes} · 댓글 ${p.comments.length}</div></div>
+      </div>`);
+    const jobs = SEED_JOBS.filter((j) => has(j.title, q) || has(j.shop, q)).slice(0, 4).map((j) => `
+      <div class="home-mini" data-go-jobs="1">
+        <span class="hm-emoji">💼</span>
+        <div class="hm-body"><div class="hm-title">${esc(j.title)}</div>
+        <div class="hm-sub">${esc(j.pay)} · ${esc(j.area)}</div></div>
+      </div>`);
+    const meets = state.meets.filter((m) => has(m.title, q) || has(m.desc, q)).slice(0, 4).map((m) => `
+      <div class="home-mini" data-go-meet="${m.id}">
+        <span class="hm-emoji">🍻</span>
+        <div class="hm-body"><div class="hm-title">${esc(m.title)}</div>
+        <div class="hm-sub">${esc(m.region)} · ${fmtDate(m.date)}</div></div>
+      </div>`);
+    const prods = PRODUCTS.filter((p) => has(p.name, q)).slice(0, 4).map((p) => `
+      <div class="home-mini" data-go-product="${p.id}">
+        <span class="hm-emoji">${p.emoji}</span>
+        <div class="hm-body"><div class="hm-title">${esc(p.name)}</div>
+        <div class="hm-sub">${fmtNum(p.price)}원</div></div>
+      </div>`);
+    const html = sec("🥃 술 · 칵테일", spirits) + sec("💬 커뮤니티", posts) + sec("💼 채용", jobs) + sec("🍻 모임", meets) + sec("🛒 스토어", prods);
+    $("#search-results").innerHTML = html || '<div class="empty-state">검색 결과가 없어요.</div>';
+    $$("#search-results [data-go-spirit]").forEach((el) => el.addEventListener("click", () => openSpirit(+el.dataset.goSpirit)));
+    $$("#search-results [data-go-post]").forEach((el) => el.addEventListener("click", () => openPost(+el.dataset.goPost)));
+    $$("#search-results [data-go-meet]").forEach((el) => el.addEventListener("click", () => openMeet(+el.dataset.goMeet)));
+    $$("#search-results [data-go-product]").forEach((el) => el.addEventListener("click", () => openProduct(+el.dataset.goProduct)));
+    $$("#search-results [data-go-jobs]").forEach((el) => el.addEventListener("click", () => { $("#job-search").value = q; show("jobs"); }));
+  }
+
+  /* ---------- 칵테일 배수 ---------- */
+  function scaleIngs(ings, mult) {
+    if (mult === 1) return ings;
+    return String(ings).replace(/(\d+(?:\.\d+)?)(?=\s*(?:ml|개|티스푼|대시|장|방울|큰술|샷))/g,
+      (n) => {
+        const v = parseFloat(n) * mult;
+        return String(Math.round(v * 10) / 10);
+      });
   }
 
   /* ---------- 술 이미지: 칵테일 대표사진 + 병 일러스트 ---------- */
@@ -1343,15 +1529,49 @@
       ch.addEventListener("click", () => { state.dogamCat = ch.dataset.c; renderDogam(); }));
 
     const SORTS = [["new", "최신순"], ["stars", "별점순"], ["reviews", "리뷰순"]];
+    const isWhisky = state.dogamKind === "spirit" && state.dogamCat === "위스키";
     $("#dogam-sort").innerHTML = SORTS.map(([k, l]) =>
-      `<button class="chip ${k === state.dogamSort ? "active" : ""}" data-s="${k}">${l}</button>`).join("");
-    $$("#dogam-sort .chip").forEach((ch) =>
+      `<button class="chip ${k === state.dogamSort ? "active" : ""}" data-s="${k}">${l}</button>`).join("") +
+      (state.dogamKind === "spirit" ? `
+        <button class="chip ${state.dogamAbv !== "전체" ? "active" : ""}" id="dogam-abv">도수 ${state.dogamAbv === "전체" ? "▾" : state.dogamAbv}</button>
+        <button class="chip ${state.dogamPrice !== "전체" ? "active" : ""}" id="dogam-price">가격 ${state.dogamPrice === "전체" ? "▾" : state.dogamPrice}</button>` : "");
+    $$("#dogam-sort .chip[data-s]").forEach((ch) =>
       ch.addEventListener("click", () => { state.dogamSort = ch.dataset.s; renderDogam(); }));
+    const abvBtn = $("#dogam-abv");
+    if (abvBtn) abvBtn.addEventListener("click", () =>
+      openSheet("도수 필터", ["전체", "40% 이하", "40~46%", "46% 이상"], state.dogamAbv, (v) => { state.dogamAbv = v; renderDogam(); }));
+    const priceBtn = $("#dogam-price");
+    if (priceBtn) priceBtn.addEventListener("click", () =>
+      openSheet("가격대 필터", ["전체", "5만원 이하", "5~10만원", "10~20만원", "20만원 이상"], state.dogamPrice, (v) => { state.dogamPrice = v; renderDogam(); }));
 
+    // 위스키 지역 필터
+    $("#dogam-region").hidden = !isWhisky;
+    if (isWhisky) {
+      $("#dogam-region").innerHTML = WHISKY_REGIONS.map((r) =>
+        `<button class="chip ${r === state.dogamRegion ? "active" : ""}" data-r="${r}">${r}</button>`).join("");
+      $$("#dogam-region .chip").forEach((ch) =>
+        ch.addEventListener("click", () => { state.dogamRegion = ch.dataset.r; renderDogam(); }));
+    }
+
+    const abvOk = (sp) =>
+      state.dogamAbv === "전체" ? true :
+      state.dogamAbv === "40% 이하" ? sp.abv <= 40 :
+      state.dogamAbv === "40~46%" ? sp.abv > 40 && sp.abv <= 46 :
+      sp.abv > 46;
+    const priceOk = (sp) => {
+      if (state.dogamPrice === "전체") return true;
+      const p = parsePriceMan(sp.price);
+      if (p === null) return false;
+      return state.dogamPrice === "5만원 이하" ? p <= 5 :
+        state.dogamPrice === "5~10만원" ? p > 5 && p <= 10 :
+        state.dogamPrice === "10~20만원" ? p > 10 && p <= 20 : p > 20;
+    };
     const q = $("#spirit-search").value.trim();
     const list = state.spirits.filter((sp) =>
       sp.kind === state.dogamKind &&
       (state.dogamCat === "전체" || (sp.kind === "spirit" ? sp.cat : sp.base) === state.dogamCat) &&
+      (!isWhisky || state.dogamRegion === "전체" || regionOfWhisky(sp.name) === state.dogamRegion) &&
+      (state.dogamKind !== "spirit" || (abvOk(sp) && priceOk(sp))) &&
       (!q || has(sp.name, q))
     ).sort((a, b) =>
       state.dogamSort === "stars" ? avgStars(b) - avgStars(a) :
@@ -1381,6 +1601,7 @@
   function openSpirit(id) {
     state.curSpirit = id;
     state.reviewStars = 5;
+    state.ctMult = 1;
     renderSpiritDetail();
     renderStarPick();
     show("spirit");
@@ -1396,11 +1617,19 @@
         <h2>${esc(sp.name)}</h2>
         <div class="sp-sub">${isCt ? esc(sp.base) + " 베이스 칵테일 · 약 " + sp.abv + "%" : esc(sp.cat) + " · " + sp.abv + "%" + (sp.price ? " · " + esc(sp.price) : "")}</div>
         <div class="sp-stars">${starStr(avg)} ${avg ? avg.toFixed(1) : ""} <small>(리뷰 ${sp.reviews.length})</small></div>
+        <div class="cellar-row">
+          <button class="cellar-btn ${inCellar("tried", sp.id) ? "on" : ""}" id="cellar-tried">🥃 마셔봤어요</button>
+          <button class="cellar-btn ${inCellar("wish", sp.id) ? "on" : ""}" id="cellar-wish">⭐ 위시리스트</button>
+        </div>
       </div>
       ${isCt ? `
       <div class="sp-body">
-        <h3>재료 🧾</h3>
-        <p>${esc(sp.ings)}</p>
+        <h3>재료 🧾
+          <span class="mult-seg">
+            ${[1, 2, 4].map((m) => `<button class="mult-btn ${state.ctMult === m ? "on" : ""}" data-m="${m}">${m}잔</button>`).join("")}
+          </span>
+        </h3>
+        <p>${esc(scaleIngs(sp.ings, state.ctMult))}</p>
       </div>
       <div class="sp-body">
         <h3>만드는 법 🍸</h3>
@@ -1429,6 +1658,10 @@
     wireImgFallback("#spirit-detail");
     $$("#spirit-detail .cmt-img").forEach((im) =>
       im.addEventListener("click", () => openLightbox(im.src)));
+    $("#cellar-tried").addEventListener("click", () => { toggleCellar("tried", sp.id); renderSpiritDetail(); });
+    $("#cellar-wish").addEventListener("click", () => { toggleCellar("wish", sp.id); renderSpiritDetail(); });
+    $$("#spirit-detail .mult-btn").forEach((b) =>
+      b.addEventListener("click", () => { state.ctMult = +b.dataset.m; renderSpiritDetail(); }));
     const hero = $("#spirit-detail .sp-hero-media img.thumb-img");
     if (hero) {
       hero.style.cursor = "zoom-in";
@@ -1458,11 +1691,13 @@
     const rv = { color: state.user.color, stars: state.reviewStars, text, time: Date.now() };
     if (pendingImg.review) rv.img = pendingImg.review;
     sp.reviews.push(rv);
-    saveSpirits();
+    state.user.myReviews++;
+    saveSpirits(); saveUser();
     $("#review-input").value = "";
     clearCmtAttach("review");
     renderSpiritDetail();
     addPoints(30, "리뷰 작성");
+    checkBadges();
   }
 
   /* ---------- 술/칵테일 등록 ---------- */
@@ -1616,6 +1851,9 @@
       if (m.isJoined) {
         toast("모임에 참여했어요! 🎉");
         addNoti("🍻", `'${m.title}' 모임에 참여했어요. ${fmtDate(m.date)} 잊지 마세요!`);
+        if ("Notification" in window && Notification.permission === "default")
+          Notification.requestPermission().catch(() => {});
+        checkBadges();
       } else toast("참여를 취소했어요.");
     });
     const chatBtn = $("#meet-host-chat");
@@ -1630,10 +1868,12 @@
     const c = { color: state.user.color, text, time: Date.now() };
     if (pendingImg.meet) c.img = pendingImg.meet;
     m.comments.push(c);
-    saveMeets();
+    state.user.myComments++;
+    saveMeets(); saveUser();
     $("#meet-comment-input").value = "";
     clearCmtAttach("meet-comment");
     renderMeetDetail();
+    checkBadges();
   }
 
   /* ---------- 모임 만들기 ---------- */
@@ -1730,12 +1970,15 @@
     const p = state.posts.find((x) => x.id === state.curPost);
     if (!p) return;
     $("#post-delete").hidden = !p.mine;
+    $("#post-edit").hidden = !p.mine;
     $("#post-chat").hidden = !!p.mine;
+    state.replyTo = null;
+    $("#reply-bar").hidden = true;
     $("#post-detail").innerHTML = `
       <div class="detail-wrap">
         <div class="detail-head">
           <span class="avatar md" style="background:${COLORS[p.color]}"></span>
-          <div><div class="detail-nick">${esc(p.nick)}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}</div></div>
+          <div><div class="detail-nick">${esc(p.nick)}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""}</div></div>
           <span class="cat-tag detail-cat">${CAT_LABEL[p.cat] || "자유"}</span>
         </div>
         <div class="detail-title">${esc(p.title)}</div>
@@ -1749,16 +1992,32 @@
         </div>
       </div>
       <div class="comment-sec-title">댓글 ${p.comments.length}</div>
-      ${p.comments.map((c) => `
+      ${p.comments.map((c, ci) => `
         <div class="comment-item">
           <span class="avatar" style="background:${COLORS[c.color]}"></span>
           <div class="comment-body">
-            <div class="comment-head"><span class="comment-nick">익명</span><span class="comment-time">${fmtTime(c.time)}</span></div>
+            <div class="comment-head"><span class="comment-nick">익명</span><span class="comment-time">${fmtTime(c.time)}</span>
+              <button class="reply-btn" data-ci="${ci}">답글</button></div>
             ${c.text ? `<div class="comment-text">${esc(c.text)}</div>` : ""}
             ${c.img ? `<img class="cmt-img" src="${c.img}" alt="댓글 사진">` : ""}
+            ${(c.replies || []).map((rp) => `
+              <div class="reply-item">
+                <span class="avatar" style="background:${COLORS[rp.color]}"></span>
+                <div class="comment-body">
+                  <div class="comment-head"><span class="comment-nick">익명</span><span class="comment-time">${fmtTime(rp.time)}</span></div>
+                  ${rp.text ? `<div class="comment-text">${esc(rp.text)}</div>` : ""}
+                  ${rp.img ? `<img class="cmt-img" src="${rp.img}" alt="댓글 사진">` : ""}
+                </div>
+              </div>`).join("")}
           </div>
         </div>`).join("")}
       <div style="height:24px"></div>`;
+    $$("#post-detail .reply-btn").forEach((b) =>
+      b.addEventListener("click", () => {
+        state.replyTo = +b.dataset.ci;
+        $("#reply-bar").hidden = false;
+        $("#comment-input").focus();
+      }));
     $$("#post-detail .cmt-img").forEach((im) =>
       im.addEventListener("click", () => openLightbox(im.src)));
     const dImg = $("#post-detail .detail-img");
@@ -1780,11 +2039,21 @@
     if (!p) return;
     const c = { color: state.user.color, text, time: Date.now() };
     if (pendingImg.post) c.img = pendingImg.post;
-    p.comments.push(c);
-    savePosts();
+    if (state.replyTo !== null && p.comments[state.replyTo]) {
+      const parent = p.comments[state.replyTo];
+      parent.replies = parent.replies || [];
+      parent.replies.push(c);
+    } else {
+      p.comments.push(c);
+    }
+    state.replyTo = null;
+    $("#reply-bar").hidden = true;
+    state.user.myComments++;
+    savePosts(); saveUser();
     $("#comment-input").value = "";
     clearCmtAttach("comment");
     renderPostDetail();
+    checkBadges();
   }
   function deletePost() {
     const p = state.posts.find((x) => x.id === state.curPost);
@@ -1838,6 +2107,25 @@
     const title = $("#write-title").value.trim();
     const body = $("#write-body").value.trim();
     if (!title || !body) return;
+    if (state.editPost !== null) {
+      // 글 수정 모드
+      const p = state.posts.find((x) => x.id === state.editPost);
+      if (p) {
+        p.title = title; p.body = body; p.cat = state.writeCat; p.edited = true;
+        if (state.pendingImg) p.img = state.pendingImg;
+        savePosts();
+      }
+      state.editPost = null;
+      $("#view-write .topbar-title").textContent = "글쓰기";
+      $("#write-title").value = "";
+      $("#write-body").value = "";
+      setPendingImg(null);
+      $("#write-file").value = "";
+      updateSubmit();
+      if (p) { openPost(p.id); toast("게시글을 수정했어요."); }
+      else show("community");
+      return;
+    }
     const id = Math.max(0, ...state.posts.map((p) => p.id)) + 1;
     const post = {
       id, cat: state.writeCat, color: state.user.color, nick: "익명",
@@ -1847,6 +2135,7 @@
     state.posts.push(post);
     state.user.myPostIds.push(id);
     savePosts(); saveUser();
+    checkBadges();
     checkKeywords(title, body);
     $("#write-title").value = "";
     $("#write-body").value = "";
@@ -1954,6 +2243,17 @@
     $("#stat-meets").textContent = state.meets.filter((m) => m.isJoined).length;
     $("#stat-posts").textContent = state.posts.filter((p) => p.mine).length;
     $("#favjob-cnt").textContent = state.user.favJobs.length ? state.user.favJobs.length + "개" : "";
+    const cel = state.user.cellar.tried.length + state.user.cellar.wish.length;
+    $("#cellar-cnt").textContent = cel ? cel + "병" : "";
+    checkBadges();
+    $("#badge-count").textContent = `${state.user.badges.length}/${BADGES.length}`;
+    $("#badge-grid").innerHTML = BADGES.map((b) => {
+      const on = state.user.badges.includes(b.id);
+      return `<div class="badge-item ${on ? "on" : ""}" title="${esc(b.desc)}">
+        <span class="badge-ic">${on ? b.ic : "🔒"}</span>
+        <span class="badge-name">${b.name}</span>
+      </div>`;
+    }).join("");
     $("#toggle-push").classList.toggle("on", state.push);
     $("#toggle-push").setAttribute("aria-checked", state.push);
   }
@@ -2511,6 +2811,11 @@
       addPoints(20, "퀴즈 완료");
       bonus = "오늘의 첫 퀴즈 완료로 20P를 받았어요!";
     }
+    if (qz.score === qz.qs.length) {
+      state.user.quizPerfect = true;
+      saveUser();
+      checkBadges();
+    }
     const msg = qz.score === qz.qs.length ? "완벽해요! 진짜 바텐더시네요 🏆"
       : qz.score >= 3 ? "좋아요! 조금만 더 연습해봐요 💪"
       : "레시피를 술도감에서 복습해보세요 📖";
@@ -2700,7 +3005,11 @@
   );
   $("#post-search").addEventListener("input", renderPosts);
   $("#rules-banner").addEventListener("click", openRulesSheet);
-  $("#fab-write").addEventListener("click", () => show("write"));
+  $("#fab-write").addEventListener("click", () => {
+    state.editPost = null;
+    $("#view-write .topbar-title").textContent = "글쓰기";
+    show("write");
+  });
 
   // 알림 탭
   $$("[data-atab]").forEach((t) =>
@@ -2765,6 +3074,29 @@
       }, 640, 0.6);
     });
     $("#" + prefix + "-attach-rm").addEventListener("click", () => clearCmtAttach(prefix));
+  });
+
+  // 통합 검색 / 내 술장 / 답글 / 글 수정
+  $("#home-search-btn").addEventListener("click", () => show("search"));
+  $("#global-search").addEventListener("input", renderSearch);
+  $("#btn-cellar").addEventListener("click", () => show("cellar"));
+  $$("#cellar-seg .seg-btn").forEach((b) =>
+    b.addEventListener("click", () => { state.cellarTab = b.dataset.cellar; renderCellar(); }));
+  $("#reply-cancel").addEventListener("click", () => {
+    state.replyTo = null;
+    $("#reply-bar").hidden = true;
+  });
+  $("#post-edit").addEventListener("click", () => {
+    const p = state.posts.find((x) => x.id === state.curPost);
+    if (!p || !p.mine) return;
+    state.editPost = p.id;
+    $("#write-title").value = p.title;
+    $("#write-body").value = p.body;
+    state.writeCat = p.cat === "promo" ? "promo" : "free";
+    $$(".cat-chip").forEach((x) => x.classList.toggle("active", x.dataset.cat === state.writeCat));
+    $("#view-write .topbar-title").textContent = "글 수정";
+    updateSubmit();
+    show("write");
   });
 
   // 게시글 상세
@@ -2854,6 +3186,8 @@
   if (state.user.onboarded && state.user.nick) {
     try { history.replaceState({ view: "home" }, "", "#home"); } catch {}
     show("home", true);
+    dailyAttend();
+    checkMeetReminders();
   } else {
     state.obColor = state.user.color;
     renderOnboard();

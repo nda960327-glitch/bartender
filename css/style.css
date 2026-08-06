@@ -736,6 +736,63 @@ textarea.input { height: auto; }
   background: var(--text); color: var(--bg); font-weight: 700; font-size: 15px; cursor: pointer; flex-shrink: 0;
 }
 
+/* ---------- 통합 검색 ---------- */
+.home-search { cursor: pointer; }
+.home-search .hs-ph { color: var(--text-muted); font-size: 15px; }
+.inline-search { flex: 1; margin: 8px 8px 8px 0; height: 42px; }
+
+/* ---------- 내 술장 ---------- */
+.cellar-row { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }
+.cellar-btn {
+  padding: 10px 16px; border-radius: 22px; border: 1.5px solid var(--line-strong);
+  background: var(--bg); color: var(--text-sub); font-size: 14px; font-weight: 700; cursor: pointer;
+  transition: all .12s;
+}
+.cellar-btn.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+
+/* ---------- 뱃지 ---------- */
+.badge-sec { padding: 18px 20px; }
+.badge-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.badge-head h3 { font-size: 16px; font-weight: 700; }
+.badge-head span { font-size: 13px; color: var(--text-sub); font-weight: 700; }
+.badge-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px 6px; }
+.badge-item {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  opacity: .38; filter: grayscale(1);
+}
+.badge-item.on { opacity: 1; filter: none; }
+.badge-ic { font-size: 26px; }
+.badge-name { font-size: 10.5px; color: var(--text-sub); font-weight: 600; text-align: center; }
+
+/* ---------- 대댓글 ---------- */
+.reply-btn {
+  border: none; background: none; color: var(--text-muted);
+  font-size: 12.5px; font-weight: 700; cursor: pointer; padding: 2px 6px;
+}
+.reply-item {
+  display: flex; gap: 8px; margin-top: 10px; padding: 10px 12px;
+  background: var(--bg-gray); border-radius: 12px;
+}
+.reply-item .avatar { width: 20px; height: 20px; }
+.reply-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px; background: var(--bg-banner);
+  font-size: 13.5px; font-weight: 700; color: var(--text);
+  flex-shrink: 0;
+}
+.reply-bar button {
+  margin-left: auto; border: none; background: none; color: var(--text-sub);
+  font-size: 13px; cursor: pointer; padding: 4px 8px;
+}
+
+/* ---------- 칵테일 배수 ---------- */
+.mult-seg { float: right; display: inline-flex; gap: 4px; }
+.mult-btn {
+  padding: 4px 10px; border-radius: 8px; border: 1px solid var(--line-strong);
+  background: var(--bg); color: var(--text-sub); font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.mult-btn.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+
 /* ---------- 댓글/리뷰 사진 ---------- */
 .cmt-img {
   display: block; max-width: min(220px, 60%); max-height: 180px;
