@@ -14,9 +14,31 @@
   const EMOJIS = ["🥃", "🍸", "🍹", "🍷", "🍾", "🍺", "🍶", "🧉", "🥂", "🍋"];
   const CAT_LABEL = { free: "자유", promo: "홍보", hot: "인기" };
   const THUMB_COLORS = ["#4a6cf7", "#12b5a5", "#1f2937", "#7c3aed", "#0ea5e9", "#e11d48"];
-  const MARKET_CATS = ["셰이커/기물", "글라스", "가전/장비", "서적/교재", "의류/유니폼", "인테리어/소품", "기타"];
-  const MARKET_CONDS = ["새상품", "거의 새것", "사용감 있음"];
-  const MARKET_EMOJIS = ["🍸", "🥃", "📦", "🧊", "📚", "👔", "💡", "🔧"];
+  const STORE_CATS = ["전체", "기물", "글라스", "재료/시럽", "서적", "굿즈", "소모품"];
+  const PRODUCTS = [
+    { id: 1, cat: "기물", emoji: "🍸", name: "보스턴 셰이커 세트 (틴+틴)", price: 29000, tag: "베스트", desc: "영업용 표준 보스턴 셰이커. 무게 밸런스가 좋아 장시간 셰이킹에도 손목 부담이 적어요.\n\n- 스테인리스 304\n- 대틴 800ml + 소틴 500ml" },
+    { id: 2, cat: "기물", emoji: "🍸", name: "코블러 셰이커 500ml", price: 24000, desc: "스트레이너 일체형 3피스 셰이커. 홈텐딩과 연습용으로 가장 무난한 선택." },
+    { id: 3, cat: "기물", emoji: "🥃", name: "더블 지거 30/45ml", price: 9000, tag: "베스트", desc: "국제 표준 30/45ml 더블 지거. 내부 15ml 눈금 포함." },
+    { id: 4, cat: "기물", emoji: "🥄", name: "바 스푼 30cm (트위스트)", price: 8000, desc: "트위스트 손잡이 바 스푼. 스터·레이어링·머들 백까지 하나로." },
+    { id: 5, cat: "기물", emoji: "🍸", name: "호손 스트레이너", price: 9500, desc: "스프링 장력이 탄탄한 호손 스트레이너. 보스턴 셰이커와 짝꿍." },
+    { id: 6, cat: "기물", emoji: "🥃", name: "야라이 믹싱글라스 500ml", price: 32000, desc: "야라이 컷 패턴 믹싱글라스. 스터 칵테일의 품격이 올라갑니다." },
+    { id: 7, cat: "기물", emoji: "🪵", name: "우드 머들러", price: 7000, desc: "모히토·캐리피리냐 필수품. 끝이 둥글어 허브를 부드럽게 눌러줘요." },
+    { id: 8, cat: "기물", emoji: "🍋", name: "핸드 스퀴저", price: 8500, desc: "라임·레몬 즙을 빠르게. 알루미늄 주물이라 가볍고 튼튼해요." },
+    { id: 9, cat: "글라스", emoji: "🍸", name: "닉앤노라 글라스 2P", price: 24000, desc: "클래식 칵테일에 어울리는 150ml 닉앤노라 2개 세트." },
+    { id: 10, cat: "글라스", emoji: "🥂", name: "쿠페 글라스 2P", price: 22000, desc: "다이키리·사이드카용 200ml 쿠페 2개 세트." },
+    { id: 11, cat: "글라스", emoji: "🥃", name: "하이볼 글라스 4P", price: 19000, tag: "베스트", desc: "350ml 하이볼 잔 4개 세트. 업소용 강화 유리." },
+    { id: 12, cat: "글라스", emoji: "🥃", name: "온더락 글라스 2P", price: 14000, desc: "위스키 온더락용 300ml 2개 세트. 두툼한 바닥으로 안정감 있어요." },
+    { id: 13, cat: "재료/시럽", emoji: "🍒", name: "그레나딘 시럽 700ml", price: 8500, desc: "선라이즈·셜리 템플의 붉은 층. 석류 향 시럽." },
+    { id: 14, cat: "재료/시럽", emoji: "🍯", name: "설탕시럽 700ml (1:1)", price: 6000, desc: "사워 계열 필수 심플 시럽. 바로 쓰는 완제품." },
+    { id: 15, cat: "재료/시럽", emoji: "🍋", name: "라임 코디얼 500ml", price: 7500, desc: "김렛용 라임 코디얼. 신선 라임이 없을 때 든든한 백업." },
+    { id: 16, cat: "서적", emoji: "📚", name: "클래식 칵테일 노트 (제본)", price: 12000, desc: "클래식 60종 스펙·기법·역사를 정리한 제본 노트. 조주기능사 대비에도 좋아요." },
+    { id: 17, cat: "굿즈", emoji: "🦺", name: "바텐톡 에이프런", price: 25000, tag: "신상", desc: "12온스 캔버스 에이프런. 오프너 포켓 + 타월 고리 포함." },
+    { id: 18, cat: "굿즈", emoji: "🎨", name: "바텐톡 스티커팩 (12매)", price: 4000, tag: "신상", desc: "셰이커·쿠페·시트러스 일러스트 방수 스티커 12매." },
+    { id: 19, cat: "굿즈", emoji: "🪵", name: "코르크 코스터 10P", price: 6000, desc: "무지 코르크 코스터 10개. 어떤 바 분위기에도 잘 붙어요." },
+    { id: 20, cat: "소모품", emoji: "🍢", name: "가니시 픽 100입", price: 5000, desc: "체리·올리브용 대나무 가니시 픽 100개입." },
+    { id: 21, cat: "소모품", emoji: "🥤", name: "종이 빨대 200입", price: 7000, desc: "친환경 종이 빨대 200개입. 블랙·화이트 혼합." },
+    { id: 22, cat: "소모품", emoji: "🧻", name: "칵테일 냅킨 250매", price: 6500, desc: "정사각 칵테일 냅킨 250매. 로고 없는 무지." },
+  ];
 
   /* ---------- 저장소 ---------- */
   const store = {
@@ -514,21 +536,6 @@
     CT(470, "🍯", "핫 토디", "위스키", 10, "위스키 45ml\n꿀 1큰술\n레몬주스 15ml\n뜨거운 물 120ml\n시나몬 스틱", "머그에 꿀·레몬·위스키를 넣고 뜨거운 물을 부어 젓는다.", "감기 기운 있을 때 생각나는 겨울 클래식.")
   );
 
-  const SEED_MARKET = [
-    { id: 1, cat: "셰이커/기물", title: "보스턴 셰이커 + 지거 세트 (틴틴)", price: 25000, region: "서울", cond: "거의 새것", desc: "연습용으로 두 달 쓴 세트예요. 찌그러짐 없고 상태 좋습니다.\n직거래는 강남 쪽, 택배도 가능해요.", emoji: "🍸", status: "sale", seller: "익명", sellerColor: 3, time: now - 3 * H, likes: 4, comments: [] },
-    { id: 2, cat: "글라스", title: "닉앤노라 글라스 6개 일괄", price: 40000, region: "서울", cond: "새상품", desc: "바 오픈 준비하다 스타일 변경으로 새 제품 그대로 판매합니다. 박스 포장 그대로예요.", emoji: "🥂", status: "sale", seller: "익명", sellerColor: 7, time: now - 5 * H, likes: 7, comments: [] },
-    { id: 3, cat: "서적/교재", title: "조주기능사 필기+실기 교재 세트", price: 8000, region: "경기", cond: "사용감 있음", desc: "형광펜 밑줄 조금 있어요. 최신 개정판이고 실기 레시피 요약 노트도 같이 드립니다.", emoji: "📚", status: "sale", seller: "익명", sellerColor: 1, time: now - 8 * H, likes: 2, comments: [] },
-    { id: 4, cat: "가전/장비", title: "제빙기 35kg급 (직거래만)", price: 450000, region: "서울", cond: "사용감 있음", desc: "매장 정리하면서 내놓습니다. 1년 사용했고 청소·소독 완료. 작동 확인시켜드려요. 직접 가져가셔야 해요.", emoji: "🧊", status: "reserved", seller: "익명", sellerColor: 5, time: now - 12 * H, likes: 11, comments: [] },
-    { id: 5, cat: "셰이커/기물", title: "야라이 믹싱글라스 + 바스푼", price: 30000, region: "인천", cond: "거의 새것", desc: "야라이 패턴 500ml 믹싱글라스와 30cm 바스푼입니다. 이가 나간 곳 없어요.", emoji: "🥃", status: "sale", seller: "익명", sellerColor: 8, time: now - 18 * H, likes: 5, comments: [] },
-    { id: 6, cat: "의류/유니폼", title: "바텐더 조끼 (M) + 보타이", price: 20000, region: "서울", cond: "거의 새것", desc: "행사 때 두 번 착용했습니다. 드라이 완료. 검정색 클래식 핏이에요.", emoji: "👔", status: "sale", seller: "익명", sellerColor: 0, time: now - 26 * H, likes: 3, comments: [] },
-    { id: 7, cat: "인테리어/소품", title: "네온 LED 바 사인 (COCKTAILS)", price: 70000, region: "부산", cond: "거의 새것", desc: "폐업 정리로 판매합니다. USB 전원이라 설치 쉬워요. 감성 확실합니다.", emoji: "💡", status: "sale", seller: "익명", sellerColor: 4, time: now - 30 * H, likes: 9, comments: [] },
-    { id: 8, cat: "셰이커/기물", title: "스피드 레일 60cm", price: 20000, region: "경기", cond: "사용감 있음", desc: "스테인리스 스피드 레일입니다. 사용 흔적 있지만 기능 문제 없어요.", emoji: "🔧", status: "sale", seller: "익명", sellerColor: 6, time: now - 40 * H, likes: 1, comments: [] },
-    { id: 9, cat: "글라스", title: "온더락 글라스 12개 (업소용)", price: 36000, region: "대구", cond: "사용감 있음", desc: "310ml 온더락 잔 12개 일괄. 잔금·이빨 나간 것 없이 골라서 드려요.", emoji: "🥃", status: "sale", seller: "익명", sellerColor: 2, time: now - 2 * D, likes: 2, comments: [] },
-    { id: 10, cat: "가전/장비", title: "핸드 블렌더 (프로즌용)", price: 55000, region: "서울", cond: "거의 새것", desc: "프로즌 마르가리타용으로 샀다가 메뉴 빼면서 판매해요. 6개월 사용.", emoji: "📦", status: "sold", seller: "익명", sellerColor: 9, time: now - 3 * D, likes: 6, comments: [] },
-    { id: 11, cat: "서적/교재", title: "칵테일 레시피 정리 노트 (자작)", price: 5000, region: "광주", cond: "새상품", desc: "클래식 60종 스펙을 직접 정리한 제본 노트입니다. PDF도 같이 드려요.", emoji: "📚", status: "sale", seller: "익명", sellerColor: 1, time: now - 4 * D, likes: 8, comments: [] },
-    { id: 12, cat: "인테리어/소품", title: "코르크 코스터 100개", price: 10000, region: "대전", cond: "새상품", desc: "대량 주문했다가 남은 새 제품. 로고 없는 무지라 어느 바든 어울려요.", emoji: "📦", status: "sale", seller: "익명", sellerColor: 7, time: now - 5 * D, likes: 0, comments: [] },
-  ];
-
   SEED_MEETS.push(
     { id: 501, region: "서울", title: "이태원 바 호핑 투어 🍸", date: now + 3 * D, place: "이태원역 2번 출구 집결", max: 8, joined: 5, desc: "이태원 유명 바 3곳을 도는 호핑 투어. 각자 한 잔씩, 좋은 바 공유해요.", host: "익명", hostColor: 0, isJoined: false, comments: [
       { color: 2, text: "코스 미리 알 수 있을까요?", time: now - 6 * H },
@@ -596,7 +603,9 @@
     posts: store.get("posts", SEED_POSTS),
     spirits: store.get("spirits", SEED_SPIRITS),
     meets: store.get("meets", SEED_MEETS),
-    market: store.get("market", SEED_MARKET),
+    cart: store.get("cart", []),
+    orders: store.get("orders", []),
+    worklog: store.get("worklog", []),
     noti: store.get("noti", []),
     chats: store.get("chats", []),
     dark: store.get("dark", false),
@@ -618,13 +627,10 @@
     swEmoji: 0,
     swCat: null,
     mwRegion: null,
-    marketCat: "전체",
-    curMarket: null,
-    mkEmoji: 0,
-    mkCat: null,
-    mkCond: null,
-    mkRegion: null,
-    mkImg: null,
+    storeCat: "전체",
+    curProduct: null,
+    pdQty: 1,
+    wlOffset: 0,
     dogamSort: "new",
     finderSel: [],
     quiz: null,
@@ -641,7 +647,9 @@
   const saveNoti = () => store.set("noti", state.noti);
   const saveChats = () => store.set("chats", state.chats);
 
-  const saveMarket = () => store.set("market", state.market);
+  const saveCart = () => store.set("cart", state.cart);
+  const saveOrders = () => store.set("orders", state.orders);
+  const saveWorklog = () => store.set("worklog", state.worklog);
 
   /* ---------- 시드 병합 (앱 업데이트 시 새 데이터 추가) ---------- */
   const SEED_V = 3;
@@ -653,10 +661,10 @@
     mergeSeed(state.posts, SEED_POSTS);
     mergeSeed(state.spirits, SEED_SPIRITS);
     mergeSeed(state.meets, SEED_MEETS);
-    mergeSeed(state.market, SEED_MARKET);
-    savePosts(); saveSpirits(); saveMeets(); saveMarket();
+    savePosts(); saveSpirits(); saveMeets();
     store.set("seedv", SEED_V);
   }
+  localStorage.removeItem("bartalk_market");
 
   /* ---------- 유틸 ---------- */
   const $ = (s) => document.querySelector(s);
@@ -750,11 +758,14 @@
     $$(".view").forEach((v) => { v.hidden = v.id !== "view-" + view; });
     $("#bottom-nav").style.display = view === "onboard" ? "none" : "";
     const navView = NAV_VIEWS.includes(view) ? view
-      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", market: "home", "market-detail": "home", "market-write": "home", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage" }[view] || "home";
+      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", market: "home", "market-detail": "home", cart: "home", worklog: "home", units: "home", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage" }[view] || "home";
     $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === navView));
     if (view === "home") renderHome();
-    if (view === "market") renderMarket();
-    if (view === "market-write") renderMarketWrite();
+    if (view === "market") renderStore();
+    if (view === "cart") renderCart();
+    if (view === "orders") renderOrders();
+    if (view === "worklog") renderWorklog();
+    if (view === "units") renderUnits();
     if (view === "finder") renderFinder();
     if (view === "quiz") renderQuiz();
     if (view === "calc") renderCalc();
@@ -816,19 +827,17 @@
       $("#daily-cocktail").onclick = () => openSpirit(pick.id);
     }
 
-    // 마켓 새 매물
-    const mkRecent = [...state.market].filter((m) => m.status !== "sold").sort((a, b) => b.time - a.time).slice(0, 3);
-    $("#home-market").innerHTML = mkRecent.map((m) => `
-      <div class="home-mini" data-id="${m.id}">
-        <span class="hm-emoji">${m.img ? `<img src="${m.img}" alt="">` : m.emoji}</span>
-        <div class="hm-body">
-          <div class="hm-title">${esc(m.title)}</div>
-          <div class="hm-sub">${fmtNum(m.price)}원 · ${esc(m.region)}</div>
-        </div>
-        <span class="hm-right">${fmtRel(m.time)}</span>
-      </div>`).join("") || '<div class="empty-state" style="padding:26px 0">등록된 매물이 없어요.</div>';
-    $$("#home-market .home-mini").forEach((el) =>
-      el.addEventListener("click", () => openMarketItem(+el.dataset.id)));
+    // 스토어 추천 (베스트/신상 우선)
+    const picks = [...PRODUCTS].sort((a, b) => (b.tag ? 1 : 0) - (a.tag ? 1 : 0)).slice(0, 6);
+    $("#home-store").innerHTML = picks.map((p) => `
+      <div class="spirit-card" data-id="${p.id}">
+        <span class="sc-emoji">${p.emoji}</span>
+        <span class="sc-name">${esc(p.name)}</span>
+        <span class="sc-stars">${fmtNum(p.price)}원</span>
+        <span class="sc-meta">${p.tag ? esc(p.tag) : esc(p.cat)}</span>
+      </div>`).join("");
+    $$("#home-store .spirit-card").forEach((el) =>
+      el.addEventListener("click", () => openProduct(+el.dataset.id)));
 
     const top = [...state.spirits]
       .sort((a, b) => (b.reviews.length * 10 + avgStars(b)) - (a.reviews.length * 10 + avgStars(a)))
@@ -1603,162 +1612,273 @@
       <p class="sheet-note">규칙 위반 시 게시글 삭제 및 이용 제한이 있을 수 있어요.</p>`);
   }
 
-  /* ---------- 마켓 ---------- */
-  const MK_STATE_LABEL = { sale: "판매중", reserved: "예약중", sold: "판매완료" };
-  function renderMarket() {
-    const cats = ["전체", ...MARKET_CATS];
-    if (!cats.includes(state.marketCat)) state.marketCat = "전체";
-    $("#market-cats").innerHTML = cats.map((c) =>
-      `<button class="chip ${c === state.marketCat ? "active" : ""}" data-c="${c}">${c}</button>`).join("");
-    $$("#market-cats .chip").forEach((ch) =>
-      ch.addEventListener("click", () => { state.marketCat = ch.dataset.c; renderMarket(); }));
+  /* ---------- 스토어 ---------- */
+  const cartCount = () => state.cart.reduce((a, c) => a + c.qty, 0);
+  const product = (pid) => PRODUCTS.find((p) => p.id === pid);
+  function updateCartBadges() {
+    const n = cartCount();
+    ["cart-badge", "cart-badge2"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.hidden = n === 0;
+      el.textContent = n > 99 ? "99+" : n;
+    });
+  }
+  function renderStore() {
+    if (!STORE_CATS.includes(state.storeCat)) state.storeCat = "전체";
+    $("#store-cats").innerHTML = STORE_CATS.map((c) =>
+      `<button class="chip ${c === state.storeCat ? "active" : ""}" data-c="${c}">${c}</button>`).join("");
+    $$("#store-cats .chip").forEach((ch) =>
+      ch.addEventListener("click", () => { state.storeCat = ch.dataset.c; renderStore(); }));
 
-    const q = $("#market-search").value.trim();
-    const list = state.market
-      .filter((m) =>
-        (state.marketCat === "전체" || m.cat === state.marketCat) &&
-        (!q || m.title.includes(q) || m.desc.includes(q)))
-      .sort((a, b) => (a.status === "sold") - (b.status === "sold") || b.time - a.time);
+    const q = $("#store-search").value.trim();
+    const list = PRODUCTS.filter((p) =>
+      (state.storeCat === "전체" || p.cat === state.storeCat) &&
+      (!q || p.name.includes(q) || p.desc.includes(q)));
 
-    $("#market-list").innerHTML = list.length
-      ? list.map((m) => `
-        <div class="market-item ${m.status === "sold" ? "sold" : ""}" data-id="${m.id}">
-          <span class="market-thumb">${m.img ? `<img src="${m.img}" alt="">` : m.emoji}</span>
-          <div class="market-info">
-            <div class="market-badges">
-              <span class="mk-state ${m.status}">${MK_STATE_LABEL[m.status]}</span>
-              ${m.mine ? '<span class="my-tag">내 매물</span>' : ""}
-            </div>
-            <div class="market-title">${esc(m.title)}</div>
-            <div class="market-price">${fmtNum(m.price)}원</div>
-            <div class="market-meta">${esc(m.region)} · ${esc(m.cond)} · ${fmtRel(m.time)}</div>
+    $("#product-grid").innerHTML = list.length
+      ? list.map((p) => `
+        <div class="product-card" data-id="${p.id}">
+          <div class="pc-thumb">${p.emoji}${p.tag ? `<span class="pc-tag ${p.tag === "신상" ? "new" : ""}">${p.tag}</span>` : ""}</div>
+          <div class="pc-body">
+            <div class="pc-name">${esc(p.name)}</div>
+            <div class="pc-price">${fmtNum(p.price)}원</div>
+            <button class="pc-add" data-add="${p.id}">🛒 담기</button>
           </div>
-          <span class="market-like"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.5-9 9-9 9z"/></svg>${m.likes}</span>
         </div>`).join("")
-      : '<div class="empty-state">등록된 매물이 없어요.<br>첫 매물을 올려보세요!</div>';
-    $$("#market-list .market-item").forEach((el) =>
-      el.addEventListener("click", () => openMarketItem(+el.dataset.id)));
+      : '<div class="empty-state" style="grid-column:1/-1">검색 결과가 없어요.</div>';
+    $$("#product-grid .product-card").forEach((el) =>
+      el.addEventListener("click", () => openProduct(+el.dataset.id)));
+    $$("#product-grid .pc-add").forEach((b) =>
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        addToCart(+b.dataset.add, 1);
+      }));
+    updateCartBadges();
   }
 
-  function openMarketItem(id) {
-    state.curMarket = id;
-    renderMarketDetail();
+  function openProduct(id) {
+    state.curProduct = id;
+    state.pdQty = 1;
+    renderProductDetail();
     show("market-detail");
   }
-  function renderMarketDetail() {
-    const m = state.market.find((x) => x.id === state.curMarket);
-    if (!m) return;
-    $("#market-detail").innerHTML = `
-      <div class="mkd-hero">${m.img ? `<img src="${m.img}" alt="매물 사진">` : `<div class="mkd-emoji">${m.emoji}</div>`}</div>
-      <div class="mkd-body">
+  function renderProductDetail() {
+    const p = product(state.curProduct);
+    if (!p) return;
+    $("#product-detail").innerHTML = `
+      <div class="pd-hero">${p.emoji}</div>
+      <div class="pd-body">
         <div class="market-badges">
-          <span class="mk-state ${m.status}">${MK_STATE_LABEL[m.status]}</span>
-          <span class="cat-tag">${esc(m.cat)}</span>
-          ${m.mine ? '<span class="my-tag">내 매물</span>' : ""}
+          <span class="cat-tag">${esc(p.cat)}</span>
+          ${p.tag ? `<span class="pc-tag ${p.tag === "신상" ? "new" : ""}" style="position:static">${p.tag}</span>` : ""}
         </div>
-        <div class="mkd-title">${esc(m.title)}</div>
-        <div class="mkd-price">${fmtNum(m.price)}원</div>
-        <div class="mkd-meta">${esc(m.region)} · ${esc(m.cond)} · ${fmtRel(m.time)} · 찜 ${m.likes}</div>
-        <div class="mkd-desc">${esc(m.desc)}</div>
-      </div>
-      <div class="mkd-body" style="border-bottom:none">
-        <div class="detail-head" style="margin-bottom:0">
-          <span class="avatar md" style="background:${COLORS[m.sellerColor]}"></span>
-          <div><div class="detail-nick">${esc(m.seller)}</div><div class="detail-time">판매자</div></div>
+        <div class="pd-name">${esc(p.name)}</div>
+        <div class="pd-price">${fmtNum(p.price)}원</div>
+        <div class="pd-desc">${esc(p.desc)}</div>
+        <div class="qty-row">
+          <div class="qty-stepper">
+            <button id="pd-minus" ${state.pdQty <= 1 ? "disabled" : ""}>−</button>
+            <span>${state.pdQty}</span>
+            <button id="pd-plus">+</button>
+          </div>
+          <span class="pd-total">${fmtNum(p.price * state.pdQty)}원</span>
         </div>
-      </div>
-      <div class="mkd-actions">
-        ${m.mine ? `
-          <button class="mkd-chat-btn" id="mkd-status" style="background:var(--chip-bg);color:var(--text)">상태 변경 (${MK_STATE_LABEL[m.status]})</button>
-          <button class="mkd-like-btn" id="mkd-delete" aria-label="삭제"><svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button>
-        ` : `
-          <button class="mkd-like-btn ${m.likedByMe ? "on" : ""}" id="mkd-like" aria-label="찜">
-            <svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.5-9 9-9 9z"/></svg>
-          </button>
-          <button class="mkd-chat-btn" id="mkd-chat" ${m.status === "sold" ? "disabled" : ""}>${m.status === "sold" ? "판매가 완료된 매물이에요" : "💬 채팅으로 거래 문의"}</button>
-        `}
+        <div class="pd-actions">
+          <button class="mkd-chat-btn outline" id="pd-add">장바구니 담기</button>
+          <button class="mkd-chat-btn" id="pd-buy">바로 구매</button>
+        </div>
+        <button class="host-chat-btn" id="pd-ask" style="margin-top:12px">💬 상품 문의하기</button>
       </div>
       <div style="height:24px"></div>`;
-    const likeBtn = $("#mkd-like");
-    if (likeBtn) likeBtn.addEventListener("click", () => {
-      m.likedByMe = !m.likedByMe;
-      m.likes += m.likedByMe ? 1 : -1;
-      saveMarket();
-      renderMarketDetail();
+    $("#pd-minus").addEventListener("click", () => { if (state.pdQty > 1) { state.pdQty--; renderProductDetail(); } });
+    $("#pd-plus").addEventListener("click", () => { state.pdQty++; renderProductDetail(); });
+    $("#pd-add").addEventListener("click", () => addToCart(p.id, state.pdQty));
+    $("#pd-buy").addEventListener("click", () => { addToCart(p.id, state.pdQty, true); show("cart"); });
+    $("#pd-ask").addEventListener("click", () =>
+      openChatWith(3, "store", `스토어 문의 · ${p.name.slice(0, 12)}${p.name.length > 12 ? "…" : ""}`));
+    updateCartBadges();
+  }
+  function addToCart(pid, qty, silent) {
+    const row = state.cart.find((c) => c.pid === pid);
+    if (row) row.qty += qty;
+    else state.cart.push({ pid, qty });
+    saveCart();
+    updateCartBadges();
+    if (!silent) toast("장바구니에 담았어요. 🛒");
+  }
+
+  function renderCart() {
+    state.cart = state.cart.filter((c) => product(c.pid));
+    const subtotal = state.cart.reduce((a, c) => a + product(c.pid).price * c.qty, 0);
+    if (!state.cart.length) {
+      $("#cart-area").innerHTML = `
+        <div class="empty-state">장바구니가 비어있어요.</div>
+        <div style="padding:0 20px"><button class="big-btn accent ready" id="cart-go-store">스토어 구경하기</button></div>`;
+      $("#cart-go-store").addEventListener("click", () => show("market"));
+      return;
+    }
+    const ship = subtotal >= 30000 ? 0 : 3000;
+    const maxP = Math.min(state.user.points, subtotal + ship);
+    $("#cart-area").innerHTML = `
+      ${state.cart.map((c) => {
+        const p = product(c.pid);
+        return `
+        <div class="cart-item" data-pid="${p.id}">
+          <span class="cart-thumb">${p.emoji}</span>
+          <div class="cart-info">
+            <div class="cart-name">${esc(p.name)}</div>
+            <div class="cart-price">${fmtNum(p.price * c.qty)}원</div>
+          </div>
+          <div class="qty-stepper">
+            <button data-d="-1" ${c.qty <= 1 ? "disabled" : ""}>−</button>
+            <span>${c.qty}</span>
+            <button data-d="1">+</button>
+          </div>
+          <button class="cart-rm" aria-label="삭제">✕</button>
+        </div>`;
+      }).join("")}
+      <div class="cart-summary">
+        <label class="form-label">포인트 사용 (보유 ${fmtNum(state.user.points)}P)</label>
+        <input type="number" class="input" id="cart-points" placeholder="0" min="0" max="${maxP}" inputmode="numeric">
+        <div class="calc-result show" id="cart-total"></div>
+        <button class="big-btn accent ready" id="cart-order" style="margin-top:16px">주문하기</button>
+        <p class="sheet-note">주문 후 안내되는 계좌로 입금하면 배송이 시작돼요. (데모: 실제 결제는 PG 연동이 필요해요)</p>
+      </div>
+      <div style="height:24px"></div>`;
+    const renderTotal = () => {
+      let used = Math.floor(+$("#cart-points").value || 0);
+      used = Math.max(0, Math.min(used, maxP));
+      $("#cart-total").innerHTML = `
+        <div class="cr-row"><span>상품 합계</span><b>${fmtNum(subtotal)}원</b></div>
+        <div class="cr-row"><span>배송비 ${ship === 0 ? "(3만원 이상 무료)" : ""}</span><b>${ship === 0 ? "무료" : fmtNum(ship) + "원"}</b></div>
+        <div class="cr-row"><span>포인트 할인</span><b>-${fmtNum(used)}P</b></div>
+        <div class="cr-row hl"><span>결제 예정 금액</span><b>${fmtNum(subtotal + ship - used)}원</b></div>`;
+      return used;
+    };
+    renderTotal();
+    $("#cart-points").addEventListener("input", renderTotal);
+    $$("#cart-area .cart-item").forEach((el) => {
+      const pid = +el.dataset.pid;
+      const row = state.cart.find((c) => c.pid === pid);
+      el.querySelectorAll(".qty-stepper button").forEach((b) =>
+        b.addEventListener("click", () => {
+          row.qty = Math.max(1, row.qty + (+b.dataset.d));
+          saveCart(); renderCart();
+        }));
+      el.querySelector(".cart-rm").addEventListener("click", () => {
+        state.cart = state.cart.filter((c) => c.pid !== pid);
+        saveCart(); renderCart(); updateCartBadges();
+      });
     });
-    const chatBtn = $("#mkd-chat");
-    if (chatBtn) chatBtn.addEventListener("click", () => {
-      if (m.status === "sold") return;
-      openChatWith(m.sellerColor, `market:${m.id}`, `매물 '${m.title.slice(0, 12)}${m.title.length > 12 ? "…" : ""}'`);
-    });
-    const statusBtn = $("#mkd-status");
-    if (statusBtn) statusBtn.addEventListener("click", () => {
-      m.status = m.status === "sale" ? "reserved" : m.status === "reserved" ? "sold" : "sale";
-      saveMarket();
-      renderMarketDetail();
-      toast(`'${MK_STATE_LABEL[m.status]}' 상태로 변경했어요.`);
-    });
-    const delBtn = $("#mkd-delete");
-    if (delBtn) delBtn.addEventListener("click", () => {
-      if (!confirm("이 매물을 삭제할까요?")) return;
-      state.market = state.market.filter((x) => x.id !== m.id);
-      saveMarket();
-      show("market");
-      toast("매물을 삭제했어요.");
+    $("#cart-order").addEventListener("click", () => {
+      const used = renderTotal();
+      const id = Math.max(0, ...state.orders.map((o) => o.id)) + 1;
+      state.orders.push({
+        id,
+        items: state.cart.map((c) => ({ name: product(c.pid).name, price: product(c.pid).price, qty: c.qty })),
+        subtotal, ship, used, total: subtotal + ship - used,
+        time: Date.now(), status: "입금 대기",
+      });
+      saveOrders();
+      if (used > 0) {
+        state.user.points -= used;
+        state.user.pointLog.unshift({ amt: -used, reason: "스토어 주문 사용", time: Date.now() });
+        saveUser();
+      }
+      state.cart = [];
+      saveCart();
+      updateCartBadges();
+      addNoti("📦", `주문 #BT${String(id).padStart(4, "0")}이 접수됐어요. 입금 확인 후 배송이 시작돼요!`);
+      show("orders");
+      toast("주문이 접수되었어요! 📦");
     });
   }
 
-  function renderMarketWrite() {
-    $("#mk-emoji").innerHTML = MARKET_EMOJIS.map((e, i) =>
-      `<button class="emoji-opt ${i === state.mkEmoji ? "sel" : ""}" data-i="${i}">${e}</button>`).join("");
-    $$("#mk-emoji .emoji-opt").forEach((b) =>
-      b.addEventListener("click", () => { state.mkEmoji = +b.dataset.i; renderMarketWrite(); }));
-    $("#mk-cat").innerHTML = MARKET_CATS.map((c) =>
-      `<button class="chip ${c === state.mkCat ? "active" : ""}" data-c="${c}">${c}</button>`).join("");
-    $$("#mk-cat .chip").forEach((ch) =>
-      ch.addEventListener("click", () => { state.mkCat = ch.dataset.c; renderMarketWrite(); }));
-    $("#mk-cond").innerHTML = MARKET_CONDS.map((c) =>
-      `<button class="chip ${c === state.mkCond ? "active" : ""}" data-c="${c}">${c}</button>`).join("");
-    $$("#mk-cond .chip").forEach((ch) =>
-      ch.addEventListener("click", () => { state.mkCond = ch.dataset.c; renderMarketWrite(); }));
-    $("#mk-region").innerHTML = REGIONS.slice(1).map((r) =>
-      `<button class="chip ${r === state.mkRegion ? "active" : ""}" data-r="${r}">${r}</button>`).join("");
-    $$("#mk-region .chip").forEach((ch) =>
-      ch.addEventListener("click", () => { state.mkRegion = ch.dataset.r; renderMarketWrite(); }));
-    updateMkSubmit();
+  function renderOrders() {
+    const list = [...state.orders].sort((a, b) => b.time - a.time);
+    $("#orders-area").innerHTML = list.length
+      ? list.map((o) => `
+        <div class="order-item">
+          <div class="order-head">
+            <span class="order-no">#BT${String(o.id).padStart(4, "0")}</span>
+            <span class="mk-state reserved">${esc(o.status)}</span>
+            <span class="order-date">${fmtTime(o.time)}</span>
+          </div>
+          <div class="order-title">${esc(o.items[0].name)}${o.items.length > 1 ? ` 외 ${o.items.length - 1}건` : ""}</div>
+          <div class="order-total">${fmtNum(o.total)}원 ${o.used ? `<small style="color:var(--text-sub);font-weight:500">(${fmtNum(o.used)}P 할인)</small>` : ""}</div>
+        </div>`).join("")
+      : '<div class="empty-state">주문 내역이 없어요.</div>';
   }
-  function setMkImg(dataUrl) {
-    state.mkImg = dataUrl;
-    $("#mk-img-preview").hidden = !dataUrl;
-    $("#mk-photo-btn").style.display = dataUrl ? "none" : "";
-    if (dataUrl) $("#mk-img-el").src = dataUrl;
+
+  /* ---------- 근무일지 ---------- */
+  function wlMonth() {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth() + state.wlOffset, 1);
   }
-  function updateMkSubmit() {
-    const ok = $("#mk-title").value.trim() && state.mkCat && state.mkCond && state.mkRegion && +$("#mk-price").value >= 0 && $("#mk-price").value !== "";
-    $("#mk-submit").disabled = !ok;
-    $("#mk-submit").classList.toggle("ready", !!ok);
+  function renderWorklog() {
+    const m = wlMonth();
+    const ym = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`;
+    $("#wl-month").textContent = `${m.getFullYear()}년 ${m.getMonth() + 1}월`;
+    $("#wl-next").disabled = state.wlOffset >= 0;
+    if (!$("#wl-date").value) $("#wl-date").value = new Date(now - new Date().getTimezoneOffset() * M).toISOString().slice(0, 10);
+    const wage = +($("#wl-wage").value || store.get("wage", ""));
+    if (!$("#wl-wage").value && wage) $("#wl-wage").value = wage;
+
+    const entries = state.worklog.filter((w) => w.date.startsWith(ym)).sort((a, b) => b.date.localeCompare(a.date));
+    const hours = entries.reduce((a, w) => a + w.hours, 0);
+    const tips = entries.reduce((a, w) => a + (w.tip || 0), 0);
+    $("#wl-summary").innerHTML = `
+      <div class="cr-row"><span>근무 일수</span><b>${entries.length}일</b></div>
+      <div class="cr-row"><span>총 근무시간</span><b>${Math.round(hours * 10) / 10}시간</b></div>
+      <div class="cr-row"><span>팁 합계</span><b>${fmtNum(tips)}원</b></div>
+      <div class="cr-row hl"><span>예상 수입 ${wage ? "" : "(시급 입력 필요)"}</span><b>${wage ? fmtNum(Math.round(hours * wage + tips)) + "원" : "-"}</b></div>`;
+    $("#wl-list").innerHTML = entries.length
+      ? entries.map((w) => `
+        <div class="wl-item" data-id="${w.id}">
+          <span class="wl-date">${w.date.slice(5).replace("-", "/")}</span>
+          <div class="wl-info">
+            <div class="wl-hours">${w.hours}시간 ${w.tip ? `<span class="wl-tip">+팁 ${fmtNum(w.tip)}원</span>` : ""}</div>
+            ${w.memo ? `<div class="wl-memo">${esc(w.memo)}</div>` : ""}
+          </div>
+          <button class="cart-rm" aria-label="삭제">✕</button>
+        </div>`).join("")
+      : '<div class="empty-state" style="padding:30px 0">이 달의 기록이 없어요.</div>';
+    $$("#wl-list .cart-rm").forEach((b) =>
+      b.addEventListener("click", () => {
+        const id = +b.closest(".wl-item").dataset.id;
+        state.worklog = state.worklog.filter((w) => w.id !== id);
+        saveWorklog(); renderWorklog();
+      }));
+    updateWlAdd();
   }
-  function submitMarketItem() {
-    if ($("#mk-submit").disabled) return;
-    const id = Math.max(0, ...state.market.map((m) => m.id)) + 1;
-    const item = {
-      id, cat: state.mkCat, title: $("#mk-title").value.trim(),
-      price: +$("#mk-price").value, region: state.mkRegion, cond: state.mkCond,
-      desc: $("#mk-desc").value.trim(), emoji: MARKET_EMOJIS[state.mkEmoji],
-      status: "sale", seller: "익명(나)", sellerColor: state.user.color,
-      time: Date.now(), likes: 0, comments: [], mine: true,
-    };
-    if (state.mkImg) item.img = state.mkImg;
-    state.market.push(item);
-    saveMarket();
-    checkKeywords(item.title, item.desc);
-    ["mk-title", "mk-price", "mk-desc"].forEach((i) => { $("#" + i).value = ""; });
-    setMkImg(null);
-    $("#mk-file").value = "";
-    state.mkCat = null; state.mkCond = null; state.mkRegion = null;
-    show("market");
-    addPoints(30, "매물 등록");
-    addNoti("🛒", `'${item.title}' 매물을 등록했어요. 채팅 문의를 기다려보세요!`);
+  function updateWlAdd() {
+    const ok = $("#wl-date").value && +$("#wl-hours").value > 0;
+    $("#wl-add").disabled = !ok;
+    $("#wl-add").classList.toggle("ready", !!ok);
+  }
+  function addWorklog() {
+    if ($("#wl-add").disabled) return;
+    const id = Math.max(0, ...state.worklog.map((w) => w.id)) + 1;
+    state.worklog.push({
+      id, date: $("#wl-date").value, hours: +$("#wl-hours").value,
+      tip: +$("#wl-tip").value || 0, memo: $("#wl-memo").value.trim(),
+    });
+    saveWorklog();
+    $("#wl-hours").value = ""; $("#wl-tip").value = ""; $("#wl-memo").value = "";
+    const d = new Date($("#wl-date").value + "T00:00");
+    const today = new Date();
+    state.wlOffset = (d.getFullYear() - today.getFullYear()) * 12 + d.getMonth() - today.getMonth();
+    renderWorklog();
+    toast("근무 기록을 저장했어요. 📅");
+  }
+
+  /* ---------- 단위 변환 ---------- */
+  const OZ = 29.57;
+  function renderUnits() {
+    const rows = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5]
+      .map((oz) => `<div class="cr-row"><span>${oz} oz</span><b>${Math.round(oz * OZ * 10) / 10} ml <small style="color:var(--text-sub);font-weight:500">(현장 ${Math.round(oz * 30)}ml)</small></b></div>`).join("");
+    $("#unit-table").innerHTML = rows;
   }
 
   /* ---------- 도구: 공통 ---------- */
@@ -2010,20 +2130,28 @@
   $("#review-input").addEventListener("keydown", (e) => { if (e.key === "Enter") addReview(); });
   $("#spirit-share").addEventListener("click", shareSpirit);
 
-  // 마켓
-  $("#market-search").addEventListener("input", renderMarket);
-  $("#fab-market").addEventListener("click", () => show("market-write"));
-  ["mk-title", "mk-price"].forEach((i) =>
-    $("#" + i).addEventListener("input", updateMkSubmit));
-  $("#mk-submit").addEventListener("click", submitMarketItem);
-  $("#mk-photo-btn").addEventListener("click", () => $("#mk-file").click());
-  $("#mk-file").addEventListener("change", (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    if (!f.type.startsWith("image/")) { toast("이미지 파일만 첨부할 수 있어요."); return; }
-    compressImage(f, setMkImg);
+  // 스토어
+  $("#store-search").addEventListener("input", renderStore);
+  $("#store-cart-btn").addEventListener("click", () => show("cart"));
+  $("#pd-cart-btn").addEventListener("click", () => show("cart"));
+  $("#btn-orders").addEventListener("click", () => show("orders"));
+
+  // 근무일지
+  $("#wl-prev").addEventListener("click", () => { state.wlOffset--; renderWorklog(); });
+  $("#wl-next").addEventListener("click", () => { if (state.wlOffset < 0) { state.wlOffset++; renderWorklog(); } });
+  $("#wl-wage").addEventListener("input", () => { store.set("wage", +$("#wl-wage").value || ""); renderWorklog(); });
+  ["wl-date", "wl-hours"].forEach((i) => $("#" + i).addEventListener("input", updateWlAdd));
+  $("#wl-add").addEventListener("click", addWorklog);
+
+  // 단위 변환
+  $("#unit-oz").addEventListener("input", () => {
+    const v = parseFloat($("#unit-oz").value);
+    $("#unit-ml").value = isNaN(v) ? "" : Math.round(v * 29.57 * 10) / 10;
   });
-  $("#mk-img-remove").addEventListener("click", () => { setMkImg(null); $("#mk-file").value = ""; });
+  $("#unit-ml").addEventListener("input", () => {
+    const v = parseFloat($("#unit-ml").value);
+    $("#unit-oz").value = isNaN(v) ? "" : Math.round(v / 29.57 * 100) / 100;
+  });
 
   // 도구
   $("#calc-add-row").addEventListener("click", () => {
