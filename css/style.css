@@ -300,9 +300,10 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 }
 .spirit-item:active { background: var(--bg-gray); }
 .spirit-emoji {
-  width: 58px; height: 58px; border-radius: 16px; background: var(--bg-gray);
-  display: flex; align-items: center; justify-content: center; font-size: 29px; flex-shrink: 0;
+  width: 74px; height: 74px; border-radius: 16px; background: var(--bg-gray);
+  display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0;
 }
+.spirit-emoji .thumb-img, .sc-emoji .thumb-img { background: #fff; object-fit: contain; padding: 4px; }
 .spirit-info { flex: 1; min-width: 0; }
 .spirit-name { font-size: 16px; font-weight: 700; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .spirit-meta { font-size: 13.5px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -311,7 +312,18 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .spirit-rate .cnt { font-size: 12.5px; color: var(--text-sub); margin-top: 2px; }
 
 /* ---------- 술 상세 ---------- */
-.sp-hero { text-align: center; padding: 26px 20px 20px; border-bottom: 8px solid var(--bg-gray); }
+.sp-hero-media {
+  width: 100%; height: min(320px, 42vh);
+  background: var(--bg-gray);
+  display: flex; align-items: center; justify-content: center;
+  border-bottom: 1px solid var(--line);
+}
+.sp-hero-media img.thumb-img {
+  width: 100%; height: 100%; object-fit: contain;
+  padding: 14px; background: #fff; cursor: zoom-in;
+}
+.sp-hero-media svg { height: 82%; }
+.sp-hero { text-align: center; padding: 20px; border-bottom: 8px solid var(--bg-gray); }
 .sp-hero .big-emoji {
   width: 92px; height: 92px; margin: 0 auto 14px; border-radius: 26px;
   background: var(--bg-gray); display: flex; align-items: center; justify-content: center;

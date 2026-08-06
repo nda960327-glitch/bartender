@@ -890,11 +890,13 @@
 
   /* ---------- 술 이미지: 칵테일 대표사진 + 병 일러스트 ---------- */
   const saveImgCache = () => store.set("imgCache", state.imgCache);
-  // v2: 예전 대표사진 캐시(증류소 풍경 섞임) 폐기 → 병 사진 로직으로 재수집
-  if (store.get("imgv", 1) < 2) {
-    Object.keys(state.imgCache).forEach((k) => { if (k.startsWith("b:")) delete state.imgCache[k]; });
+  // v3: 커먼즈 검색 폴백 추가 → 실패했던 항목 전부 재수집 (성공한 칵테일 사진은 유지)
+  if (store.get("imgv", 1) < 3) {
+    Object.keys(state.imgCache).forEach((k) => {
+      if (k.startsWith("b:") || state.imgCache[k] === "x" || state.imgCache[k] === "…") delete state.imgCache[k];
+    });
     saveImgCache();
-    store.set("imgv", 2);
+    store.set("imgv", 3);
   }
   const COCKTAIL_EN = {
     "네그로니": "Negroni", "올드 패션드": "Old Fashioned", "모히토": "Mojito", "진 토닉": "Gin And Tonic",
@@ -974,30 +976,31 @@
       job().finally(() => { imgActive--; pumpImgQueue(); });
     }
   }
+  const BAD_IMG = /distillery|brewery|building|map|logo|exterior|interior|warehouse|cask|still\b|visitor|centre|center|museum|sign|entrance|landscape|street|house|hall|plant|factory|washback|fermen|mash|tun\b|barrel|advert|poster|portrait|founder|statue|plaque|\.svg$/i;
+  const wikiBottle = (title) =>
+    fetch("https://en.wikipedia.org/api/rest_v1/page/media-list/" + encodeURIComponent(title))
+      .then((r) => r.json())
+      .then((j) => {
+        const items = ((j && j.items) || []).filter((it) =>
+          it.type === "image" && it.srcset && it.srcset[0] && !/\.svg/i.test(it.title || ""));
+        const pick = items.find((it) => /bottle|bottling|flasche|botella/i.test(it.title || "")) ||
+          items.find((it) => !BAD_IMG.test(it.title || ""));
+        return pick ? "https:" + pick.srcset[0].src.replace(/^https?:/, "") : null;
+      })
+      .catch(() => null);
   function fetchSpiritImg(sp) {
     const brand = brandOf(sp.name);
     if (!brand) return;
     const key = "b:" + brand;
     if (state.imgCache[key] !== undefined) return;
     state.imgCache[key] = "…";
-    const BAD = /distillery|brewery|building|map|logo|exterior|interior|warehouse|cask|still|visitor|centre|center|museum|sign|entrance|landscape|street|house|hall|plant|factory|washback|fermen|mash|tun\b|barrel|advert|poster|portrait|founder|statue|plaque|\.svg$/i;
-    const GOOD = /bottle|bottling|flasche|botella/i;
-    imgQueue.push(() =>
-      fetch("https://en.wikipedia.org/api/rest_v1/page/media-list/" + encodeURIComponent(BRAND_EN[brand]))
-        .then((r) => r.json())
-        .then((j) => {
-          const items = ((j && j.items) || []).filter((it) =>
-            it.type === "image" && it.srcset && it.srcset[0] && !/\.svg/i.test(it.title || ""));
-          const pick = items.find((it) => GOOD.test(it.title || "")) ||
-            items.find((it) => !BAD.test(it.title || ""));
-          state.imgCache[key] = pick ? "https:" + pick.srcset[0].src.replace(/^https?:/, "") : "x";
-        })
-        .catch(() => { state.imgCache[key] = "x"; })
-        .finally(() => {
-          saveImgCache();
-          clearTimeout(imgFetchTimer);
-          imgFetchTimer = setTimeout(rerenderForImages, 600);
-        }));
+    const clean = BRAND_EN[brand].replace(/\s*\(.*\)/, "").replace(/\s*distillery/i, "");
+    imgQueue.push(async () => {
+      let url = await wikiBottle(BRAND_EN[brand]);
+      if (!url) url = await commonsSearch(clean + " bottle");
+      if (!url) url = await commonsSearch(clean);
+      setImgResult(key, url);
+    });
     pumpImgQueue();
   }
   function rerenderForImages() {
@@ -1006,30 +1009,65 @@
     else if (state.view === "home") renderHome();
     else if (state.view === "finder") renderFinder();
   }
+  // 칵테일 → 위키 문서 (DB에 없는 것들 2차 소스)
+  const COCKTAIL_WIKI = {
+    "위스키 하이볼": "Highball", "페니실린": "Penicillin (cocktail)", "뉴욕 사워": "New York sour",
+    "라스트 워드": "Last Word (cocktail)", "진 바질 스매시": "Gin Basil Smash", "사우스사이드": "Southside (cocktail)",
+    "깁슨": "Gibson (cocktail)", "마티네즈": "Martinez (cocktail)", "진 리키": "Rickey (cocktail)",
+    "행키 팽키": "Hanky Panky (cocktail)", "비스 니즈": "Bee's Knees (cocktail)", "페인킬러": "Painkiller (cocktail)",
+    "엘 프레지덴테": "El Presidente (cocktail)", "핫 버터드 럼": "Hot buttered rum", "잭콕": "Jack and Coke",
+    "페이퍼 플레인": "Paper Plane (cocktail)", "골드 러시": "Gold Rush (cocktail)", "올드 팔": "Old Pal",
+    "애플 마티니": "Appletini", "프렌치 마티니": "French martini", "토미스 마르가리타": "Tommy's margarita",
+    "네그로니 스바글리아토": "Negroni sbagliato", "휴고 스프리츠": "Hugo (cocktail)", "키르 로얄": "Kir (cocktail)",
+    "스팅어": "Stinger (cocktail)", "뱅쇼": "Mulled wine", "블루 하와이": "Blue Hawaii (cocktail)",
+    "버진 모히토": "Mojito", "헤밍웨이 다이키리": "Hemingway Special", "위스키 스매시": "Smash (cocktail)",
+    "준벅": "June bug (cocktail)", "치치": "Chi chi (cocktail)", "멕시칸 뮬": "Moscow mule",
+    "케이프 코더": "Cape Codder (cocktail)", "베이 브리즈": "Sea Breeze (cocktail)", "깔루아 밀크": "Kahlúa",
+    "리몬첼로 스프리츠": "Limoncello", "신데렐라": "Cinderella (cocktail)",
+  };
   let imgFetchTimer;
+  function setImgResult(key, url) {
+    state.imgCache[key] = url || "x";
+    saveImgCache();
+    clearTimeout(imgFetchTimer);
+    imgFetchTimer = setTimeout(rerenderForImages, 600);
+  }
+  const wikiLead = (title) =>
+    fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(title))
+      .then((r) => r.json())
+      .then((j) => (j && j.thumbnail && j.thumbnail.source) || null)
+      .catch(() => null);
+  const commonsSearch = (term) =>
+    fetch("https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=8&gsrsearch=" +
+      encodeURIComponent(term) + "&prop=imageinfo&iiprop=url&iiurlwidth=480")
+      .then((r) => r.json())
+      .then((j) => {
+        const pages = Object.values((j && j.query && j.query.pages) || {})
+          .sort((a, b) => a.index - b.index)
+          .filter((p) => p.imageinfo && p.imageinfo[0] && !BAD_IMG.test(p.title) && !/\.svg$|\.pdf$|\.tiff?$|\.webm$|\.ogv$/i.test(p.title));
+        return pages.length ? (pages[0].imageinfo[0].thumburl || pages[0].imageinfo[0].url) : null;
+      })
+      .catch(() => null);
   function fetchCocktailImg(sp) {
     if (sp.kind !== "cocktail" || sp.img) return;
     if (state.imgCache[sp.id] !== undefined) return;
-    const en = COCKTAIL_EN[sp.name];
-    if (!en) { state.imgCache[sp.id] = "x"; saveImgCache(); return; }
     state.imgCache[sp.id] = "…";
-    fetch("https://www.thecocktaildb.com/api/json/v1/1/search.php?s=" + encodeURIComponent(en))
-      .then((r) => r.json())
-      .then((j) => {
-        const t = j && j.drinks && j.drinks[0] && j.drinks[0].strDrinkThumb;
-        state.imgCache[sp.id] = t || "x";
-      })
-      .catch(() => { state.imgCache[sp.id] = "x"; })
-      .finally(() => {
-        saveImgCache();
-        clearTimeout(imgFetchTimer);
-        imgFetchTimer = setTimeout(() => {
-          if (state.view === "dogam") renderDogam();
-          else if (state.view === "spirit") renderSpiritDetail();
-          else if (state.view === "home") renderHome();
-          else if (state.view === "finder") renderFinder();
-        }, 500);
-      });
+    const en = COCKTAIL_EN[sp.name];
+    const wikiTitle = COCKTAIL_WIKI[sp.name];
+    if (!en && !wikiTitle) { state.imgCache[sp.id] = "x"; saveImgCache(); return; }
+    imgQueue.push(async () => {
+      let url = null;
+      if (en) {
+        url = await fetch("https://www.thecocktaildb.com/api/json/v1/1/search.php?s=" + encodeURIComponent(en))
+          .then((r) => r.json())
+          .then((j) => (j && j.drinks && j.drinks[0] && j.drinks[0].strDrinkThumb) || null)
+          .catch(() => null);
+      }
+      if (!url && wikiTitle) url = await wikiLead(wikiTitle);
+      if (!url) url = await commonsSearch((en || wikiTitle.replace(/\s*\(.*\)/, "")) + " cocktail");
+      setImgResult(sp.id, url);
+    });
+    pumpImgQueue();
   }
   function spiritImgURL(sp) {
     if (sp.img) return sp.img;
@@ -1300,8 +1338,8 @@
     const avg = avgStars(sp);
     const isCt = sp.kind === "cocktail";
     $("#spirit-detail").innerHTML = `
+      <div class="sp-hero-media">${thumbHTML(sp)}</div>
       <div class="sp-hero">
-        <div class="big-emoji">${thumbHTML(sp)}</div>
         <h2>${esc(sp.name)}</h2>
         <div class="sp-sub">${isCt ? esc(sp.base) + " 베이스 칵테일 · 약 " + sp.abv + "%" : esc(sp.cat) + " · " + sp.abv + "%" + (sp.price ? " · " + esc(sp.price) : "")}</div>
         <div class="sp-stars">${starStr(avg)} ${avg ? avg.toFixed(1) : ""} <small>(리뷰 ${sp.reviews.length})</small></div>
@@ -1335,7 +1373,7 @@
         </div>`).join("") || '<div class="empty-state" style="padding:32px 0">첫 리뷰를 남겨보세요!</div>'}
       <div style="height:24px"></div>`;
     wireImgFallback("#spirit-detail");
-    const hero = $("#spirit-detail .big-emoji img.thumb-img");
+    const hero = $("#spirit-detail .sp-hero-media img.thumb-img");
     if (hero) {
       hero.style.cursor = "zoom-in";
       hero.addEventListener("click", (e) => { e.stopPropagation(); openLightbox(hero.src); });
