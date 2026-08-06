@@ -724,6 +724,18 @@ textarea.input { height: auto; }
   background: var(--text); color: var(--bg); font-weight: 700; font-size: 15px; cursor: pointer; flex-shrink: 0;
 }
 
+/* ---------- 술 이미지/일러스트 ---------- */
+.thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.spirit-emoji, .sp-hero .big-emoji, .dc-emoji, .hm-emoji { overflow: hidden; }
+.spirit-emoji svg, .big-emoji svg { width: 72%; height: 88%; display: block; }
+.sc-emoji {
+  width: 62px; height: 62px; display: flex; align-items: center; justify-content: center;
+  border-radius: 14px; overflow: hidden;
+}
+.sc-emoji svg { width: 74%; height: 90%; }
+.sc-emoji .thumb-img { border-radius: 14px; }
+.dc-emoji svg { width: 70%; height: 86%; }
+
 /* ---------- 스토어 ---------- */
 .product-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 14px;

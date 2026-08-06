@@ -683,6 +683,7 @@
     cart: store.get("cart", []),
     orders: store.get("orders", []),
     worklog: store.get("worklog", []),
+    imgCache: store.get("imgCache", {}),
     noti: store.get("noti", []),
     chats: store.get("chats", []),
     dark: store.get("dark", !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)),
@@ -887,6 +888,120 @@
     show("home");
   }
 
+  /* ---------- 술 이미지: 칵테일 대표사진 + 병 일러스트 ---------- */
+  const saveImgCache = () => store.set("imgCache", state.imgCache);
+  const COCKTAIL_EN = {
+    "네그로니": "Negroni", "올드 패션드": "Old Fashioned", "모히토": "Mojito", "진 토닉": "Gin And Tonic",
+    "위스키 사워": "Whiskey Sour", "마티니": "Dry Martini", "맨해튼": "Manhattan", "다이키리": "Daiquiri",
+    "마르가리타": "Margarita", "코스모폴리탄": "Cosmopolitan", "에스프레소 마티니": "Espresso Martini",
+    "아페롤 스프리츠": "Aperol Spritz", "피나 콜라다": "Pina Colada", "롱아일랜드 아이스티": "Long Island Iced Tea",
+    "사이드카": "Sidecar", "김렛": "Gimlet", "톰 콜린스": "Tom Collins", "프렌치 75": "French 75",
+    "미도리 사워": "Midori Sour", "블러디 메리": "Bloody Mary", "모스코 뮬": "Moscow Mule", "쿠바 리브레": "Cuba Libre",
+    "섹스 온 더 비치": "Sex on the Beach", "갓파더": "Godfather", "갓마더": "Godmother", "아비에이션": "Aviation",
+    "브램블": "Bramble", "클로버 클럽": "Clover Club", "베스퍼": "Vesper", "화이트 레이디": "White Lady",
+    "싱가포르 슬링": "Singapore Sling", "다크 앤 스토미": "Dark and Stormy", "플랜터스 펀치": "Planter's Punch",
+    "좀비": "Zombie", "사제락": "Sazerac", "불바디에": "Boulevardier", "민트 줄렙": "Mint Julep",
+    "러스티 네일": "Rusty Nail", "롭 로이": "Rob Roy", "아이리시 커피": "Irish Coffee",
+    "스크루드라이버": "Screwdriver", "솔티 독": "Salty Dog", "시브리즈": "Sea breeze", "카미카제": "Kamikaze",
+    "레몬 드롭": "Lemon Drop", "프로즌 마르가리타": "Frozen Margarita", "B-52": "B-52", "그래스호퍼": "Grasshopper",
+    "아메리카노": "Americano", "키르": "Kir", "브랜디 알렉산더": "Brandy Alexander", "호스넥": "Horse's Neck",
+    "상그리아": "Sangria", "셜리 템플": "Shirley Temple", "하비 월뱅어": "Harvey Wallbanger", "블루 라군": "Blue Lagoon",
+    "마이애미 바이스": "Miami Vice", "화이트 러시안": "White Russian", "블랙 러시안": "Black Russian",
+    "마이타이": "Mai Tai", "카이피리냐": "Caipirinha", "데킬라 선라이즈": "Tequila Sunrise", "팔로마": "Paloma",
+    "미모사": "Mimosa", "벨리니": "Bellini", "아마레또 사워": "Amaretto Sour", "진 피즈": "Gin Fizz",
+    "헤밍웨이 다이키리": "Hemingway Special", "핫 토디": "Hot Toddy", "엘 디아블로": "El Diablo",
+  };
+  let imgFetchTimer;
+  function fetchCocktailImg(sp) {
+    if (sp.kind !== "cocktail" || sp.img) return;
+    if (state.imgCache[sp.id] !== undefined) return;
+    const en = COCKTAIL_EN[sp.name];
+    if (!en) { state.imgCache[sp.id] = "x"; saveImgCache(); return; }
+    state.imgCache[sp.id] = "…";
+    fetch("https://www.thecocktaildb.com/api/json/v1/1/search.php?s=" + encodeURIComponent(en))
+      .then((r) => r.json())
+      .then((j) => {
+        const t = j && j.drinks && j.drinks[0] && j.drinks[0].strDrinkThumb;
+        state.imgCache[sp.id] = t || "x";
+      })
+      .catch(() => { state.imgCache[sp.id] = "x"; })
+      .finally(() => {
+        saveImgCache();
+        clearTimeout(imgFetchTimer);
+        imgFetchTimer = setTimeout(() => {
+          if (state.view === "dogam") renderDogam();
+          else if (state.view === "spirit") renderSpiritDetail();
+          else if (state.view === "home") renderHome();
+          else if (state.view === "finder") renderFinder();
+        }, 500);
+      });
+  }
+  function spiritImgURL(sp) {
+    if (sp.img) return sp.img;
+    if (sp.kind === "cocktail") {
+      const u = state.imgCache[sp.id];
+      return u && u !== "x" && u !== "…" ? u : null;
+    }
+    return null;
+  }
+  function hashHue(s) {
+    let h = 0;
+    for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return h % 360;
+  }
+  function svgBottle(sp) {
+    const hue = hashHue(sp.name);
+    const GLASS = { "위스키": "35,45%,38%", "브랜디": "28,50%,34%", "럼": "30,45%,30%", "데킬라": "45,40%,55%", "진": "140,20%,52%", "보드카": "210,18%,62%", "와인": "340,40%,26%", "전통주": "45,15%,78%" };
+    const g = GLASS[sp.cat] || `${hue},35%,45%`;
+    const cap = `hsl(${hue},45%,28%)`;
+    const lbl = `hsl(${hue},50%,95%)`;
+    const wine = sp.cat === "와인";
+    const jar = sp.cat === "전통주";
+    const body = jar
+      ? `<rect x="26" y="18" width="12" height="16" fill="hsl(${g})"/><rect x="13" y="32" width="38" height="62" rx="12" fill="hsl(${g})"/>`
+      : wine
+        ? `<path d="M28 12h8v22q12 4 12 16v38q0 6-6 6H26q-6 0-6-6V50q0-12 12-16z" fill="hsl(${g})"/>`
+        : `<path d="M26 12h12v16q12 3 12 14v46q0 6-6 6H20q-6 0-6-6V42q0-11 12-14z" fill="hsl(${g})"/>`;
+    return `<svg viewBox="0 0 64 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(sp.name)}">
+      <rect x="${jar ? 24 : 26}" y="4" width="${jar ? 16 : 12}" height="10" rx="2" fill="${cap}"/>
+      ${body}
+      <rect x="22" y="16" width="4" height="30" rx="2" fill="rgba(255,255,255,.28)"/>
+      <rect x="18" y="52" width="28" height="24" rx="3" fill="${lbl}"/>
+      <text x="32" y="62" font-size="6" text-anchor="middle" fill="#3a3f46" font-family="sans-serif" font-weight="700">${esc(sp.name.slice(0, 5))}</text>
+      <text x="32" y="71" font-size="5" text-anchor="middle" fill="#8b95a1" font-family="sans-serif">${sp.abv}%</text>
+    </svg>`;
+  }
+  function svgGlass(sp) {
+    const hue = hashHue(sp.name);
+    return `<svg viewBox="0 0 64 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(sp.name)}">
+      <path d="M10 16h44L36 42v34h11v6H17v-6h11V42z" fill="#aeb9c4" opacity=".45"/>
+      <path d="M14 19h36L35 41h-6z" fill="hsl(${hue},70%,55%)"/>
+      <circle cx="47" cy="14" r="5" fill="hsl(${(hue + 70) % 360},75%,60%)"/>
+      <rect x="30" y="42" width="4" height="32" fill="#aeb9c4" opacity=".6"/>
+    </svg>`;
+  }
+  function thumbHTML(sp) {
+    const u = spiritImgURL(sp);
+    if (u) return `<img class="thumb-img" loading="lazy" src="${esc(u)}" alt="" data-fb="${sp.id}">`;
+    if (sp.kind === "cocktail") { fetchCocktailImg(sp); return svgGlass(sp); }
+    return svgBottle(sp);
+  }
+  function wireImgFallback(sel) {
+    $$(sel + " img.thumb-img").forEach((img) =>
+      img.addEventListener("error", () => {
+        const sp = state.spirits.find((s) => s.id === +img.dataset.fb);
+        if (sp) {
+          if (sp.img) { delete sp.img; saveSpirits(); }
+          state.imgCache[sp.id] = "x";
+          saveImgCache();
+        }
+        const span = document.createElement("span");
+        span.style.cssText = "width:100%;height:100%;display:flex;align-items:center;justify-content:center";
+        span.innerHTML = sp ? (sp.kind === "cocktail" ? svgGlass(sp) : svgBottle(sp)) : "🥃";
+        img.replaceWith(span);
+      }, { once: true }));
+  }
+
   /* ---------- 홈 ---------- */
   function renderHome() {
     const h = new Date().getHours();
@@ -899,13 +1014,14 @@
       const d = new Date();
       const pick = cts[(d.getFullYear() * 372 + d.getMonth() * 31 + d.getDate()) % cts.length];
       $("#daily-cocktail").innerHTML = `
-        <span class="dc-emoji">${pick.emoji}</span>
+        <span class="dc-emoji">${thumbHTML(pick)}</span>
         <div class="dc-body">
           <div class="dc-name">${esc(pick.name)}</div>
           <div class="dc-sub">${esc(pick.base)} 베이스 · 오늘 한 잔 어때요?</div>
         </div>
         <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>`;
       $("#daily-cocktail").onclick = () => openSpirit(pick.id);
+      wireImgFallback("#daily-cocktail");
     }
 
     // 스토어 추천 (베스트/신상 우선)
@@ -925,13 +1041,14 @@
       .slice(0, 6);
     $("#home-spirits").innerHTML = top.map((sp) => `
       <div class="spirit-card pressable" data-id="${sp.id}">
-        <span class="sc-emoji">${sp.emoji}</span>
+        <span class="sc-emoji">${thumbHTML(sp)}</span>
         <span class="sc-name">${esc(sp.name)}</span>
         <span class="sc-stars">★ ${avgStars(sp) ? avgStars(sp).toFixed(1) : "-"}</span>
         <span class="sc-meta">${sp.kind === "cocktail" ? esc(sp.base) + " 베이스" : esc(sp.cat)}</span>
       </div>`).join("");
     $$("#home-spirits .spirit-card").forEach((el) =>
       el.addEventListener("click", () => openSpirit(+el.dataset.id)));
+    wireImgFallback("#home-spirits");
 
     const meets = [...state.meets].filter((m) => m.date > Date.now() - D).sort((a, b) => a.date - b.date).slice(0, 3);
     $("#home-meets").innerHTML = meets.map((m) => `
@@ -1035,7 +1152,7 @@
     $("#spirit-list").innerHTML = list.length
       ? list.map((sp) => `
         <div class="spirit-item" data-id="${sp.id}">
-          <span class="spirit-emoji">${sp.emoji}</span>
+          <span class="spirit-emoji">${thumbHTML(sp)}</span>
           <div class="spirit-info">
             <div class="spirit-name">${esc(sp.name)}</div>
             <div class="spirit-meta">${sp.kind === "cocktail" ? esc(sp.base) + " 베이스 · 약 " + sp.abv + "%" : esc(sp.cat) + " · " + sp.abv + "%" + (sp.price ? " · " + esc(sp.price) : "")}</div>
@@ -1048,6 +1165,7 @@
       : '<div class="empty-state">아직 등록된 항목이 없어요.<br>오른쪽 아래 + 버튼으로 등록해보세요!</div>';
     $$("#spirit-list .spirit-item").forEach((el) =>
       el.addEventListener("click", () => openSpirit(+el.dataset.id)));
+    wireImgFallback("#spirit-list");
   }
 
   /* ---------- 술 상세 ---------- */
@@ -1065,7 +1183,7 @@
     const isCt = sp.kind === "cocktail";
     $("#spirit-detail").innerHTML = `
       <div class="sp-hero">
-        <div class="big-emoji">${sp.emoji}</div>
+        <div class="big-emoji">${thumbHTML(sp)}</div>
         <h2>${esc(sp.name)}</h2>
         <div class="sp-sub">${isCt ? esc(sp.base) + " 베이스 칵테일 · 약 " + sp.abv + "%" : esc(sp.cat) + " · " + sp.abv + "%" + (sp.price ? " · " + esc(sp.price) : "")}</div>
         <div class="sp-stars">${starStr(avg)} ${avg ? avg.toFixed(1) : ""} <small>(리뷰 ${sp.reviews.length})</small></div>
@@ -1098,6 +1216,7 @@
           </div>
         </div>`).join("") || '<div class="empty-state" style="padding:32px 0">첫 리뷰를 남겨보세요!</div>'}
       <div style="height:24px"></div>`;
+    wireImgFallback("#spirit-detail");
   }
   function renderStarPick() {
     $("#star-pick").innerHTML = [1, 2, 3, 4, 5].map((n) =>
@@ -1155,6 +1274,8 @@
       name: $("#sw-name").value.trim(), abv: +$("#sw-abv").value,
       note: $("#sw-note").value.trim(), by: "익명", time: Date.now(), reviews: [], mine: true,
     };
+    const imgUrl = $("#sw-img").value.trim();
+    if (/^https?:\/\//.test(imgUrl)) item.img = imgUrl;
     if (state.swKind === "spirit") {
       item.cat = state.swCat;
       item.price = $("#sw-price").value.trim();
@@ -1167,7 +1288,7 @@
     state.user.mySpiritIds.push(id);
     saveSpirits(); saveUser();
     checkKeywords(item.name, item.note || "");
-    ["sw-name", "sw-abv", "sw-price", "sw-note", "sw-ings", "sw-recipe"].forEach((i) => { $("#" + i).value = ""; });
+    ["sw-name", "sw-abv", "sw-price", "sw-note", "sw-ings", "sw-recipe", "sw-img"].forEach((i) => { $("#" + i).value = ""; });
     state.dogamKind = state.swKind;
     state.dogamCat = "전체";
     $$("#dogam-seg .seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.kind === state.dogamKind));
@@ -2062,7 +2183,7 @@
     $("#finder-results").innerHTML = matches.length
       ? matches.map((m) => `
         <div class="spirit-item" data-id="${m.c.id}">
-          <span class="spirit-emoji">${m.c.emoji}</span>
+          <span class="spirit-emoji">${thumbHTML(m.c)}</span>
           <div class="spirit-info">
             <div class="spirit-name">${esc(m.c.name)}</div>
             <div class="spirit-meta">${esc(cocktailIngs(m.c).join(", "))}</div>
@@ -2072,6 +2193,7 @@
       : '<div class="empty-state" style="padding:40px 20px">선택한 재료로 만들 수 있는 칵테일이 없어요.</div>';
     $$("#finder-results .spirit-item").forEach((el) =>
       el.addEventListener("click", () => openSpirit(+el.dataset.id)));
+    wireImgFallback("#finder-results");
   }
 
   /* ---------- 레시피 퀴즈 ---------- */
