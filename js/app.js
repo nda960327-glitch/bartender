@@ -911,6 +911,89 @@
     "미모사": "Mimosa", "벨리니": "Bellini", "아마레또 사워": "Amaretto Sour", "진 피즈": "Gin Fizz",
     "헤밍웨이 다이키리": "Hemingway Special", "핫 토디": "Hot Toddy", "엘 디아블로": "El Diablo",
   };
+  // 스피릿 브랜드 → 위키피디아 문서명 (대표 병 사진 소스)
+  const BRAND_EN = {
+    "글렌피딕": "Glenfiddich", "글렌리벳": "The Glenlivet", "맥캘란": "The Macallan distillery", "발베니": "Balvenie distillery",
+    "글렌모렌지": "Glenmorangie", "아드벡": "Ardbeg", "라가불린": "Lagavulin distillery", "라프로익": "Laphroaig",
+    "탈리스커": "Talisker distillery", "하이랜드 파크": "Highland Park distillery", "글렌드로낙": "GlenDronach",
+    "보모어": "Bowmore", "오반": "Oban distillery", "스프링뱅크": "Springbank distillery", "쿨일라": "Caol Ila",
+    "부나하벤": "Bunnahabhain", "킬호만": "Kilchoman distillery", "글렌파클라스": "Glenfarclas distillery",
+    "아벨라워": "Aberlour distillery", "글렌고인": "Glengoyne", "크래겐모어": "Cragganmore distillery",
+    "달모어": "Dalmore distillery", "클라이넬리쉬": "Clynelish distillery", "올드 풀트니": "Old Pulteney distillery",
+    "벤로막": "Benromach distillery", "딘스톤": "Deanston", "토마틴": "Tomatin distillery", "글렌킨치": "Glenkinchie",
+    "벤리악": "BenRiach", "달위니": "Dalwhinnie distillery", "카듀": "Cardhu distillery", "글렌그란트": "Glen Grant distillery",
+    "조니워커": "Johnnie Walker", "발렌타인": "Ballantine's", "시바스 리갈": "Chivas Regal", "듀어스": "Dewar's",
+    "커티삭": "Cutty Sark (whisky)", "페이머스 그라우스": "The Famous Grouse", "몽키 숄더": "Monkey Shoulder",
+    "로얄 살루트": "Royal Salute (whisky)", "제임슨": "Jameson Irish Whiskey", "부시밀즈": "Old Bushmills Distillery",
+    "레드브레스트": "Redbreast (whiskey)", "털러모어": "Tullamore Dew",
+    "버팔로 트레이스": "Buffalo Trace Distillery", "메이커스": "Maker's Mark", "메이커스 마크": "Maker's Mark",
+    "와일드 터키": "Wild Turkey (bourbon)", "우드포드": "Woodford Reserve", "잭 다니엘": "Jack Daniel's",
+    "짐빔": "Jim Beam", "놉 크릭": "Knob Creek", "포 로지스": "Four Roses", "에반 윌리엄스": "Evan Williams (bourbon)",
+    "엘라이자 크레이그": "Elijah Craig", "불렛": "Bulleit Bourbon", "블랜튼스": "Blanton's", "이글 레어": "Eagle Rare",
+    "부커스": "Booker's", "올드 포레스터": "Old Forester", "미치터스": "Michter's", "젠틀맨": "Jack Daniel's",
+    "크라운 로얄": "Crown Royal", "캐나디안 클럽": "Canadian Club", "엔젤스": "Angel's Envy",
+    "야마자키": "Yamazaki distillery", "히비키": "Hibiki (whisky)", "하쿠슈": "Hakushu distillery",
+    "산토리": "Suntory", "니카": "Nikka Whisky Distilling", "슈퍼 니카": "Nikka Whisky Distilling",
+    "다케츠루": "Nikka Whisky Distilling", "치타": "Suntory", "카발란": "Kavalan Distillery",
+    "암룻": "Amrut (whisky)", "폴 존": "Paul John (whisky)", "펜더린": "Penderyn Distillery",
+    "탱커레이": "Tanqueray", "봄베이": "Bombay Sapphire", "헨드릭스": "Hendrick's Gin", "몽키": "Monkey 47",
+    "몽키 47": "Monkey 47", "비피터": "Beefeater Gin", "고든스": "Gordon's Gin", "플리머스": "Plymouth Gin",
+    "로쿠": "Roku (gin)", "더 보타니스트": "The Botanist (gin)", "시프스미스": "Sipsmith",
+    "바카디": "Bacardi", "하바나 클럽": "Havana Club", "캡틴 모건": "Captain Morgan", "크라켄": "Kraken Black Spiced Rum",
+    "고슬링": "Gosling Brothers", "세일러 제리": "Sailor Jerry", "마이어스": "Myers's Rum",
+    "앱솔루트": "Absolut Vodka", "그레이 구스": "Grey Goose (vodka)", "스미노프": "Smirnoff", "시락": "Cîroc",
+    "케틀 원": "Ketel One", "벨베디어": "Belvedere (vodka)", "스톨리치나야": "Stolichnaya", "핀란디아": "Finlandia (vodka)",
+    "티토스": "Tito's Handmade Vodka", "벨루가": "Beluga Vodka",
+    "패트론": "Patrón", "호세 쿠엘보": "Jose Cuervo", "돈 훌리오": "Don Julio", "카사미고스": "Casamigos",
+    "캄파리": "Campari", "아페롤": "Aperol", "깔루아": "Kahlúa", "베일리스": "Baileys Irish Cream",
+    "코인트로": "Cointreau", "미도리": "Midori (liqueur)", "말리부": "Malibu (rum)", "디사론노": "Disaronno",
+    "예거마이스터": "Jägermeister", "드람뷔이": "Drambuie", "베네딕틴": "Bénédictine", "샤르트뢰즈": "Chartreuse (liqueur)",
+    "그랑 마니에": "Grand Marnier", "생제르맹": "St-Germain (liqueur)", "갈리아노": "Galliano (liqueur)",
+    "프란젤리코": "Frangelico", "삼부카": "Sambuca", "몰리나리": "Sambuca", "리몬첼로": "Limoncello",
+    "헤네시": "Hennessy", "레미 마틴": "Rémy Martin", "마르텔": "Martell (cognac)", "꾸르부아지에": "Courvoisier",
+    "마티니": "Martini (vermouth)", "릴레": "Lillet", "모엣": "Moët & Chandon", "뵈브": "Veuve Clicquot",
+    "예거": "Jägermeister", "진로": "Jinro", "기네스": "Guinness", "앙고스투라": "Angostura bitters",
+  };
+  function brandOf(name) {
+    const t = String(name).split(/\s+/);
+    return BRAND_EN[t[0] + " " + (t[1] || "")] ? t[0] + " " + t[1]
+      : BRAND_EN[t[0]] ? t[0] : null;
+  }
+  const imgQueue = [];
+  let imgActive = 0;
+  function pumpImgQueue() {
+    while (imgActive < 5 && imgQueue.length) {
+      const job = imgQueue.shift();
+      imgActive++;
+      job().finally(() => { imgActive--; pumpImgQueue(); });
+    }
+  }
+  function fetchSpiritImg(sp) {
+    const brand = brandOf(sp.name);
+    if (!brand) return;
+    const key = "b:" + brand;
+    if (state.imgCache[key] !== undefined) return;
+    state.imgCache[key] = "…";
+    imgQueue.push(() =>
+      fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(BRAND_EN[brand]))
+        .then((r) => r.json())
+        .then((j) => {
+          state.imgCache[key] = (j && j.thumbnail && j.thumbnail.source) || "x";
+        })
+        .catch(() => { state.imgCache[key] = "x"; })
+        .finally(() => {
+          saveImgCache();
+          clearTimeout(imgFetchTimer);
+          imgFetchTimer = setTimeout(rerenderForImages, 600);
+        }));
+    pumpImgQueue();
+  }
+  function rerenderForImages() {
+    if (state.view === "dogam") renderDogam();
+    else if (state.view === "spirit") renderSpiritDetail();
+    else if (state.view === "home") renderHome();
+    else if (state.view === "finder") renderFinder();
+  }
   let imgFetchTimer;
   function fetchCocktailImg(sp) {
     if (sp.kind !== "cocktail" || sp.img) return;
@@ -938,11 +1021,10 @@
   }
   function spiritImgURL(sp) {
     if (sp.img) return sp.img;
-    if (sp.kind === "cocktail") {
-      const u = state.imgCache[sp.id];
-      return u && u !== "x" && u !== "…" ? u : null;
-    }
-    return null;
+    const u = sp.kind === "cocktail"
+      ? state.imgCache[sp.id]
+      : state.imgCache["b:" + brandOf(sp.name)];
+    return u && u !== "x" && u !== "…" ? u : null;
   }
   function hashHue(s) {
     let h = 0;
@@ -984,6 +1066,7 @@
     const u = spiritImgURL(sp);
     if (u) return `<img class="thumb-img" loading="lazy" src="${esc(u)}" alt="" data-fb="${sp.id}">`;
     if (sp.kind === "cocktail") { fetchCocktailImg(sp); return svgGlass(sp); }
+    fetchSpiritImg(sp);
     return svgBottle(sp);
   }
   function wireImgFallback(sel) {
@@ -992,7 +1075,8 @@
         const sp = state.spirits.find((s) => s.id === +img.dataset.fb);
         if (sp) {
           if (sp.img) { delete sp.img; saveSpirits(); }
-          state.imgCache[sp.id] = "x";
+          if (sp.kind === "cocktail") state.imgCache[sp.id] = "x";
+          else state.imgCache["b:" + brandOf(sp.name)] = "x";
           saveImgCache();
         }
         const span = document.createElement("span");
