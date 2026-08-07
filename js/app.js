@@ -2572,6 +2572,7 @@
         <div class="post-main">
           <div class="post-head">
             <span class="avatar" style="background:${COLORS[p.color]}"></span>
+            ${p.cat === "promo" ? `<span class="post-nick">📢 ${esc(p.nick)}</span>` : ""}
             <span class="post-time">· ${fmtTime(p.time)}</span>
             ${p.mine ? '<span class="my-tag">내 글</span>' : ""}
           </div>
@@ -2616,7 +2617,7 @@
       <div class="detail-wrap">
         <div class="detail-head">
           <span class="avatar md" style="background:${COLORS[p.color]}"></span>
-          <div><div class="detail-nick">${esc(p.nick)}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""}</div></div>
+          <div><div class="detail-nick">${esc(p.nick)}${p.cat === "promo" ? ` <span class="biz-tag">📢 ${esc(p.biz || "비즈니스")}</span>` : ""}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""}</div></div>
           <span class="cat-tag detail-cat">${CAT_LABEL[p.cat] || "자유"}</span>
         </div>
         <div class="detail-title">${esc(p.title)}</div>
@@ -2756,12 +2757,19 @@
     const body = $("#write-body").value.trim();
     if (!title || !body) return;
     if (isBanned() || !isClean(title, body)) return;
+    // 홍보 글은 비즈니스 프로필 필수 (익명 홍보 금지)
+    if (state.writeCat === "promo" && !state.user.bizProfile) {
+      if (confirm("홍보 글은 익명이 아닌 비즈니스 프로필(상호명)로만 쓸 수 있어요.\n지금 등록하러 갈까요?")) show("settings");
+      return;
+    }
     if (state.editPost === null && overDailyLimit("post", 10, "게시글 작성")) return;
     if (state.editPost !== null) {
       // 글 수정 모드
       const p = state.posts.find((x) => x.id === state.editPost);
       if (p) {
         p.title = title; p.body = body; p.cat = state.writeCat; p.edited = true;
+        if (state.writeCat === "promo") { p.nick = state.user.bizProfile.name; p.biz = state.user.bizProfile.type; }
+        else { p.nick = "익명"; delete p.biz; }
         if (state.pendingImg) p.img = state.pendingImg;
         savePosts();
       }
@@ -2778,9 +2786,11 @@
     }
     const id = Math.max(0, ...state.posts.map((p) => p.id)) + 1;
     const post = {
-      id, cat: state.writeCat, color: state.user.color, nick: "익명",
+      id, cat: state.writeCat, color: state.user.color,
+      nick: state.writeCat === "promo" ? state.user.bizProfile.name : "익명",
       time: Date.now(), title, body, likes: 0, comments: [], mine: true,
     };
+    if (state.writeCat === "promo") post.biz = state.user.bizProfile.type;
     if (state.pendingImg) post.img = state.pendingImg;
     state.posts.push(post);
     state.user.myPostIds.push(id);
@@ -2922,6 +2932,27 @@
     $("#nick-input").value = state.user.nick;
     updateNickBtn();
     renderColorGrid();
+    renderBizProfile();
+  }
+
+  /* ---------- 비즈니스 프로필 (홍보 계정) ---------- */
+  const BIZ_TYPES = ["주류회사", "바/펍", "학원", "용품샵", "기타"];
+  function renderBizProfile() {
+    const biz = state.user.bizProfile;
+    $("#biz-name").value = biz ? biz.name : "";
+    state.bizTypeSel = biz ? biz.type : state.bizTypeSel || null;
+    $("#biz-type").innerHTML = BIZ_TYPES.map((t) =>
+      `<button class="chip ${t === state.bizTypeSel ? "active" : ""}" data-t="${t}">${t}</button>`).join("");
+    $$("#biz-type .chip").forEach((ch) =>
+      ch.addEventListener("click", () => { state.bizTypeSel = ch.dataset.t; renderBizProfile(); updateBizBtn(); }));
+    $("#btn-biz-save").textContent = biz ? "비즈니스 프로필 수정" : "비즈니스 프로필 등록";
+    $("#btn-biz-remove").hidden = !biz;
+    updateBizBtn();
+  }
+  function updateBizBtn() {
+    const ok = $("#biz-name").value.trim().length >= 2 && !!state.bizTypeSel;
+    $("#btn-biz-save").disabled = !ok;
+    $("#btn-biz-save").classList.toggle("ready", ok);
   }
   function renderColorGrid() {
     $("#color-grid").innerHTML = COLORS.map((c, i) =>
@@ -3733,6 +3764,7 @@
       updateSubmit();
       toast("작성 중이던 글을 불러왔어요. ✍️");
     }
+    updateBizHint();
     show("write");
   });
   let draftTimer;
@@ -3778,10 +3810,19 @@
   );
 
   // 글쓰기
+  function updateBizHint() {
+    const el = $("#write-biz-hint");
+    if (state.writeCat !== "promo") { el.hidden = true; return; }
+    el.hidden = false;
+    el.innerHTML = state.user.bizProfile
+      ? `📢 '<b>${esc(state.user.bizProfile.name)}</b>' (${esc(state.user.bizProfile.type)}) 이름으로 게시돼요.`
+      : "⚠️ 홍보 글은 비즈니스 프로필 등록 후 작성할 수 있어요. (계정설정에서 등록)";
+  }
   $$(".cat-chip").forEach((c) =>
     c.addEventListener("click", () => {
       state.writeCat = c.dataset.cat;
       $$(".cat-chip").forEach((x) => x.classList.toggle("active", x === c));
+      updateBizHint();
     })
   );
   $("#write-title").addEventListener("input", updateSubmit);
@@ -3832,6 +3873,7 @@
     $$(".cat-chip").forEach((x) => x.classList.toggle("active", x.dataset.cat === state.writeCat));
     $("#view-write .topbar-title").textContent = "글 수정";
     updateSubmit();
+    updateBizHint();
     show("write");
   });
 
@@ -3881,6 +3923,24 @@
     saveUser();
     updateNickBtn();
     toast("닉네임이 변경되었어요.");
+  });
+  // 비즈니스 프로필
+  $("#biz-name").addEventListener("input", updateBizBtn);
+  $("#btn-biz-save").addEventListener("click", () => {
+    const name = $("#biz-name").value.trim();
+    if (name.length < 2 || !state.bizTypeSel) return;
+    if (!isClean(name)) return;
+    state.user.bizProfile = { name, type: state.bizTypeSel, since: state.user.bizProfile ? state.user.bizProfile.since : Date.now() };
+    saveUser();
+    renderBizProfile();
+    toast(`'${name}' 비즈니스 프로필이 등록됐어요. 📢 홍보 글은 이 이름으로 게시돼요.`);
+  });
+  $("#btn-biz-remove").addEventListener("click", () => {
+    if (!confirm("비즈니스 프로필을 해제할까요? 홍보 글을 더 이상 쓸 수 없어요.")) return;
+    state.user.bizProfile = null;
+    saveUser();
+    renderBizProfile();
+    toast("비즈니스 프로필을 해제했어요.");
   });
   $("#btn-profile-save").addEventListener("click", () => {
     state.user.color = state.selColor;

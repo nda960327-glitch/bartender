@@ -444,6 +444,11 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 }
 .avatar.md { width: 40px; height: 40px; }
 .post-time { font-size: 13.5px; color: var(--text-sub); }
+.post-nick { font-size: 13.5px; font-weight: 700; }
+.biz-tag {
+  font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px;
+  background: var(--bg-banner); color: var(--text); vertical-align: 1px;
+}
 .my-tag { font-size: 11.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 2px 7px; }
 .post-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; word-break: break-all; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
 .post-preview {
