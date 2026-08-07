@@ -2555,7 +2555,8 @@
     if (state.commTab === "hot") list = list.filter((p) => p.cat === "hot" || p.likes + p.comments.length >= 10);
     else if (state.commTab !== "all") list = list.filter((p) => p.cat === state.commTab);
     if (q) list = list.filter((p) => has(p.title, q) || has(p.body, q));
-    list.sort((a, b) => b.time - a.time);
+    const isBoost = (x) => x.boostUntil && x.boostUntil > Date.now() ? 1 : 0;
+    list.sort((a, b) => isBoost(b) - isBoost(a) || b.time - a.time);
 
     const ph = { all: "커뮤니티 전체 검색", hot: "커뮤니티 인기 검색", free: "커뮤니티 자유 검색", promo: "커뮤니티 홍보 검색" };
     $("#post-search").placeholder = ph[state.commTab];
@@ -2572,6 +2573,7 @@
         <div class="post-main">
           <div class="post-head">
             <span class="avatar" style="background:${COLORS[p.color]}"></span>
+            ${p.boostUntil && p.boostUntil > Date.now() ? '<span class="boost-tag">📌 AD</span>' : ""}
             ${p.cat === "promo" ? `<span class="post-nick">📢 ${esc(p.nick)}</span>` : ""}
             <span class="post-time">· ${fmtTime(p.time)}</span>
             ${p.mine ? '<span class="my-tag">내 글</span>' : ""}
@@ -2599,9 +2601,39 @@
   }
 
   /* ---------- 게시글 상세 ---------- */
+  function openBizSheet(nick) {
+    const posts = state.posts.filter((x) => x.cat === "promo" && x.nick === nick);
+    const views = posts.reduce((a, x) => a + (x.views || 0), 0);
+    const type = (posts.find((x) => x.biz) || {}).biz || "비즈니스";
+    const color = posts.length ? posts[0].color : 3;
+    openSheetHTML(`
+      <div class="detail-head" style="margin-bottom:10px">
+        <span class="avatar md" style="background:${COLORS[color]}"></span>
+        <div><div class="detail-nick">${esc(nick)} <span class="biz-tag">📢 ${esc(type)}</span></div>
+        <div class="detail-time">홍보 글 ${posts.length}개 · 총 조회 ${fmtNum(views)}</div></div>
+      </div>
+      <h3 style="margin:8px 0">올린 홍보 글</h3>
+      ${posts.slice(0, 6).map((x) => `
+        <button class="sheet-opt" data-bizpost="${x.id}">${esc(x.title)} <small style="color:var(--text-sub)">· 조회 ${x.views || 0}</small></button>`).join("") || '<p class="sheet-note">홍보 글이 없어요.</p>'}
+      <button class="big-btn accent ready" id="biz-chat" style="margin-top:14px">💬 1:1 문의하기</button>`);
+    $$(".sheet [data-bizpost]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const bd = document.querySelector(".sheet-backdrop");
+        if (bd) bd.remove();
+        openPost(+b.dataset.bizpost);
+      }));
+    const chatB = document.querySelector(".sheet #biz-chat");
+    if (chatB) chatB.addEventListener("click", () => {
+      const bd = document.querySelector(".sheet-backdrop");
+      if (bd) bd.remove();
+      openChatWith(color, "biz:" + nick, `${nick} 문의`);
+    });
+  }
   function openPost(id) {
     rememberScroll("community");
     state.curPost = id;
+    const p = state.posts.find((x) => x.id === id);
+    if (p) { p.views = (p.views || 0) + 1; savePosts(); }
     renderPostDetail();
     show("post");
   }
@@ -2617,12 +2649,16 @@
       <div class="detail-wrap">
         <div class="detail-head">
           <span class="avatar md" style="background:${COLORS[p.color]}"></span>
-          <div><div class="detail-nick">${esc(p.nick)}${p.cat === "promo" ? ` <span class="biz-tag">📢 ${esc(p.biz || "비즈니스")}</span>` : ""}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""}</div></div>
+          <div><div class="detail-nick">${p.cat === "promo" ? `<span class="biz-link" id="biz-link">${esc(p.nick)}</span>` : esc(p.nick)}${p.cat === "promo" ? ` <span class="biz-tag">📢 ${esc(p.biz || "비즈니스")}</span>` : ""}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""} · 조회 ${p.views || 0}</div></div>
           <span class="cat-tag detail-cat">${CAT_LABEL[p.cat] || "자유"}</span>
         </div>
         <div class="detail-title">${esc(p.title)}</div>
         ${p.img ? `<img class="detail-img" src="${p.img}" alt="첨부 이미지">` : ""}
         <div class="detail-body">${esc(p.body)}</div>
+        ${p.contact ? `<a class="host-chat-btn" style="display:block;text-align:center;text-decoration:none;margin-bottom:14px" href="${p.contact.startsWith("http") ? esc(p.contact) : "tel:" + esc(p.contact.replace(/-/g, ""))}" ${p.contact.startsWith("http") ? 'target="_blank" rel="noopener"' : ""}>📞 연락하기 (${esc(p.contact.startsWith("http") ? "링크 열기" : p.contact)})</a>` : ""}
+        ${p.mine && p.cat === "promo" ? (p.boostUntil && p.boostUntil > Date.now()
+          ? `<p class="sheet-note" style="text-align:center">📌 상단 고정 중 (~${fmtTime(p.boostUntil)})</p>`
+          : `<button class="host-chat-btn" id="boost-btn" style="margin-bottom:14px">📌 상단 고정 24시간 (300P)</button>`) : ""}
         <div class="detail-actions">
           <button class="like-btn ${p.likedByMe ? "liked" : ""}" id="detail-like">
             <svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.5-9 9-9 9z"/></svg>공감 ${p.likes}
@@ -2651,6 +2687,20 @@
           </div>
         </div>`).join("")}
       <div style="height:24px"></div>`;
+    const boostBtn = $("#boost-btn");
+    if (boostBtn) boostBtn.addEventListener("click", () => {
+      if (state.user.points < 300) { toast(`포인트가 부족해요. (보유 ${fmtNum(state.user.points)}P / 필요 300P)`); return; }
+      if (!confirm("300P로 이 홍보 글을 24시간 상단에 고정할까요?")) return;
+      state.user.points -= 300;
+      state.user.pointLog.unshift({ amt: -300, reason: "홍보 글 상단 고정", time: Date.now() });
+      p.boostUntil = Date.now() + 24 * H;
+      saveUser(); savePosts();
+      addNoti("📌", `'${p.title.slice(0, 16)}' 홍보 글이 24시간 상단 고정됐어요.`);
+      renderPostDetail();
+      toast("📌 24시간 상단 고정을 시작했어요!");
+    });
+    const bizLink = $("#biz-link");
+    if (bizLink) bizLink.addEventListener("click", (e) => { e.stopPropagation(); openBizSheet(p.nick); });
     $$("#post-detail .reply-btn").forEach((b) =>
       b.addEventListener("click", () => {
         state.replyTo = +b.dataset.ci;
@@ -2762,14 +2812,21 @@
       if (confirm("홍보 글은 익명이 아닌 비즈니스 프로필(상호명)로만 쓸 수 있어요.\n지금 등록하러 갈까요?")) show("settings");
       return;
     }
+    const contact = state.writeCat === "promo" ? $("#write-contact").value.trim() : "";
+    if (contact && !CONTACT_RE.test(contact)) {
+      toast("연락 방법은 전화번호 또는 https:// 링크만 가능해요.");
+      return;
+    }
     if (state.editPost === null && overDailyLimit("post", 10, "게시글 작성")) return;
     if (state.editPost !== null) {
       // 글 수정 모드
       const p = state.posts.find((x) => x.id === state.editPost);
       if (p) {
         p.title = title; p.body = body; p.cat = state.writeCat; p.edited = true;
-        if (state.writeCat === "promo") { p.nick = state.user.bizProfile.name; p.biz = state.user.bizProfile.type; }
-        else { p.nick = "익명"; delete p.biz; }
+        if (state.writeCat === "promo") {
+          p.nick = state.user.bizProfile.name; p.biz = state.user.bizProfile.type;
+          if (contact) p.contact = contact; else delete p.contact;
+        } else { p.nick = "익명"; delete p.biz; delete p.contact; }
         if (state.pendingImg) p.img = state.pendingImg;
         savePosts();
       }
@@ -2777,6 +2834,7 @@
       $("#view-write .topbar-title").textContent = "글쓰기";
       $("#write-title").value = "";
       $("#write-body").value = "";
+      $("#write-contact").value = "";
       setPendingImg(null);
       $("#write-file").value = "";
       updateSubmit();
@@ -2790,7 +2848,10 @@
       nick: state.writeCat === "promo" ? state.user.bizProfile.name : "익명",
       time: Date.now(), title, body, likes: 0, comments: [], mine: true,
     };
-    if (state.writeCat === "promo") post.biz = state.user.bizProfile.type;
+    if (state.writeCat === "promo") {
+      post.biz = state.user.bizProfile.type;
+      if (contact) post.contact = contact;
+    }
     if (state.pendingImg) post.img = state.pendingImg;
     state.posts.push(post);
     state.user.myPostIds.push(id);
@@ -2800,6 +2861,7 @@
     store.set("draft", null);
     $("#write-title").value = "";
     $("#write-body").value = "";
+    $("#write-contact").value = "";
     setPendingImg(null);
     $("#write-file").value = "";
     updateSubmit();
@@ -3812,12 +3874,14 @@
   // 글쓰기
   function updateBizHint() {
     const el = $("#write-biz-hint");
+    $("#write-promo-fields").hidden = state.writeCat !== "promo";
     if (state.writeCat !== "promo") { el.hidden = true; return; }
     el.hidden = false;
     el.innerHTML = state.user.bizProfile
       ? `📢 '<b>${esc(state.user.bizProfile.name)}</b>' (${esc(state.user.bizProfile.type)}) 이름으로 게시돼요.`
       : "⚠️ 홍보 글은 비즈니스 프로필 등록 후 작성할 수 있어요. (계정설정에서 등록)";
   }
+  const CONTACT_RE = /^(01[016789]-?\d{3,4}-?\d{4}|0\d{1,2}-?\d{3,4}-?\d{4}|https?:\/\/\S+)$/;
   $$(".cat-chip").forEach((c) =>
     c.addEventListener("click", () => {
       state.writeCat = c.dataset.cat;
