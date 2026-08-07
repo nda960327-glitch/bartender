@@ -764,6 +764,26 @@ textarea.input { height: auto; }
 .badge-ic { font-size: 26px; }
 .badge-name { font-size: 10.5px; color: var(--text-sub); font-weight: 600; text-align: center; }
 
+/* ---------- 관리자 ---------- */
+.member-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 16px; border-bottom: 1px solid var(--line); cursor: pointer;
+}
+.member-row:active { background: var(--bg-gray); }
+.member-info { flex: 1; min-width: 0; }
+.member-nick { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+.member-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.week-chart {
+  display: flex; align-items: flex-end; gap: 6px; padding: 8px 0 0;
+}
+.wc-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.wc-bar {
+  width: 100%; max-width: 30px; border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(180deg, var(--accent), #ff8ad4);
+}
+.wc-col span { font-size: 9.5px; color: var(--text-muted); white-space: nowrap; }
+.wc-col b { font-size: 11px; }
+
 /* ---------- 바 타이머 ---------- */
 .timer-area { padding: 30px 0; text-align: center; }
 .timer-display {

@@ -613,6 +613,55 @@
     ["스타워드 노바", 41.3, "8~10만원"], ["울프번 노스랜드", 46, "8~10만원"], ["밀스톤 (네덜란드)", 46, ""], ["펜더린 마데이라", 46, "8~10만원"],
   ].forEach((w) => W(w[0], w[1], w[2]));
 
+  /* ---------- 칵테일 대확장 v5 ---------- */
+  SEED_SPIRITS.push(
+    CT(801, "🍸", "더티 마티니", "진", 28, "진 60ml\n드라이 베르무트 10ml\n올리브 브라인 10ml\n올리브 3개", "믹싱글라스에 재료를 넣고 스터 후 칠링한 마티니 글라스에 스트레인.", "올리브 절임물의 짭짤함이 포인트. 브라인 양으로 '더티' 정도를 조절해요."),
+    CT(802, "🍸", "브롱크스", "진", 22, "진 40ml\n스위트 베르무트 15ml\n드라이 베르무트 15ml\n오렌지주스 20ml", "재료를 셰이크해 쿠페에 스트레인.", "마티니에 오렌지주스를 더한 뉴욕 5대 자치구 칵테일."),
+    CT(803, "🌸", "핑크 레이디", "진", 18, "진 45ml\n그레나딘 15ml\n레몬주스 15ml\n달걀 흰자", "드라이 셰이크 후 얼음과 다시 셰이크, 쿠페에 스트레인.", "분홍 거품의 클래식 레이디 칵테일."),
+    CT(804, "🤍", "화이트 네그로니", "진", 24, "진 30ml\n릴레 블랑 30ml\n수즈(젠티안 리큐르) 30ml", "얼음과 함께 스터 후 온더락 글라스에. 레몬 필.", "캄파리 대신 수즈. 쌉쌀함이 더 허브향으로 변한 모던 트위스트."),
+    CT(805, "🍋", "진 사워", "진", 20, "진 45ml\n레몬주스 25ml\n설탕시럽 15ml\n달걀 흰자(선택)", "재료를 셰이크해 온더락 글라스에 스트레인.", "사워의 원형. 흰자를 넣으면 실키한 진 플립 스타일."),
+    CT(806, "🥃", "존 콜린스", "위스키", 12, "버번 45ml\n레몬주스 30ml\n설탕시럽 15ml\n소다수", "얼음 채운 콜린스 글라스에 셰이크한 재료를 붓고 소다수로 채운다.", "톰 콜린스의 위스키 버전."),
+    CT(807, "🩸", "블러드 앤 샌드", "위스키", 20, "스카치 25ml\n체리 히어링 25ml\n스위트 베르무트 25ml\n오렌지주스 25ml", "동량 4종을 셰이크해 쿠페에 스트레인.", "1922년 영화 제목에서 온 스카치 클래식. 동량 배합이라 외우기 쉬워요."),
+    CT(808, "🌉", "브루클린", "위스키", 28, "라이 위스키 50ml\n드라이 베르무트 20ml\n마라스키노 7.5ml\n아메르 피콘(비터) 7.5ml", "스터 후 쿠페에 스트레인.", "맨해튼의 이웃 자치구 버전. 드라이하고 어른스러운 맛."),
+    CT(809, "🍋", "린치버그 레모네이드", "위스키", 10, "잭 다니엘 45ml\n트리플 섹 15ml\n레몬주스 25ml\n레몬라임 소다", "얼음 채운 글라스에 셰이크한 재료를 붓고 소다로 채운다.", "잭 다니엘 증류소 마을 이름의 상큼한 레모네이드."),
+    CT(810, "🧉", "켄터키 뮬", "위스키", 10, "버번 45ml\n라임주스 10ml\n진저비어 120ml\n민트", "구리 머그에 얼음과 재료를 넣고 진저비어로 채운다.", "모스코 뮬의 버번 버전. 켄터키식 해석."),
+    CT(811, "🥃", "스카치 앤 소다", "위스키", 12, "스카치 45ml\n소다수 90ml", "온더락 글라스에 얼음, 스카치, 소다수 순으로.", "가장 미니멀한 위스키 롱드링크."),
+    CT(812, "🍑", "우우 (Woo Woo)", "보드카", 12, "보드카 30ml\n피치트리 30ml\n크랜베리주스 90ml", "얼음 채운 글라스에 붓고 스터.", "이름부터 신나는 파티 칵테일."),
+    CT(813, "🎻", "발랄라이카", "보드카", 22, "보드카 30ml\n코인트로 30ml\n레몬주스 30ml", "동량 셰이크 후 쿠페에 스트레인.", "러시아 악기 이름의 1:1:1 사워. 사이드카의 보드카 버전."),
+    CT(814, "🍅", "블러디 시저", "보드카", 12, "보드카 45ml\n클라마토 주스 120ml\n우스터·타바스코\n셀러리 솔트 리밍", "리밍한 글라스에 재료를 롤링해 붓고 셀러리 가니시.", "캐나다의 국민 해장 칵테일. 조개 육수가 비밀."),
+    CT(815, "🌺", "바하마 마마", "럼", 12, "다크 럼 30ml\n코코넛 럼 30ml\n파인애플주스 60ml\n오렌지주스 30ml\n그레나딘 10ml", "재료를 셰이크해 크러시드 아이스 위에. 체리·파인애플 가니시.", "카리브해 휴양지의 대표 트로피컬."),
+    CT(816, "🦂", "스콜피온", "럼", 16, "럼 30ml\n브랜디 15ml\n오렌지주스 45ml\n레몬주스 20ml\n오르쟈 10ml", "재료를 셰이크해 크러시드 아이스 위에.", "티키 볼(공유 칵테일)로도 유명한 하와이안 클래식."),
+    CT(817, "🌀", "허리케인", "럼", 18, "다크 럼 30ml\n화이트 럼 30ml\n패션프루트 시럽 30ml\n레몬주스 15ml", "재료를 셰이크해 허리케인 글라스에.", "뉴올리언스 버번 스트리트의 상징."),
+    CT(818, "🍹", "바카디 칵테일", "럼", 20, "바카디 화이트 럼 45ml\n라임주스 20ml\n그레나딘 10ml", "재료를 셰이크해 쿠페에 스트레인.", "1936년 법원이 '바카디 럼으로만 만들라' 판결한 유일한 칵테일."),
+    CT(819, "🔤", "XYZ", "럼", 22, "럼 30ml\n코인트로 30ml\n레몬주스 30ml", "동량 셰이크 후 쿠페에.", "더 이상 없다(끝판왕)는 뜻의 이름. 럼 사이드카."),
+    CT(820, "⚓", "네이비 그록", "럼", 16, "다크 럼 60ml\n라임주스 20ml\n흑설탕 시럽 15ml\n물 30ml", "재료를 저어 온더락으로.", "영국 해군 배급 럼에서 유래한 뱃사람의 술."),
+    CT(821, "💥", "데킬라 슬래머", "데킬라", 15, "데킬라 30ml\n사이다(스프라이트) 30ml", "샷 글라스에 반반 붓고 냅킨으로 덮어 테이블에 탕! 친 뒤 원샷.", "거품이 솟을 때 마시는 퍼포먼스 샷."),
+    CT(822, "🐂", "브레이브 불", "데킬라", 25, "데킬라 45ml\n깔루아 20ml", "온더락 글라스에 얼음과 함께 스터.", "블랙 러시안의 데킬라 버전. 커피+아가베."),
+    CT(823, "🍍", "마타도르", "데킬라", 14, "데킬라 45ml\n파인애플주스 90ml\n라임주스 15ml", "재료를 셰이크해 얼음 위에.", "투우사라는 이름의 상큼 트로피컬 데킬라."),
+    CT(824, "🔵", "블루 롱아일랜드", "기타", 22, "진·럼·보드카·데킬라 각 15ml\n블루 큐라소 15ml\n레몬주스 25ml\n사이다", "재료를 셰이크해 붓고 사이다로 채운다.", "롱아일랜드의 파란 버전. 도수는 똑같이 흉기니 주의."),
+    CT(825, "🇫🇷", "프렌치 커넥션", "기타", 28, "꼬냑 45ml\n디사론노 15ml", "온더락 글라스에 얼음과 함께 스터.", "갓파더의 꼬냑 버전. 영화 제목에서 유래."),
+    CT(826, "⛪", "비앤비 (B&B)", "기타", 35, "브랜디 30ml\n베네딕틴 30ml", "스니프터에 반반. 스터도 층도 취향대로.", "브랜디+베네딕틴. 이름 그대로의 정직한 식후주."),
+    CT(827, "🌹", "잭 로즈", "기타", 22, "애플 브랜디(칼바도스) 45ml\n라임주스 20ml\n그레나딘 15ml", "재료를 셰이크해 쿠페에 스트레인.", "헤밍웨이 소설에도 나오는 사과 브랜디 클래식."),
+    CT(828, "🇵🇪", "피스코 사워", "기타", 20, "피스코 60ml\n라임주스 25ml\n설탕시럽 20ml\n달걀 흰자\n앙고스투라 3방울", "드라이 셰이크 후 얼음과 재셰이크, 거품 위에 비터 점 찍기.", "페루·칠레가 서로 원조라 싸우는 국민 사워."),
+    CT(829, "🥂", "샴페인 칵테일", "기타", 12, "샴페인 90ml\n앙고스투라 적신 각설탕 1개\n꼬냑 15ml(선택)", "플루트 바닥에 각설탕을 넣고 샴페인을 붓는다.", "설탕에서 올라오는 기포 기둥이 예술."),
+    CT(830, "🍷", "스프리처", "기타", 8, "화이트 와인 90ml\n소다수 60ml", "와인 글라스에 얼음 없이 or 얼음과 함께.", "오스트리아식 와인 소다. 낮술의 품격."),
+    CT(831, "🇪🇸", "틴토 데 베라노", "기타", 8, "레드 와인 90ml\n레몬 탄산음료 90ml", "얼음 가득한 글라스에 반반.", "스페인 사람들은 관광객에게 상그리아를, 자기들은 이걸 마셔요."),
+    CT(832, "🍇", "포트 토닉", "기타", 10, "화이트 포트 60ml\n토닉워터 120ml\n레몬·민트", "얼음 채운 글라스에 붓고 가볍게 스터.", "포르투갈에서 온 요즘 유럽 대세 아페리티프."),
+    CT(833, "🖤", "블랙 벨벳", "기타", 8, "기네스 흑맥주 90ml\n샴페인 90ml", "플루트에 샴페인 먼저, 기네스를 스푼 타고 살살.", "흑맥주+샴페인의 벨벳 같은 층. 빅토리아 시대 추모주."),
+    CT(834, "🌶️", "미첼라다", "기타", 4, "멕시칸 라거 1병\n토마토주스 60ml\n라임주스 30ml\n핫소스·우스터\n소금 리밍", "리밍한 글라스에 재료 섞고 맥주를 부어가며.", "멕시코식 해장 맥주 칵테일."),
+    CT(835, "👁️", "레드 아이", "기타", 4, "라거 맥주 120ml\n토마토주스 120ml", "차가운 글라스에 반반.", "영화 '칵테일'로 유명해진 아침 해장 맥주."),
+    CT(836, "🍺", "샌디 개프", "기타", 3, "라거 맥주 150ml\n진저에일 150ml", "글라스에 반반 살살 붓기.", "맥주+진저의 영국식 반반. 낮 마시기 좋은 저도수."),
+    CT(837, "💣", "예거밤", "리큐르", 11, "예거마이스터 30ml(샷)\n에너지드링크 120ml", "에너지드링크 잔에 예거 샷을 퐁당.", "클럽의 상징. 잔이 깨질 수 있으니 튼튼한 잔으로."),
+    CT(838, "🍦", "머드슬라이드", "리큐르", 12, "보드카 30ml\n깔루아 30ml\n베일리스 30ml\n생크림 30ml", "재료를 얼음과 블렌딩하거나 셰이크.", "디저트 그 자체. 초코시럽 드리즐로 마무리."),
+    CT(839, "🇮🇹", "가리발디", "리큐르", 8, "캄파리 45ml\n오렌지주스 120ml", "얼음 채운 글라스에 붓고 잘 저어 거품 내기.", "쥬스를 강하게 저어 '푹신하게' 만드는 게 모던 스펙."),
+    CT(840, "🚗", "골든 캐딜락", "리큐르", 14, "갈리아노 30ml\n크렘 드 카카오 화이트 30ml\n생크림 30ml", "재료를 셰이크해 쿠페에.", "황금빛 크림 디저트 칵테일."),
+    CT(841, "🥃", "유자 하이볼", "위스키", 8, "위스키 45ml\n유자청 20g\n탄산수 120ml", "유자청을 위스키에 잘 풀고 얼음·탄산수를 넣는다.", "한국 바 시그니처 스테디셀러. 유자청 브랜드가 맛을 좌우해요."),
+    CT(842, "🍵", "얼그레이 하이볼", "위스키", 8, "얼그레이 인퓨징 위스키 45ml\n꿀시럽 10ml\n탄산수 120ml", "홍차를 우린 위스키(3시간 콜드브루)로 하이볼을 만든다.", "인퓨징만 미리 해두면 오퍼레이션 간단. 향 대비 효율 최고."),
+    CT(843, "🍋", "레몬 사와", "기타", 7, "소주(증류식) 45ml\n레몬주스 20ml\n설탕시럽 10ml\n탄산수 100ml", "얼음 채운 글라스에 재료를 넣고 탄산수로 채운다.", "일본 이자카야 국민 메뉴. 한국 소주로도 충분히 맛있어요."),
+    CT(844, "🍑", "우메슈 소다", "기타", 6, "매실주 60ml\n탄산수 120ml\n우메보시(선택)", "얼음 채운 글라스에 매실주, 탄산수 순으로.", "달콤한 입문용. 식전주로도 좋아요."),
+    CT(845, "🍻", "소맥", "기타", 8, "소주 50ml\n맥주 150ml", "맥주잔에 소주를 먼저, 맥주를 부어 자연 믹싱. 수저 타격은 취향.", "대한민국 국민 폭탄주. 황금비율 3:7 논쟁은 여전히 진행 중.")
+  );
+
   SEED_MEETS.push(
     { id: 501, region: "서울", title: "이태원 바 호핑 투어 🍸", date: now + 3 * D, place: "이태원역 2번 출구 집결", max: 8, joined: 5, desc: "이태원 유명 바 3곳을 도는 호핑 투어. 각자 한 잔씩, 좋은 바 공유해요.", host: "익명", hostColor: 0, isJoined: false, comments: [
       { color: 2, text: "코스 미리 알 수 있을까요?", time: now - 6 * H },
@@ -685,7 +734,12 @@
     worklog: store.get("worklog", []),
     imgCache: store.get("imgCache", {}),
     reports: store.get("reports", []),
+    members: store.get("members", []),
+    adminLog: store.get("adminLog", []),
     adminMode: false,
+    adminTab: "dash",
+    adminUserQ: "",
+    adminUserFilter: "전체",
     noti: store.get("noti", []),
     chats: store.get("chats", []),
     dark: store.get("dark", !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)),
@@ -748,7 +802,7 @@
   state.user.attendStreak = state.user.attendStreak || 0;
 
   /* ---------- 시드 병합 (앱 업데이트 시 새 데이터 추가) ---------- */
-  const SEED_V = 4;
+  const SEED_V = 5;
   if (store.get("seedv", 1) < SEED_V) {
     const mergeSeed = (arr, seed) => {
       const ids = new Set(arr.map((x) => x.id));
@@ -1041,12 +1095,22 @@
 
   /* ---------- 신고/숨기기 ---------- */
   const saveReports = () => store.set("reports", state.reports);
-  function fileReport(type, targetId, title, reason) {
+  const saveMembers = () => store.set("members", state.members);
+  const saveAdminLog = () => store.set("adminLog", state.adminLog);
+  function logAdmin(action) {
+    state.adminLog.unshift({ at: Date.now(), action });
+    if (state.adminLog.length > 100) state.adminLog.length = 100;
+    saveAdminLog();
+  }
+  function fileReport(type, targetId, title, reason, mine) {
+    const authorMid = authorMidOf(type, targetId, mine);
     state.reports.unshift({
       id: Math.max(0, ...state.reports.map((r) => r.id)) + 1,
-      type, targetId, title, reason, time: Date.now(), status: "접수",
+      type, targetId, title, reason, authorMid, time: Date.now(), status: "접수",
     });
     if (state.reports.length > 200) state.reports.length = 200;
+    const author = state.members.find((m) => m.id === authorMid);
+    if (author) { author.reported = (author.reported || 0) + 1; saveMembers(); }
     saveReports();
   }
   function reportPost(p) {
@@ -1054,7 +1118,7 @@
       state.user.hiddenPosts = state.user.hiddenPosts || [];
       if (!state.user.hiddenPosts.includes(p.id)) state.user.hiddenPosts.push(p.id);
       saveUser();
-      fileReport("post", p.id, p.title, reason);
+      fileReport("post", p.id, p.title, reason, !!p.mine);
       show("community");
       toast(`신고가 접수되었어요 (${reason}). 관리자 확인 후 규정에 따라 처리돼요.`);
     });
@@ -1065,7 +1129,7 @@
       state.user.hiddenSpirits = state.user.hiddenSpirits || [];
       if (!state.user.hiddenSpirits.includes(sp.id)) state.user.hiddenSpirits.push(sp.id);
       saveUser();
-      fileReport("spirit", sp.id, sp.name, reason);
+      fileReport("spirit", sp.id, sp.name, reason, !!sp.mine);
       show("dogam");
       toast(`신고가 접수되었어요 (${reason}). 관리자 확인 후 규정에 따라 처리돼요.`);
     });
@@ -1130,18 +1194,99 @@
     renderMyPage();
     show("admin");
   }
+  /* ---------- 회원 디렉토리 (서버 연동 전 시뮬레이션) ---------- */
+  function genMembers() {
+    const NICKS = ["몰트덕후", "진토닉장인", "셰이커왕", "바텐꿈나무", "피트홀릭", "네그로니중독", "하이볼요정", "라임짜는남자", "민트머들러", "온더락파", "쿠페수집가", "비터몇방울", "새벽마감러", "우드포드사랑", "지거계량왕", "스터마스터", "가니시장인", "홈텐딩러", "이자카야알바", "루프탑바텐", "위스키노트", "다이키리생각", "솔티독마니아", "청춘칵테일", "바코스터", "얼음장인", "탄산지킴이", "시럽조절러", "압생트요정", "베르무트덕후", "사워홀릭", "티키러버", "플레어연습생", "조주기능사생", "바스푼돌리기", "믹솔로지스트","글라스닦이", "심야영업러", "라스트오더", "해피아워", "머들링소년", "칵테일일기", "바문화연구", "수원바텐", "홍대셰이커", "강남라운지", "부산오션바", "제주도바텐"];
+    return NICKS.map((nick, i) => {
+      const id = i + 2;
+      const joined = now - ((id * 37) % 300 + 3) * D;
+      const posts = (id * 13) % 40;
+      const comments = (id * 29) % 120;
+      const reported = id % 9 === 0 ? (id % 3) + 1 : 0;
+      const m = { id, nick, color: id % 10, joined, posts, comments, reported, sanctions: [], bannedUntil: 0, memo: "" };
+      if (id === 11) { m.bannedUntil = now + 5 * D; m.sanctions = [{ label: "7일 정지", reason: "욕설/비방", at: now - 2 * D, until: now + 5 * D }]; }
+      if (id === 20) { m.bannedUntil = -1; m.reported = 4; m.sanctions = [{ label: "3일 정지", reason: "스팸/광고", at: now - 40 * D, until: now - 37 * D }, { label: "7일 정지", reason: "스팸/광고", at: now - 20 * D, until: now - 13 * D }, { label: "영구 정지", reason: "누적 3회 위반", at: now - 5 * D, until: -1 }]; }
+      if (id === 29) { m.bannedUntil = now + 1 * D; m.sanctions = [{ label: "3일 정지", reason: "도배", at: now - 2 * D, until: now + 1 * D }]; }
+      return m;
+    });
+  }
+  if (!state.members || !state.members.length) {
+    state.members = [{ id: 1, nick: state.user.nick || "나", color: state.user.color, joined: now - 30 * D, posts: 0, comments: 0, reported: 0, sanctions: [], bannedUntil: 0, memo: "이 기기 사용자 (실계정)" }, ...genMembers()];
+    saveMembers();
+  }
+  function memberStatus(m) {
+    if (m.bannedUntil === -1) return { label: "영구 정지", cls: "sold" };
+    if (m.bannedUntil && m.bannedUntil > Date.now()) {
+      const d = Math.ceil((m.bannedUntil - Date.now()) / D);
+      return { label: `정지 ${d}일 남음`, cls: "reserved" };
+    }
+    return { label: "정상", cls: "" };
+  }
+  function authorMidOf(type, targetId, mine) {
+    if (mine) return 1;
+    return 2 + ((targetId * 7 + (type === "post" ? 3 : 5)) % (state.members.length - 1));
+  }
+  function applySanction(m, label, days, reason) {
+    m.sanctions.unshift({ label, reason, at: Date.now(), until: days === -1 ? -1 : days === 0 ? 0 : Date.now() + days * D });
+    if (days === -1) m.bannedUntil = -1;
+    else if (days > 0) m.bannedUntil = Date.now() + days * D;
+    else if (days === -2) m.bannedUntil = 0; // 해제
+    if (m.id === 1) {
+      state.user.bannedUntil = m.bannedUntil || 0;
+      saveUser();
+    }
+    saveMembers();
+    logAdmin(`${m.nick} — ${label} (${reason})`);
+  }
+  const banCount = (m) => m.sanctions.filter((s) => s.until !== 0).length;
+
+  /* ---------- 관리자 화면 ---------- */
   function renderAdmin() {
-    const pending = state.reports.filter((r) => r.status === "접수");
-    const banned = state.user.bannedUntil === -1 ? "영구 정지"
-      : state.user.bannedUntil && state.user.bannedUntil > Date.now() ? `정지 중 (~${fmtDate(state.user.bannedUntil)})` : "정상";
+    const my = state.members.find((m) => m.id === 1);
+    if (my) { my.nick = state.user.nick; my.color = state.user.color; my.bannedUntil = state.user.bannedUntil || 0; }
+    $$("#admin-tabs .seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.atab === state.adminTab));
+    if (state.adminTab === "dash") renderAdminDash();
+    else if (state.adminTab === "reports") renderAdminReports();
+    else renderAdminUsers();
+  }
+  function renderAdminDash() {
+    const pending = state.reports.filter((r) => r.status === "접수").length;
+    const bannedCnt = state.members.filter((m) => m.bannedUntil === -1 || (m.bannedUntil && m.bannedUntil > Date.now())).length;
+    // 최근 8주 신규 가입 차트
+    const weeks = Array.from({ length: 8 }, (_, i) => {
+      const start = Date.now() - (8 - i) * 7 * D;
+      const end = start + 7 * D;
+      return state.members.filter((m) => m.joined >= start && m.joined < end).length;
+    });
+    const maxW = Math.max(1, ...weeks);
     $("#admin-area").innerHTML = `
       <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
-        <h3>대시보드</h3>
+        <h3>현황</h3>
         <div class="stat-row" style="padding:10px 0 0">
-          <div class="stat"><b>${state.posts.length}</b><span>게시글</span></div>
-          <div class="stat"><b>${state.spirits.length}</b><span>도감</span></div>
-          <div class="stat"><b>${state.meets.length}</b><span>모임</span></div>
-          <div class="stat"><b style="color:var(--accent)">${pending.length}</b><span>미처리 신고</span></div>
+          <div class="stat"><b>${fmtNum(state.members.length)}</b><span>회원</span></div>
+          <div class="stat"><b style="color:var(--accent)">${pending}</b><span>미처리 신고</span></div>
+          <div class="stat"><b>${bannedCnt}</b><span>정지 중</span></div>
+        </div>
+        <div class="stat-row" style="padding:6px 0 0">
+          <div class="stat"><b>${fmtNum(state.posts.length)}</b><span>게시글</span></div>
+          <div class="stat"><b>${fmtNum(state.spirits.length)}</b><span>도감</span></div>
+          <div class="stat"><b>${fmtNum(state.orders.length)}</b><span>주문</span></div>
+        </div>
+      </div>
+      <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
+        <h3>최근 8주 신규 가입</h3>
+        <div class="week-chart">
+          ${weeks.map((w, i) => `<div class="wc-col"><div class="wc-bar" style="height:${Math.max(6, Math.round(w / maxW * 60))}px"></div><span>${i === 7 ? "이번주" : (8 - i) + "주전"}</span><b>${w}</b></div>`).join("")}
+        </div>
+      </div>
+      <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
+        <h3>빠른 작업</h3>
+        <div class="pd-actions" style="margin-bottom:10px">
+          <button class="mkd-chat-btn" id="admin-notice">📢 전체 공지 보내기</button>
+        </div>
+        <div class="pd-actions">
+          <button class="mkd-chat-btn outline" id="admin-csv-members">회원 CSV</button>
+          <button class="mkd-chat-btn outline" id="admin-csv-reports">신고 CSV</button>
         </div>
       </div>
       <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
@@ -1149,20 +1294,51 @@
         <div class="calc-result show">
           ${SANCTION_RULES.map(([a, b]) => `<div class="cr-row"><span>${a}</span><b style="font-size:13px">${b}</b></div>`).join("")}
         </div>
-        <p class="sheet-note">지금은 이 기기에만 적용돼요. 서버(Supabase) 연동 후에는 모든 사용자에게 실제 적용됩니다.</p>
+        <p class="sheet-note">신고 처리 시 작성자에게 자동 제재·이력 기록. 서버 연동 후 전체 사용자에게 실시간 적용됩니다.</p>
       </div>
-      <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
-        <h3>이 기기 사용자</h3>
-        <div class="calc-result show">
-          <div class="cr-row"><span>${esc(state.user.nick)}</span><b>${banned}</b></div>
-        </div>
-        <div class="pd-actions" style="margin-top:12px">
-          <button class="mkd-chat-btn outline" id="admin-ban-test">3일 정지 (테스트)</button>
-          <button class="mkd-chat-btn" id="admin-unban">정지 해제</button>
-        </div>
+      <div class="sp-body">
+        <h3>관리자 활동 로그</h3>
+        ${state.adminLog.length ? state.adminLog.slice(0, 12).map((l) => `
+          <div class="sheet-row"><span style="font-size:14px">${esc(l.action)}</span>
+          <b style="margin-left:auto;font-size:12px;color:var(--text-sub);flex-shrink:0">${fmtTime(l.at)}</b></div>`).join("")
+          : '<p class="sheet-note">아직 활동 기록이 없어요.</p>'}
       </div>
-      <div class="comment-sec-title">신고함 ${state.reports.length}</div>
-      ${state.reports.length ? state.reports.map((r) => `
+      <div style="height:24px"></div>`;
+    $("#admin-notice").addEventListener("click", () => {
+      const txt = prompt("공지 내용을 입력해주세요");
+      if (!txt || !txt.trim()) return;
+      addNoti("📢", `관리자 공지: ${txt.trim()}`);
+      logAdmin(`전체 공지 발송: "${txt.trim().slice(0, 30)}"`);
+      renderAdmin();
+      toast("공지를 발송했어요. (서버 연동 후 전체 사용자에게 전송)");
+    });
+    $("#admin-csv-members").addEventListener("click", () => {
+      exportCSV("bartalk-members", [["ID", "닉네임", "가입일", "글", "댓글", "신고당함", "상태"],
+        ...state.members.map((m) => [m.id, m.nick, new Date(m.joined).toLocaleDateString("ko-KR"), m.posts, m.comments, m.reported, memberStatus(m).label])]);
+      logAdmin("회원 명단 CSV 내보내기");
+    });
+    $("#admin-csv-reports").addEventListener("click", () => {
+      exportCSV("bartalk-reports", [["ID", "유형", "제목", "사유", "상태", "처리", "일시"],
+        ...state.reports.map((r) => [r.id, r.type === "post" ? "게시글" : "도감", r.title, r.reason, r.status, r.action || "", new Date(r.time).toLocaleString("ko-KR")])]);
+      logAdmin("신고 내역 CSV 내보내기");
+    });
+  }
+  function exportCSV(name, rows) {
+    const csv = "﻿" + rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    const d = new Date();
+    a.download = `${name}-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast("CSV 파일을 저장했어요. 📄");
+  }
+  function renderAdminReports() {
+    $("#admin-area").innerHTML = `
+      ${state.reports.length ? state.reports.map((r) => {
+        const author = state.members.find((m) => m.id === r.authorMid);
+        return `
         <div class="order-item">
           <div class="order-head">
             <span class="mk-state ${r.status === "접수" ? "" : "sold"}">${esc(r.status)}</span>
@@ -1170,49 +1346,123 @@
             <span class="order-date">${fmtTime(r.time)}</span>
           </div>
           <div class="order-title">${esc(r.title)}</div>
-          <div class="market-meta">사유: ${esc(r.reason)}${r.action ? ` · ${esc(r.action)}` : ""}</div>
+          <div class="market-meta">사유: ${esc(r.reason)} · 작성자: ${author ? esc(author.nick) : "알 수 없음"}${author && author.reported ? ` (신고 누적 ${author.reported}회)` : ""}${r.action ? ` · ${esc(r.action)}` : ""}</div>
           ${r.status === "접수" ? `<button class="host-chat-btn" data-proc="${r.id}" style="margin-top:10px">규정에 따라 처리하기</button>` : ""}
-        </div>`).join("") : '<div class="empty-state" style="padding:30px 0">접수된 신고가 없어요.</div>'}
+        </div>`;
+      }).join("") : '<div class="empty-state">접수된 신고가 없어요.</div>'}
       <div style="height:24px"></div>`;
-    $("#admin-ban-test").addEventListener("click", () => {
-      state.user.bannedUntil = Date.now() + 3 * D;
-      saveUser(); renderAdmin(); toast("이 기기 계정에 3일 정지를 적용했어요.");
-    });
-    $("#admin-unban").addEventListener("click", () => {
-      state.user.bannedUntil = 0;
-      saveUser(); renderAdmin(); toast("정지를 해제했어요.");
-    });
     $$("#admin-area [data-proc]").forEach((b) =>
       b.addEventListener("click", () => processReport(+b.dataset.proc)));
+  }
+  function renderAdminUsers() {
+    const q = state.adminUserQ || "";
+    const f = state.adminUserFilter || "전체";
+    let list = state.members.filter((m) =>
+      (!q || has(m.nick, q)) &&
+      (f === "전체" ? true :
+        f === "정지 중" ? (m.bannedUntil === -1 || (m.bannedUntil && m.bannedUntil > Date.now())) :
+        m.reported > 0));
+    list = [...list].sort((a, b) => b.reported - a.reported || b.joined - a.joined);
+    $("#admin-area").innerHTML = `
+      <div class="search-box" style="margin:14px 16px 8px">
+        <svg viewBox="0 0 24 24" class="search-ic"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input type="text" id="admin-user-q" placeholder="닉네임 검색" value="${esc(q)}">
+      </div>
+      <div class="sort-row">
+        ${["전체", "정지 중", "신고 누적"].map((x) =>
+          `<button class="chip ${x === f ? "active" : ""}" data-f="${x}">${x}</button>`).join("")}
+        <span style="margin-left:auto;font-size:12.5px;color:var(--text-sub);align-self:center">${fmtNum(list.length)}명</span>
+      </div>
+      ${list.slice(0, 50).map((m) => {
+        const st = memberStatus(m);
+        return `
+        <div class="member-row" data-mid="${m.id}">
+          <span class="avatar md" style="background:${COLORS[m.color]}"></span>
+          <div class="member-info">
+            <div class="member-nick">${esc(m.nick)}${m.id === 1 ? ' <span class="my-tag">이 기기</span>' : ""}</div>
+            <div class="market-meta">글 ${m.posts} · 댓글 ${m.comments} · 신고당함 ${m.reported}회 · 가입 ${new Date(m.joined).getMonth() + 1}/${new Date(m.joined).getDate()}</div>
+          </div>
+          <span class="mk-state ${st.cls}">${st.label}</span>
+        </div>`;
+      }).join("")}
+      ${list.length > 50 ? `<p class="sheet-note" style="text-align:center">상위 50명만 표시 중 · 검색으로 좁혀보세요</p>` : ""}
+      <div style="height:24px"></div>`;
+    const qInput = $("#admin-user-q");
+    qInput.addEventListener("input", () => {
+      state.adminUserQ = qInput.value.trim();
+      const pos = qInput.selectionStart;
+      renderAdminUsers();
+      const nq = $("#admin-user-q");
+      nq.focus();
+      nq.setSelectionRange(pos, pos);
+    });
+    $$("#admin-area .sort-row .chip").forEach((ch) =>
+      ch.addEventListener("click", () => { state.adminUserFilter = ch.dataset.f; renderAdminUsers(); }));
+    $$("#admin-area .member-row").forEach((el) =>
+      el.addEventListener("click", () => openMemberSheet(+el.dataset.mid)));
+  }
+  function openMemberSheet(mid) {
+    const m = state.members.find((x) => x.id === mid);
+    if (!m) return;
+    const st = memberStatus(m);
+    const bc = banCount(m);
+    openSheetHTML(`
+      <div class="detail-head" style="margin-bottom:12px">
+        <span class="avatar md" style="background:${COLORS[m.color]}"></span>
+        <div><div class="detail-nick">${esc(m.nick)}</div>
+        <div class="detail-time">가입 ${fmtDate(m.joined)} · 글 ${m.posts} · 댓글 ${m.comments}</div></div>
+        <span class="mk-state ${st.cls}" style="margin-left:auto">${st.label}</span>
+      </div>
+      ${bc >= 3 && m.bannedUntil !== -1 ? '<p class="sheet-note" style="color:var(--accent)">⚠️ 제재 누적 3회 — 규정상 영구 정지 대상입니다.</p>' : ""}
+      <h3 style="margin:10px 0 8px">제재 이력 ${m.sanctions.length}건 · 신고당함 ${m.reported}회</h3>
+      ${m.sanctions.length ? m.sanctions.map((s) => `
+        <div class="sheet-row"><span>${esc(s.label)} <small style="color:var(--text-sub)">(${esc(s.reason)})</small></span>
+        <b style="margin-left:auto;font-size:12.5px;color:var(--text-sub)">${fmtDate(s.at)}</b></div>`).join("")
+        : '<p class="sheet-note">제재 이력이 없어요.</p>'}
+      <h3 style="margin:16px 0 8px">관리 조치</h3>
+      <div class="member-actions">
+        <button class="chip" data-act="warn">경고</button>
+        <button class="chip" data-act="3">3일 정지</button>
+        <button class="chip" data-act="7">7일 정지</button>
+        <button class="chip" data-act="30">30일 정지</button>
+        <button class="chip" data-act="perm" style="color:var(--accent)">영구 정지</button>
+        <button class="chip" data-act="unban">정지 해제</button>
+      </div>`);
+    $$(".sheet .member-actions .chip").forEach((b) =>
+      b.addEventListener("click", () => {
+        const act = b.dataset.act;
+        const map = { warn: ["경고", 0], "3": ["3일 정지", 3], "7": ["7일 정지", 7], "30": ["30일 정지", 30], perm: ["영구 정지", -1], unban: ["정지 해제", -2] };
+        const [label, days] = map[act];
+        if (!confirm(`${m.nick}님에게 '${label}' 조치를 적용할까요?`)) return;
+        applySanction(m, label, days, "관리자 직권");
+        document.querySelector(".sheet-backdrop") && document.querySelector(".sheet-backdrop").remove();
+        renderAdmin();
+        toast(`${m.nick}님에게 '${label}'을 적용했어요.`);
+      }));
   }
   function processReport(rid) {
     const r = state.reports.find((x) => x.id === rid);
     if (!r) return;
-    openSheet("신고 처리 (규정 적용)", ["삭제 + 3일 정지", "삭제 + 7일 정지", "삭제 + 30일 정지", "콘텐츠만 삭제", "기각 (문제 없음)"], null, (action) => {
+    const author = state.members.find((m) => m.id === r.authorMid);
+    openSheet(`신고 처리${author ? ` — 작성자: ${author.nick}` : ""}`,
+      ["삭제 + 3일 정지", "삭제 + 7일 정지", "삭제 + 30일 정지", "삭제 + 영구 정지", "콘텐츠만 삭제", "기각 (문제 없음)"], null, (action) => {
       if (action.startsWith("기각")) {
         r.status = "기각";
       } else {
-        let wasMine = false;
         if (r.type === "post") {
-          const t = state.posts.find((p) => p.id === r.targetId);
-          wasMine = !!(t && t.mine);
           state.posts = state.posts.filter((p) => p.id !== r.targetId);
           savePosts();
         } else {
-          const t = state.spirits.find((s) => s.id === r.targetId);
-          wasMine = !!(t && t.mine);
           state.spirits = state.spirits.filter((s) => s.id !== r.targetId);
           saveSpirits();
         }
-        const days = action.includes("30일") ? 30 : action.includes("7일") ? 7 : action.includes("3일") ? 3 : 0;
-        if (days && wasMine) {
-          state.user.bannedUntil = Date.now() + days * D;
-          saveUser();
-        }
+        const days = action.includes("영구") ? -1 : action.includes("30일") ? 30 : action.includes("7일") ? 7 : action.includes("3일") ? 3 : 0;
+        if (author && days !== 0) applySanction(author, action.replace("삭제 + ", ""), days, r.reason);
         r.status = "처리완료";
-        r.action = action + (days && !wasMine ? " (정지는 서버 연동 후 실제 적용)" : "");
+        r.action = action;
       }
       saveReports();
+      logAdmin(`신고 #${r.id} '${r.title.slice(0, 14)}' → ${action}`);
       renderAdmin();
       toast(`신고를 처리했어요: ${action}`);
     });
@@ -1526,6 +1776,14 @@
     "스팅어": "Stinger (cocktail)", "뱅쇼": "Mulled wine", "블루 하와이": "Blue Hawaii (cocktail)",
     "버진 모히토": "Mojito", "헤밍웨이 다이키리": "Hemingway Special", "위스키 스매시": "Smash (cocktail)",
     "준벅": "June bug (cocktail)", "치치": "Chi chi (cocktail)", "멕시칸 뮬": "Moscow mule",
+    "더티 마티니": "Dirty Martini", "브롱크스": "Bronx (cocktail)", "핑크 레이디": "Pink Lady (cocktail)",
+    "존 콜린스": "John Collins (cocktail)", "블러드 앤 샌드": "Blood and Sand (cocktail)", "브루클린": "Brooklyn (cocktail)",
+    "린치버그 레모네이드": "Lynchburg Lemonade", "프렌치 커넥션": "French Connection (cocktail)",
+    "잭 로즈": "Jack Rose (cocktail)", "피스코 사워": "Pisco sour", "샴페인 칵테일": "Champagne cocktail",
+    "스프리처": "Spritzer", "틴토 데 베라노": "Tinto de verano", "블랙 벨벳": "Black velvet (beer cocktail)",
+    "미첼라다": "Michelada", "예거밤": "Jägerbomb", "머드슬라이드": "Mudslide (cocktail)",
+    "가리발디": "Garibaldi (cocktail)", "블러디 시저": "Caesar (cocktail)", "허리케인": "Hurricane (cocktail)",
+    "바카디 칵테일": "Bacardi cocktail", "우우 (Woo Woo)": "Woo Woo (cocktail)", "바하마 마마": "Bahama Mama",
     "케이프 코더": "Cape Codder (cocktail)", "베이 브리즈": "Sea Breeze (cocktail)", "깔루아 밀크": "Kahlúa",
     "리몬첼로 스프리츠": "Limoncello", "신데렐라": "Cinderella (cocktail)",
   };
@@ -3460,6 +3718,8 @@
     if (verTaps >= 7) { verTaps = 0; adminEnter(); }
   });
   $("#btn-admin").addEventListener("click", () => show("admin"));
+  $$("#admin-tabs .seg-btn").forEach((b) =>
+    b.addEventListener("click", () => { state.adminTab = b.dataset.atab; renderAdmin(); }));
   $("#fab-write").addEventListener("click", () => {
     state.editPost = null;
     $("#view-write .topbar-title").textContent = "글쓰기";
