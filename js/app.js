@@ -684,6 +684,8 @@
     orders: store.get("orders", []),
     worklog: store.get("worklog", []),
     imgCache: store.get("imgCache", {}),
+    reports: store.get("reports", []),
+    adminMode: false,
     noti: store.get("noti", []),
     chats: store.get("chats", []),
     dark: store.get("dark", !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)),
@@ -704,6 +706,7 @@
     swKind: "spirit",
     swEmoji: 0,
     swCat: null,
+    swImg: null,
     mwRegion: null,
     storeCat: "전체",
     curProduct: null,
@@ -861,7 +864,7 @@
     $$(".view").forEach((v) => { v.hidden = v.id !== "view-" + view; });
     $("#bottom-nav").style.display = view === "onboard" ? "none" : "";
     const navView = NAV_VIEWS.includes(view) ? view
-      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", market: "home", "market-detail": "home", cart: "home", worklog: "home", units: "home", search: "home", timer: "home", taste: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage" }[view] || "home";
+      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", market: "home", "market-detail": "home", cart: "home", worklog: "home", units: "home", search: "home", timer: "home", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage" }[view] || "home";
     $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === navView));
     if (view === "home") renderHome();
     if (view === "market") renderStore();
@@ -871,6 +874,7 @@
     if (view === "units") renderUnits();
     if (view === "cellar") renderCellar();
     if (view === "taste") renderTaste();
+    if (view === "admin") renderAdmin();
     if (view === "timer") { stopTimer(); timerLeft = timerSel; renderTimer(); }
     if (view === "search") setTimeout(() => $("#global-search").focus(), 50);
     // 목록 스크롤 위치 복원
@@ -1036,13 +1040,181 @@
   const vibrate = (ms) => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch {} };
 
   /* ---------- 신고/숨기기 ---------- */
+  const saveReports = () => store.set("reports", state.reports);
+  function fileReport(type, targetId, title, reason) {
+    state.reports.unshift({
+      id: Math.max(0, ...state.reports.map((r) => r.id)) + 1,
+      type, targetId, title, reason, time: Date.now(), status: "접수",
+    });
+    if (state.reports.length > 200) state.reports.length = 200;
+    saveReports();
+  }
   function reportPost(p) {
     openSheet("게시글 신고", ["스팸/광고", "욕설/비방", "음란물", "불법 정보", "기타"], null, (reason) => {
       state.user.hiddenPosts = state.user.hiddenPosts || [];
       if (!state.user.hiddenPosts.includes(p.id)) state.user.hiddenPosts.push(p.id);
       saveUser();
+      fileReport("post", p.id, p.title, reason);
       show("community");
-      toast(`신고가 접수되었어요 (${reason}). 이 글은 더 이상 표시되지 않아요.`);
+      toast(`신고가 접수되었어요 (${reason}). 관리자 확인 후 규정에 따라 처리돼요.`);
+    });
+  }
+
+  function reportSpirit(sp) {
+    openSheet("도감 항목 신고", ["허위 정보/장난", "스팸/광고", "부적절한 내용", "기타"], null, (reason) => {
+      state.user.hiddenSpirits = state.user.hiddenSpirits || [];
+      if (!state.user.hiddenSpirits.includes(sp.id)) state.user.hiddenSpirits.push(sp.id);
+      saveUser();
+      fileReport("spirit", sp.id, sp.name, reason);
+      show("dogam");
+      toast(`신고가 접수되었어요 (${reason}). 관리자 확인 후 규정에 따라 처리돼요.`);
+    });
+  }
+  const hiddenSp = () => state.user.hiddenSpirits || [];
+
+  /* ---------- 장난/도배 방지 ---------- */
+  const PROFANITY = /시발|씨발|씨빨|병신|븅신|개새끼|좆|지랄|니미|썅|염병|ㅅㅂ|ㅂㅅ|fuck|shit|bitch/i;
+  function isClean(...texts) {
+    if (texts.some((t) => PROFANITY.test(String(t || "")))) {
+      toast("부적절한 표현이 포함되어 있어요. 수정 후 다시 시도해주세요.");
+      return false;
+    }
+    return true;
+  }
+  function isBanned() {
+    if (state.user.bannedUntil === -1) {
+      toast("커뮤니티 이용이 영구 제한된 계정이에요.");
+      return true;
+    }
+    if (state.user.bannedUntil && state.user.bannedUntil > Date.now()) {
+      toast(`커뮤니티 이용이 제한 중이에요. (해제: ${fmtDate(state.user.bannedUntil)})`);
+      return true;
+    }
+    return false;
+  }
+  function overDailyLimit(key, max, label) {
+    const today = new Date().toDateString();
+    const rl = store.get("ratelimit", {});
+    if (rl.date !== today) { rl.date = today; rl.counts = {}; }
+    rl.counts = rl.counts || {};
+    if ((rl.counts[key] || 0) >= max) {
+      toast(`${label}은 하루 ${max}개까지만 가능해요. 내일 다시 만나요!`);
+      return true;
+    }
+    rl.counts[key] = (rl.counts[key] || 0) + 1;
+    store.set("ratelimit", rl);
+    return false;
+  }
+
+  /* ---------- 관리자 ---------- */
+  const SANCTION_RULES = [
+    ["스팸/광고", "삭제 + 3일 정지"],
+    ["욕설/비방", "삭제 + 7일 정지"],
+    ["음란물·불법 정보", "삭제 + 30일 정지"],
+    ["허위 도감 등록(장난)", "삭제 + 경고"],
+    ["누적 3회 이상 위반", "영구 정지"],
+  ];
+  function adminEnter() {
+    const saved = store.get("adminPin", null);
+    if (!saved) {
+      const pin = prompt("관리자 PIN을 설정해주세요 (4자리 이상)");
+      if (!pin || pin.length < 4) { toast("PIN은 4자리 이상이어야 해요."); return; }
+      store.set("adminPin", pin);
+      state.adminMode = true;
+      toast("관리자 모드가 활성화됐어요. 🛡️");
+    } else {
+      const pin = prompt("관리자 PIN을 입력해주세요");
+      if (pin !== saved) { if (pin !== null) toast("PIN이 일치하지 않아요."); return; }
+      state.adminMode = true;
+    }
+    renderMyPage();
+    show("admin");
+  }
+  function renderAdmin() {
+    const pending = state.reports.filter((r) => r.status === "접수");
+    const banned = state.user.bannedUntil === -1 ? "영구 정지"
+      : state.user.bannedUntil && state.user.bannedUntil > Date.now() ? `정지 중 (~${fmtDate(state.user.bannedUntil)})` : "정상";
+    $("#admin-area").innerHTML = `
+      <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
+        <h3>대시보드</h3>
+        <div class="stat-row" style="padding:10px 0 0">
+          <div class="stat"><b>${state.posts.length}</b><span>게시글</span></div>
+          <div class="stat"><b>${state.spirits.length}</b><span>도감</span></div>
+          <div class="stat"><b>${state.meets.length}</b><span>모임</span></div>
+          <div class="stat"><b style="color:var(--accent)">${pending.length}</b><span>미처리 신고</span></div>
+        </div>
+      </div>
+      <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
+        <h3>제재 규정</h3>
+        <div class="calc-result show">
+          ${SANCTION_RULES.map(([a, b]) => `<div class="cr-row"><span>${a}</span><b style="font-size:13px">${b}</b></div>`).join("")}
+        </div>
+        <p class="sheet-note">지금은 이 기기에만 적용돼요. 서버(Supabase) 연동 후에는 모든 사용자에게 실제 적용됩니다.</p>
+      </div>
+      <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
+        <h3>이 기기 사용자</h3>
+        <div class="calc-result show">
+          <div class="cr-row"><span>${esc(state.user.nick)}</span><b>${banned}</b></div>
+        </div>
+        <div class="pd-actions" style="margin-top:12px">
+          <button class="mkd-chat-btn outline" id="admin-ban-test">3일 정지 (테스트)</button>
+          <button class="mkd-chat-btn" id="admin-unban">정지 해제</button>
+        </div>
+      </div>
+      <div class="comment-sec-title">신고함 ${state.reports.length}</div>
+      ${state.reports.length ? state.reports.map((r) => `
+        <div class="order-item">
+          <div class="order-head">
+            <span class="mk-state ${r.status === "접수" ? "" : "sold"}">${esc(r.status)}</span>
+            <span class="order-no">${r.type === "post" ? "게시글" : "도감"}</span>
+            <span class="order-date">${fmtTime(r.time)}</span>
+          </div>
+          <div class="order-title">${esc(r.title)}</div>
+          <div class="market-meta">사유: ${esc(r.reason)}${r.action ? ` · ${esc(r.action)}` : ""}</div>
+          ${r.status === "접수" ? `<button class="host-chat-btn" data-proc="${r.id}" style="margin-top:10px">규정에 따라 처리하기</button>` : ""}
+        </div>`).join("") : '<div class="empty-state" style="padding:30px 0">접수된 신고가 없어요.</div>'}
+      <div style="height:24px"></div>`;
+    $("#admin-ban-test").addEventListener("click", () => {
+      state.user.bannedUntil = Date.now() + 3 * D;
+      saveUser(); renderAdmin(); toast("이 기기 계정에 3일 정지를 적용했어요.");
+    });
+    $("#admin-unban").addEventListener("click", () => {
+      state.user.bannedUntil = 0;
+      saveUser(); renderAdmin(); toast("정지를 해제했어요.");
+    });
+    $$("#admin-area [data-proc]").forEach((b) =>
+      b.addEventListener("click", () => processReport(+b.dataset.proc)));
+  }
+  function processReport(rid) {
+    const r = state.reports.find((x) => x.id === rid);
+    if (!r) return;
+    openSheet("신고 처리 (규정 적용)", ["삭제 + 3일 정지", "삭제 + 7일 정지", "삭제 + 30일 정지", "콘텐츠만 삭제", "기각 (문제 없음)"], null, (action) => {
+      if (action.startsWith("기각")) {
+        r.status = "기각";
+      } else {
+        let wasMine = false;
+        if (r.type === "post") {
+          const t = state.posts.find((p) => p.id === r.targetId);
+          wasMine = !!(t && t.mine);
+          state.posts = state.posts.filter((p) => p.id !== r.targetId);
+          savePosts();
+        } else {
+          const t = state.spirits.find((s) => s.id === r.targetId);
+          wasMine = !!(t && t.mine);
+          state.spirits = state.spirits.filter((s) => s.id !== r.targetId);
+          saveSpirits();
+        }
+        const days = action.includes("30일") ? 30 : action.includes("7일") ? 7 : action.includes("3일") ? 3 : 0;
+        if (days && wasMine) {
+          state.user.bannedUntil = Date.now() + days * D;
+          saveUser();
+        }
+        r.status = "처리완료";
+        r.action = action + (days && !wasMine ? " (정지는 서버 연동 후 실제 적용)" : "");
+      }
+      saveReports();
+      renderAdmin();
+      toast(`신고를 처리했어요: ${action}`);
     });
   }
 
@@ -1163,7 +1335,7 @@
     }
     const sec = (title, items) => items.length
       ? `<div class="comment-sec-title">${title} ${items.length}</div>${items.join("")}` : "";
-    const spirits = state.spirits.filter((s) => has(s.name, q)).slice(0, 5).map((sp) => `
+    const spirits = state.spirits.filter((s) => !hiddenSp().includes(s.id) && has(s.name, q)).slice(0, 5).map((sp) => `
       <div class="home-mini" data-go-spirit="${sp.id}">
         <span class="hm-emoji">${sp.kind === "cocktail" ? "🍸" : "🥃"}</span>
         <div class="hm-body"><div class="hm-title">${esc(sp.name)}</div>
@@ -1708,6 +1880,7 @@
     };
     const q = $("#spirit-search").value.trim();
     const list = state.spirits.filter((sp) =>
+      !hiddenSp().includes(sp.id) &&
       sp.kind === state.dogamKind &&
       (state.dogamCat === "전체" || (sp.kind === "spirit" ? sp.cat : sp.base) === state.dogamCat) &&
       (!isWhisky || state.dogamRegion === "전체" || regionOfWhisky(sp.name) === state.dogamRegion) &&
@@ -1824,6 +1997,7 @@
         renderSpiritDetail();
       }));
     $("#spirit-delete").hidden = !sp.mine;
+    $("#spirit-report").hidden = !!sp.mine;
     $$("#spirit-detail .mult-btn").forEach((b) =>
       b.addEventListener("click", () => { state.ctMult = +b.dataset.m; renderSpiritDetail(); }));
     const hero = $("#spirit-detail .sp-hero-media img.thumb-img");
@@ -1850,6 +2024,7 @@
   function addReview() {
     const text = $("#review-input").value.trim();
     if (!text && !pendingImg.review) return;
+    if (isBanned() || !isClean(text)) return;
     const sp = state.spirits.find((x) => x.id === state.curSpirit);
     if (!sp) return;
     const rv = { color: state.user.color, stars: state.reviewStars, text, time: Date.now(), mine: true };
@@ -1887,6 +2062,12 @@
       ch.addEventListener("click", () => { state.swCat = ch.dataset.c; renderSpiritWrite(); }));
     updateSwSubmit();
   }
+  function setSwImg(dataUrl) {
+    state.swImg = dataUrl;
+    $("#sw-img-preview").hidden = !dataUrl;
+    $("#sw-photo-btn").style.display = dataUrl ? "none" : "";
+    if (dataUrl) $("#sw-img-el").src = dataUrl;
+  }
   function updateSwSubmit() {
     const baseOk = $("#sw-name").value.trim() && state.swCat && $("#sw-abv").value !== "";
     const ctOk = state.swKind === "spirit" || ($("#sw-ings").value.trim() && $("#sw-recipe").value.trim());
@@ -1897,16 +2078,24 @@
   function submitSpirit() {
     if ($("#sw-submit").disabled) return;
     const newName = $("#sw-name").value.trim();
+    // 장난 등록 방지: 정지·금칙어·도수 범위·이름 길이·하루 등록 제한
+    if (isBanned()) return;
+    if (!isClean(newName, $("#sw-note").value, $("#sw-ings").value, $("#sw-recipe").value)) return;
+    if (newName.length < 2) { toast("이름은 2자 이상 입력해주세요."); return; }
+    const abvVal = +$("#sw-abv").value;
+    if (isNaN(abvVal) || abvVal < 0 || abvVal > 99) { toast("도수는 0~99% 사이로 입력해주세요."); return; }
     if (state.spirits.some((s) => s.name === newName) &&
       !confirm(`'${newName}'은(는) 이미 도감에 있어요. 그래도 등록할까요?`)) return;
+    if (overDailyLimit("spirit", 5, "도감 등록")) return;
     const id = Math.max(0, ...state.spirits.map((s) => s.id)) + 1;
     const item = {
       id, kind: state.swKind, emoji: EMOJIS[state.swEmoji],
-      name: $("#sw-name").value.trim(), abv: +$("#sw-abv").value,
+      name: newName, abv: abvVal,
       note: $("#sw-note").value.trim(), by: "익명", time: Date.now(), reviews: [], mine: true,
     };
     const imgUrl = $("#sw-img").value.trim();
-    if (/^https?:\/\//.test(imgUrl)) item.img = imgUrl;
+    if (state.swImg) item.img = state.swImg;
+    else if (/^https?:\/\//.test(imgUrl)) item.img = imgUrl;
     if (state.swKind === "spirit") {
       item.cat = state.swCat;
       item.price = $("#sw-price").value.trim();
@@ -1920,6 +2109,8 @@
     saveSpirits(); saveUser();
     checkKeywords(item.name, item.note || "");
     ["sw-name", "sw-abv", "sw-price", "sw-note", "sw-ings", "sw-recipe", "sw-img"].forEach((i) => { $("#" + i).value = ""; });
+    setSwImg(null);
+    $("#sw-file").value = "";
     state.dogamKind = state.swKind;
     state.dogamCat = "전체";
     $$("#dogam-seg .seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.kind === state.dogamKind));
@@ -2047,6 +2238,7 @@
   function addMeetComment() {
     const text = $("#meet-comment-input").value.trim();
     if (!text && !pendingImg.meet) return;
+    if (isBanned() || !isClean(text)) return;
     const m = state.meets.find((x) => x.id === state.curMeet);
     if (!m) return;
     const c = { color: state.user.color, text, time: Date.now(), mine: true };
@@ -2077,6 +2269,8 @@
   }
   function submitMeet() {
     if ($("#mw-submit").disabled) return;
+    if (isBanned() || !isClean($("#mw-title").value, $("#mw-desc").value)) return;
+    if (overDailyLimit("meet", 3, "모임 만들기")) return;
     const dateStr = $("#mw-date").value + "T" + ($("#mw-time").value || "19:00");
     const id = Math.max(0, ...state.meets.map((m) => m.id)) + 1;
     const meet = {
@@ -2230,6 +2424,7 @@
   function addComment() {
     const text = $("#comment-input").value.trim();
     if (!text && !pendingImg.post) return;
+    if (isBanned() || !isClean(text)) return;
     const p = state.posts.find((x) => x.id === state.curPost);
     if (!p) return;
     const c = { color: state.user.color, text, time: Date.now(), mine: true };
@@ -2302,6 +2497,8 @@
     const title = $("#write-title").value.trim();
     const body = $("#write-body").value.trim();
     if (!title || !body) return;
+    if (isBanned() || !isClean(title, body)) return;
+    if (state.editPost === null && overDailyLimit("post", 10, "게시글 작성")) return;
     if (state.editPost !== null) {
       // 글 수정 모드
       const p = state.posts.find((x) => x.id === state.editPost);
@@ -2450,6 +2647,9 @@
         <span class="badge-name">${b.name}</span>
       </div>`;
     }).join("");
+    $("#btn-admin").hidden = !state.adminMode;
+    const pendingR = state.reports.filter((r) => r.status === "접수").length;
+    $("#admin-report-cnt").textContent = pendingR ? `신고 ${pendingR}건` : "";
     $("#toggle-push").classList.toggle("on", state.push);
     $("#toggle-push").setAttribute("aria-checked", state.push);
   }
@@ -2561,7 +2761,9 @@
       <div class="sheet-row"><span>3. 개인정보(실명·연락처·매장 실명 비방)는 올리지 마세요.</span></div>
       <div class="sheet-row"><span>4. 불법 정보, 성적 콘텐츠는 즉시 삭제·제재됩니다.</span></div>
       <div class="sheet-row"><span>5. 모임은 공개된 장소에서, 안전하게 진행해주세요.</span></div>
-      <p class="sheet-note">규칙 위반 시 게시글 삭제 및 이용 제한이 있을 수 있어요.</p>`);
+      <h3 style="margin-top:18px">제재 기준</h3>
+      ${SANCTION_RULES.map(([a, b]) => `<div class="sheet-row"><span>${a}</span><b style="margin-left:auto;font-size:13.5px">${b}</b></div>`).join("")}
+      <p class="sheet-note">위반 콘텐츠는 상세 화면의 🚩 신고 버튼으로 알려주세요. 관리자가 확인 후 규정에 따라 처리해요.</p>`);
   }
 
   /* ---------- 스토어 ---------- */
@@ -3140,6 +3342,20 @@
   ["sw-name", "sw-abv", "sw-ings", "sw-recipe"].forEach((i) =>
     $("#" + i).addEventListener("input", updateSwSubmit));
   $("#sw-submit").addEventListener("click", submitSpirit);
+  $("#sw-photo-btn").addEventListener("click", () => $("#sw-file").click());
+  $("#sw-file").addEventListener("change", (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) { toast("이미지 파일만 첨부할 수 있어요."); e.target.value = ""; return; }
+    compressImage(f, setSwImg, 800, 0.7);
+  });
+  $("#sw-img-remove").addEventListener("click", () => { setSwImg(null); $("#sw-file").value = ""; });
+  $("#spirit-report").addEventListener("click", () => {
+    const sp = state.spirits.find((x) => x.id === state.curSpirit);
+    if (!sp) return;
+    if (sp.mine) { toast("내가 등록한 항목은 신고할 수 없어요."); return; }
+    reportSpirit(sp);
+  });
   $("#review-send").addEventListener("click", addReview);
   $("#review-input").addEventListener("keydown", (e) => { if (e.key === "Enter") addReview(); });
   $("#spirit-share").addEventListener("click", shareSpirit);
@@ -3235,6 +3451,15 @@
   );
   $("#post-search").addEventListener("input", renderPosts);
   $("#rules-banner").addEventListener("click", openRulesSheet);
+  // 관리자 진입: 버전 문구 7연타 → PIN
+  let verTaps = 0, verTapTimer;
+  $("#app-ver").addEventListener("click", () => {
+    verTaps++;
+    clearTimeout(verTapTimer);
+    verTapTimer = setTimeout(() => { verTaps = 0; }, 1500);
+    if (verTaps >= 7) { verTaps = 0; adminEnter(); }
+  });
+  $("#btn-admin").addEventListener("click", () => show("admin"));
   $("#fab-write").addEventListener("click", () => {
     state.editPost = null;
     $("#view-write .topbar-title").textContent = "글쓰기";
