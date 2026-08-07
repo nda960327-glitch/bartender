@@ -764,6 +764,22 @@ textarea.input { height: auto; }
 .badge-ic { font-size: 26px; }
 .badge-name { font-size: 10.5px; color: var(--text-sub); font-weight: 600; text-align: center; }
 
+/* ---------- 바 타이머 ---------- */
+.timer-area { padding: 30px 0; text-align: center; }
+.timer-display {
+  font-size: 88px; font-weight: 800; font-variant-numeric: tabular-nums;
+  letter-spacing: -2px; margin-bottom: 20px; transition: color .2s;
+}
+.timer-display.running { color: var(--accent); }
+.timer-presets { justify-content: center; margin-bottom: 26px; padding: 0 20px; }
+
+/* ---------- 내 취향 리포트 ---------- */
+.taste-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.taste-label { min-width: 64px; font-size: 14px; font-weight: 700; text-align: left; }
+.taste-bar { flex: 1; height: 14px; background: var(--chip-bg); border-radius: 7px; overflow: hidden; }
+.taste-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #ff8ad4); border-radius: 7px; }
+.taste-num { min-width: 24px; font-size: 13px; color: var(--text-sub); font-weight: 700; text-align: right; }
+
 /* ---------- 댓글 삭제/연속출석 ---------- */
 .cmt-del {
   border: none; background: none; color: var(--text-muted);

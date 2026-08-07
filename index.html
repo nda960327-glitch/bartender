@@ -25,6 +25,10 @@
       <input type="text" class="input" id="ob-nick" placeholder="사용할 닉네임을 입력해주세요." maxlength="10">
       <label class="form-label">프로필 색상</label>
       <div class="ob-colors" id="ob-colors"></div>
+      <button class="agree-row" id="ob-adult">
+        <svg viewBox="0 0 24 24" class="check-ic"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>
+        <span>만 19세 이상이며, 책임 있는 음주 문화에 동의해요</span>
+      </button>
       <button class="big-btn accent" id="ob-start" disabled>시작하기</button>
       <p class="onboard-hint">익명 커뮤니티예요. 닉네임은 나만 보이고,<br>글은 모두 "익명"으로 올라가요.</p>
     </div>
@@ -71,6 +75,8 @@
           <button class="tool-item pressable" data-go="pay"><span class="tool-ic">💰</span><span class="tool-name">급여 계산기</span><span class="tool-desc">주급·월급 예상</span></button>
           <button class="tool-item pressable" data-go="worklog"><span class="tool-ic">📅</span><span class="tool-name">근무일지</span><span class="tool-desc">근무·팁 기록, 월 수입</span></button>
           <button class="tool-item pressable" data-go="units"><span class="tool-ic">⚖️</span><span class="tool-name">단위 변환</span><span class="tool-desc">oz ↔ ml 한 번에</span></button>
+          <button class="tool-item pressable" data-go="timer"><span class="tool-ic">⏱️</span><span class="tool-name">바 타이머</span><span class="tool-desc">스터·셰이킹 초 재기</span></button>
+          <button class="tool-item pressable" id="tool-random"><span class="tool-ic">🎲</span><span class="tool-name">오늘 뭐 마시지?</span><span class="tool-desc">랜덤 칵테일 뽑기</span></button>
         </div>
       </div>
 
@@ -448,6 +454,9 @@
       <button class="icon-btn" id="post-chat" aria-label="1:1 채팅">
         <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/></svg>
       </button>
+      <button class="icon-btn" id="post-report" aria-label="신고">
+        <svg viewBox="0 0 24 24"><path d="M5 21V4h13l-2.5 4L18 12H5"/></svg>
+      </button>
       <button class="icon-btn" id="post-delete" hidden aria-label="삭제">
         <svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>
       </button>
@@ -536,6 +545,7 @@
         <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
       </div>
       <div class="card menu-list">
+        <button class="row-link pressable" id="btn-taste"><span class="row-label">내 취향 리포트</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-cellar"><span class="row-label">내 술장</span><span class="flex-1"></span><span class="row-badge" id="cellar-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-favjobs"><span class="row-label">관심알바</span><span class="flex-1"></span><span class="row-badge" id="favjob-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-myposts"><span class="row-label">내가 쓴 글</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
@@ -552,7 +562,7 @@
           <button class="toggle on" id="toggle-push" role="switch" aria-checked="true"><span class="knob"></span></button>
         </div>
       </div>
-      <p class="app-ver">바텐톡 v1.0</p>
+      <p class="app-ver">바텐톡 v1.0 · 모든 데이터는 내 기기에만 저장돼요 🔒<br>지나친 음주는 건강에 해롭습니다. 책임 있는 음주 문화를 만들어요.</p>
     </div>
   </section>
 
@@ -799,6 +809,38 @@
       <p class="sheet-note">1oz = 29.57ml 기준, 바 현장에서는 보통 30ml로 계산해요. 지거 표준: 30/45ml (1/1.5oz)</p>
       <div style="height:24px"></div>
     </div>
+  </section>
+
+  <!-- ===================== 바 타이머 ===================== -->
+  <section class="view" id="view-timer" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="home">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">바 타이머</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area timer-area">
+      <div class="timer-display" id="timer-display">15.0</div>
+      <div class="chip-wrap timer-presets" id="timer-presets"></div>
+      <div class="pd-actions" style="padding:0 20px">
+        <button class="mkd-chat-btn" id="timer-toggle">시작</button>
+        <button class="mkd-chat-btn outline" id="timer-reset">리셋</button>
+      </div>
+      <p class="sheet-note" style="text-align:center">셰이킹 12~15초 · 스터 30초가 일반적이에요.<br>끝나면 진동으로 알려드려요. (지원 기기)</p>
+    </div>
+  </section>
+
+  <!-- ===================== 내 취향 리포트 ===================== -->
+  <section class="view" id="view-taste" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="mypage">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">내 취향 리포트</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area" id="taste-area"></div>
   </section>
 
   <!-- ===================== 하단 네비 ===================== -->

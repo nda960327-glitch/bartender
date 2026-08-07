@@ -825,6 +825,7 @@
     b.textContent = n > 9 ? "9+" : n;
   }
   function addPoints(amt, reason) {
+    vibrate(12);
     state.user.points += amt;
     state.user.pointLog.unshift({ amt, reason, time: Date.now() });
     if (state.user.pointLog.length > 50) state.user.pointLog.length = 50;
@@ -860,7 +861,7 @@
     $$(".view").forEach((v) => { v.hidden = v.id !== "view-" + view; });
     $("#bottom-nav").style.display = view === "onboard" ? "none" : "";
     const navView = NAV_VIEWS.includes(view) ? view
-      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", market: "home", "market-detail": "home", cart: "home", worklog: "home", units: "home", search: "home", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage" }[view] || "home";
+      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", market: "home", "market-detail": "home", cart: "home", worklog: "home", units: "home", search: "home", timer: "home", taste: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage" }[view] || "home";
     $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === navView));
     if (view === "home") renderHome();
     if (view === "market") renderStore();
@@ -869,6 +870,8 @@
     if (view === "worklog") renderWorklog();
     if (view === "units") renderUnits();
     if (view === "cellar") renderCellar();
+    if (view === "taste") renderTaste();
+    if (view === "timer") { stopTimer(); timerLeft = timerSel; renderTimer(); }
     if (view === "search") setTimeout(() => $("#global-search").focus(), 50);
     // 목록 스크롤 위치 복원
     if (["community", "dogam", "meet", "market"].includes(view)) {
@@ -896,7 +899,8 @@
       `<button class="color-dot ${i === state.obColor ? "selected" : ""}" style="background:${c}" data-i="${i}" aria-label="색상 ${i + 1}"></button>`).join("");
     $$("#ob-colors .color-dot").forEach((d) =>
       d.addEventListener("click", () => { state.obColor = +d.dataset.i; renderOnboard(); }));
-    const ok = $("#ob-nick").value.trim().length >= 1;
+    $("#ob-adult").classList.toggle("on", !!state.obAdult);
+    const ok = $("#ob-nick").value.trim().length >= 1 && !!state.obAdult;
     $("#ob-start").disabled = !ok;
     $("#ob-start").classList.toggle("ready", ok);
   }
@@ -1026,6 +1030,128 @@
       }
     });
     saveMeets();
+  }
+
+  /* ---------- 햅틱 ---------- */
+  const vibrate = (ms) => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch {} };
+
+  /* ---------- 신고/숨기기 ---------- */
+  function reportPost(p) {
+    openSheet("게시글 신고", ["스팸/광고", "욕설/비방", "음란물", "불법 정보", "기타"], null, (reason) => {
+      state.user.hiddenPosts = state.user.hiddenPosts || [];
+      if (!state.user.hiddenPosts.includes(p.id)) state.user.hiddenPosts.push(p.id);
+      saveUser();
+      show("community");
+      toast(`신고가 접수되었어요 (${reason}). 이 글은 더 이상 표시되지 않아요.`);
+    });
+  }
+
+  /* ---------- 바 타이머 ---------- */
+  const TIMER_PRESETS = [10, 15, 30, 60];
+  let timerLeft = 15, timerSel = 15, timerInt = null;
+  function renderTimer() {
+    $("#timer-display").textContent = timerLeft.toFixed(1);
+    $("#timer-display").classList.toggle("running", !!timerInt);
+    $("#timer-presets").innerHTML = TIMER_PRESETS.map((s) =>
+      `<button class="chip ${s === timerSel ? "active" : ""}" data-s="${s}">${s}초</button>`).join("");
+    $$("#timer-presets .chip").forEach((ch) =>
+      ch.addEventListener("click", () => {
+        timerSel = +ch.dataset.s;
+        stopTimer();
+        timerLeft = timerSel;
+        renderTimer();
+      }));
+    $("#timer-toggle").textContent = timerInt ? "정지" : "시작";
+  }
+  function stopTimer() {
+    clearInterval(timerInt);
+    timerInt = null;
+  }
+  function toggleTimer() {
+    if (timerInt) { stopTimer(); renderTimer(); return; }
+    if (timerLeft <= 0) timerLeft = timerSel;
+    timerInt = setInterval(() => {
+      timerLeft = Math.max(0, timerLeft - 0.1);
+      $("#timer-display").textContent = timerLeft.toFixed(1);
+      if (timerLeft <= 0) {
+        stopTimer();
+        vibrate([200, 100, 200]);
+        toast("⏱️ 타이머 종료!");
+        renderTimer();
+      }
+    }, 100);
+    renderTimer();
+  }
+
+  /* ---------- 랜덤 칵테일 ---------- */
+  function randomCocktail() {
+    const cts = state.spirits.filter((s) => s.kind === "cocktail");
+    if (!cts.length) return;
+    const pick = cts[Math.floor(Math.random() * cts.length)];
+    vibrate(15);
+    toast(`🎲 오늘의 한 잔: ${pick.name}!`);
+    openSpirit(pick.id);
+  }
+
+  /* ---------- 내 취향 리포트 ---------- */
+  function renderTaste() {
+    const tried = state.user.cellar.tried.map((id) => state.spirits.find((s) => s.id === id)).filter(Boolean);
+    const myReviews = state.spirits.flatMap((s) => s.reviews.filter((r) => r.mine));
+    if (!tried.length && !myReviews.length) {
+      $("#taste-area").innerHTML = `<div class="empty-state">아직 데이터가 부족해요.<br>술도감에서 '마셔봤어요'를 눌러 술장을 채우고<br>리뷰를 남기면 취향을 분석해드려요! 🥃</div>`;
+      return;
+    }
+    // 카테고리 분포
+    const catCount = {};
+    tried.forEach((sp) => {
+      const key = sp.kind === "cocktail" ? "칵테일" : sp.cat;
+      catCount[key] = (catCount[key] || 0) + 1;
+    });
+    const cats = Object.entries(catCount).sort((a, b) => b[1] - a[1]);
+    const maxCat = cats.length ? cats[0][1] : 1;
+    // 평균 도수/별점
+    const avgAbv = tried.length ? (tried.reduce((a, s) => a + (+s.abv || 0), 0) / tried.length) : 0;
+    const avgMyStars = myReviews.length ? (myReviews.reduce((a, r) => a + r.stars, 0) / myReviews.length) : 0;
+    // 위스키 지역 취향
+    const regions = {};
+    tried.filter((s) => s.cat === "위스키").forEach((s) => {
+      const r = regionOfWhisky(s.name);
+      regions[r] = (regions[r] || 0) + 1;
+    });
+    const topRegion = Object.entries(regions).sort((a, b) => b[1] - a[1])[0];
+    // 재미 타이틀
+    const title = !cats.length ? "탐험을 시작한 바텐더"
+      : cats[0][0] === "위스키" ? (topRegion && topRegion[0] === "아일라" ? "피트에 영혼을 판 몰트 러버 🔥" : "묵직한 몰트 러버 🥃")
+      : cats[0][0] === "칵테일" ? "믹솔로지 아티스트 🍸"
+      : cats[0][0] === "진" ? "보태니컬 헌터 🌿"
+      : cats[0][0] === "리큐르" ? "달콤한 밸런서 🍯"
+      : cats[0][0] === "전통주" ? "우리 술 지킴이 🍶"
+      : `${cats[0][0]} 애호가 🍷`;
+    $("#taste-area").innerHTML = `
+      <div class="sp-hero" style="border-bottom:8px solid var(--bg-gray)">
+        <div style="font-size:44px;margin-bottom:8px">📊</div>
+        <h2>${esc(state.user.nick)}님은<br>${title}</h2>
+        <div class="sp-sub">마셔본 술 ${tried.length}병 · 내 리뷰 ${myReviews.length}개 기준</div>
+      </div>
+      <div class="sp-body">
+        <h3>카테고리 취향 분포</h3>
+        ${cats.slice(0, 6).map(([c, n]) => `
+          <div class="taste-row">
+            <span class="taste-label">${esc(c)}</span>
+            <div class="taste-bar"><div class="taste-fill" style="width:${Math.round(n / maxCat * 100)}%"></div></div>
+            <span class="taste-num">${n}</span>
+          </div>`).join("")}
+      </div>
+      <div class="sp-body">
+        <h3>나의 지표</h3>
+        <div class="calc-result show">
+          <div class="cr-row"><span>선호 평균 도수</span><b>${avgAbv ? avgAbv.toFixed(1) + "%" : "-"}</b></div>
+          <div class="cr-row"><span>내 리뷰 평균 별점</span><b>${avgMyStars ? "★ " + avgMyStars.toFixed(1) : "-"}</b></div>
+          ${topRegion ? `<div class="cr-row"><span>최애 위스키 지역</span><b>${esc(topRegion[0])} (${topRegion[1]}병)</b></div>` : ""}
+          <div class="cr-row"><span>위시리스트</span><b>${state.user.cellar.wish.length}병</b></div>
+        </div>
+      </div>
+      <div style="height:24px"></div>`;
   }
 
   /* ---------- 통합 검색 ---------- */
@@ -1471,7 +1597,8 @@
     $$("#home-meets .home-mini").forEach((el) =>
       el.addEventListener("click", () => openMeet(+el.dataset.id)));
 
-    const hot = [...state.posts].sort((a, b) => (b.likes + b.comments.length) - (a.likes + a.comments.length)).slice(0, 3);
+    const hot = state.posts.filter((p) => !(state.user.hiddenPosts || []).includes(p.id))
+      .sort((a, b) => (b.likes + b.comments.length) - (a.likes + a.comments.length)).slice(0, 3);
     $("#home-posts").innerHTML = hot.map((p) => `
       <div class="home-mini" data-id="${p.id}">
         <span class="hm-emoji">${p.img ? `<img src="${p.img}" alt="">` : (p.emoji || "💬")}</span>
@@ -1971,7 +2098,8 @@
   /* ---------- 커뮤니티 ---------- */
   function renderPosts() {
     const q = $("#post-search").value.trim();
-    let list = [...state.posts];
+    const hidden = state.user.hiddenPosts || [];
+    let list = state.posts.filter((p) => !hidden.includes(p.id));
     if (state.commTab === "hot") list = list.filter((p) => p.cat === "hot" || p.likes + p.comments.length >= 10);
     else if (state.commTab !== "all") list = list.filter((p) => p.cat === state.commTab);
     if (q) list = list.filter((p) => has(p.title, q) || has(p.body, q));
@@ -2983,6 +3111,7 @@
 
   // 온보딩
   $("#ob-nick").addEventListener("input", renderOnboard);
+  $("#ob-adult").addEventListener("click", () => { state.obAdult = !state.obAdult; renderOnboard(); });
   $("#ob-start").addEventListener("click", startApp);
   $("#ob-nick").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("#ob-start").disabled) startApp(); });
 
@@ -3033,12 +3162,29 @@
   $("#pd-cart-btn").addEventListener("click", () => show("cart"));
   $("#btn-orders").addEventListener("click", () => show("orders"));
 
+  // 새 도구/신고/리포트
+  $("#tool-random").addEventListener("click", randomCocktail);
+  $("#timer-toggle").addEventListener("click", toggleTimer);
+  $("#timer-reset").addEventListener("click", () => { stopTimer(); timerLeft = timerSel; renderTimer(); });
+  $("#btn-taste").addEventListener("click", () => show("taste"));
+  $("#post-report").addEventListener("click", () => {
+    const p = state.posts.find((x) => x.id === state.curPost);
+    if (!p) return;
+    if (p.mine) { toast("내 글은 신고할 수 없어요."); return; }
+    reportPost(p);
+  });
+
   // 데이터 백업/복원
-  $("#btn-backup").addEventListener("click", () =>
-    openSheet("데이터 백업/복원", ["📤 백업 파일 내려받기", "📥 백업 파일에서 복원"], null, (v) => {
+  $("#btn-backup").addEventListener("click", () => {
+    let bytes = 0;
+    Object.keys(localStorage).filter((k) => k.startsWith("bartalk_"))
+      .forEach((k) => { bytes += (localStorage.getItem(k) || "").length * 2; });
+    const usage = bytes > 1048576 ? (bytes / 1048576).toFixed(1) + "MB" : Math.round(bytes / 1024) + "KB";
+    openSheet(`데이터 백업/복원 (사용량 ${usage} / 약 5MB)`, ["📤 백업 파일 내려받기", "📥 백업 파일에서 복원"], null, (v) => {
       if (v.includes("내려받기")) exportData();
       else $("#restore-file").click();
-    }));
+    });
+  });
   $("#restore-file").addEventListener("change", (e) => {
     const f = e.target.files[0];
     if (f) importData(f);
