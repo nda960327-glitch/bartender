@@ -90,6 +90,11 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .ob-colors { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 .ob-colors .color-dot { width: 44px; height: 44px; }
 .onboard-hint { text-align: center; color: var(--text-muted); font-size: 13.5px; line-height: 1.6; margin-top: 18px; }
+.link-btn {
+  border: none; background: none; padding: 0; cursor: pointer;
+  font-size: inherit; font-family: inherit; color: var(--accent);
+  text-decoration: underline; text-underline-offset: 2px;
+}
 
 /* ---------- 상단바 ---------- */
 .topbar {
@@ -597,6 +602,18 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .settings-area { padding: 22px 20px 48px; }
 .section-title { font-size: 18px; font-weight: 700; margin-bottom: 14px; }
 .section-title.mt { margin-top: 44px; }
+
+/* ---------- 약관·정책 문서 ---------- */
+.doc { font-size: 14.5px; line-height: 1.75; color: var(--text); word-break: keep-all; }
+.doc p { margin-bottom: 12px; }
+.doc b { font-weight: 700; }
+.doc .section-title { font-size: 16.5px; margin-bottom: 8px; }
+.doc .section-title.mt { margin-top: 30px; }
+.doc-meta { color: var(--text-muted); font-size: 13px; margin-bottom: 20px !important; }
+.doc-lead {
+  background: var(--bg-gray); border-radius: 14px; padding: 14px 16px;
+  font-size: 14.5px; margin-bottom: 8px !important;
+}
 .color-grid {
   display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;
   padding: 22px; border-radius: 18px; background: var(--bg-gray); margin-bottom: 4px;
@@ -705,6 +722,18 @@ textarea.input { height: auto; }
   animation: toast-in .2s ease;
 }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* ---------- 서버 연결 상태 ---------- */
+.sync-badge {
+  position: absolute; left: 50%; top: 8px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 6px;
+  background: var(--toast-bg); color: var(--toast-text);
+  padding: 7px 14px; border-radius: 20px; font-size: 12.5px; font-weight: 600;
+  z-index: 98; max-width: 90%; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  animation: toast-in .2s ease; pointer-events: none;
+}
+.sync-badge .sync-ic { font-size: 13px; }
 
 /* ---------- 바텀시트 ---------- */
 .sheet-backdrop {

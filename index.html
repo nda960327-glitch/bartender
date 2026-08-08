@@ -6,11 +6,30 @@
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#17181c" media="(prefers-color-scheme: dark)">
 <meta name="description" content="바텐더 익명 커뮤니티 - 술도감, 칵테일 레시피, 모임, 채용정보">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="format-detection" content="telephone=no">
+<meta name="rating" content="adult">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="바텐톡">
 <title>바텐톡 - 바텐더 익명 커뮤니티</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="바텐톡">
+<meta property="og:title" content="바텐톡 - 바텐더 익명 커뮤니티">
+<meta property="og:description" content="바텐더들의 익명 커뮤니티. 술도감, 칵테일 레시피, 모임, 채용정보까지.">
+<meta property="og:image" content="icons/icon-512.png">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/deep.css">
 </head>
 <body>
 <div id="app">
@@ -30,7 +49,8 @@
         <span>만 19세 이상이며, 책임 있는 음주 문화에 동의해요</span>
       </button>
       <button class="big-btn accent" id="ob-start" disabled>시작하기</button>
-      <p class="onboard-hint">익명 커뮤니티예요. 닉네임은 나만 보이고,<br>글은 모두 "익명"으로 올라가요.</p>
+      <p class="onboard-hint">익명 커뮤니티예요. 닉네임은 나만 보이고,<br>글은 모두 "익명"으로 올라가요.<br>모든 데이터는 이 기기에만 저장돼요. 🔒</p>
+      <p class="onboard-hint">시작하면 <button class="link-btn" id="ob-terms">이용약관</button> 및 <button class="link-btn" id="ob-privacy">개인정보처리방침</button>에<br>동의하는 것으로 봅니다.</p>
     </div>
   </section>
 
@@ -569,7 +589,12 @@
         <button class="row-link pressable" id="btn-favjobs"><span class="row-label">관심알바</span><span class="flex-1"></span><span class="row-badge" id="favjob-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-myposts"><span class="row-label">내가 쓴 글</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-orders"><span class="row-label">주문 내역</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="row-link pressable" id="btn-blocked"><span class="row-label">차단 사용자 관리</span><span class="flex-1"></span><span class="row-badge" id="blocked-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="row-link pressable" id="btn-rules"><span class="row-label">커뮤니티 이용규칙</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-support"><span class="row-label">고객센터</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="row-link pressable" id="btn-terms"><span class="row-label">이용약관</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="row-link pressable" id="btn-privacy"><span class="row-label">개인정보처리방침</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="row-link pressable" id="btn-opensource"><span class="row-label">오픈소스 라이선스</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-backup"><span class="row-label">데이터 백업/복원</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <input type="file" id="restore-file" accept="application/json,.json" hidden>
         <button class="row-link pressable" id="btn-darkmode">
@@ -582,7 +607,7 @@
         </div>
       </div>
       <button class="row-link pressable card" id="btn-admin" hidden style="margin-bottom:10px"><span class="row-label">🛡️ 관리자 페이지</span><span class="flex-1"></span><span class="row-badge" id="admin-report-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
-      <p class="app-ver" id="app-ver">바텐톡 v1.0 · 모든 데이터는 내 기기에만 저장돼요 🔒<br>지나친 음주는 건강에 해롭습니다. 책임 있는 음주 문화를 만들어요.</p>
+      <p class="app-ver" id="app-ver">바텐톡 v1.0.0 · 모든 데이터는 내 기기에만 저장돼요 🔒<br>만 19세 미만 이용 불가 · 지나친 음주는 건강에 해롭습니다.<br>임신 중 음주는 태아의 건강을 해칠 수 있습니다.</p>
     </div>
   </section>
 
@@ -612,6 +637,7 @@
       <button class="big-btn" id="btn-profile-save" disabled>변경하기</button>
 
       <h2 class="section-title mt">회원탈퇴</h2>
+      <p class="warn-text" style="margin-bottom:8px"><button class="link-btn" id="btn-deletion-doc">계정 및 데이터 삭제 안내 보기</button></p>
       <p class="warn-text">탈퇴 시 모든 정보가 삭제돼요. 삭제된 데이터는 복구할 수 없으므로 신중하게 선택해주세요. 커뮤니티에 작성된 게시글과 댓글은 "탈퇴한 회원"으로 작성자가 변경되어 삭제할 수 없어요.</p>
       <button class="agree-row" id="withdraw-agree">
         <svg viewBox="0 0 24 24" class="check-ic"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>
@@ -620,6 +646,30 @@
       <button class="big-btn danger" id="btn-withdraw" disabled>탈퇴하기</button>
       <div style="height:24px"></div>
     </div>
+  </section>
+
+  <!-- ===================== 차단 사용자 관리 ===================== -->
+  <section class="view" id="view-blocked" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="mypage">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">차단 사용자 관리</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area gray-bg" id="blocked-area"></div>
+  </section>
+
+  <!-- ===================== 약관·정책 문서 ===================== -->
+  <section class="view" id="view-doc" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="mypage">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title" id="doc-title">약관</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area settings-area" id="doc-area"></div>
   </section>
 
   <!-- ===================== 스토어 ===================== -->
@@ -641,8 +691,8 @@
         <input type="text" id="store-search" placeholder="상품 검색">
       </div>
       <div class="banner static">
-        <span class="banner-ic">🚚</span>
-        <span class="banner-txt">3만원 이상 무료배송 · 보유 포인트로 할인받으세요!</span>
+        <span class="banner-ic" id="store-banner-ic">🚚</span>
+        <span class="banner-txt" id="store-banner-txt">3만원 이상 무료배송 · 보유 포인트로 할인받으세요!</span>
       </div>
       <div class="product-grid" id="product-grid"></div>
       <div style="height:24px"></div>
@@ -911,9 +961,18 @@
     </button>
   </nav>
 
+  <!-- 서버 연결 상태 (정상일 때는 숨김) -->
+  <div id="sync-badge" class="sync-badge" hidden></div>
+
   <!-- 토스트 -->
   <div id="toast" class="toast" hidden></div>
 </div>
+<script src="js/config.js"></script>
+<script src="js/legal.js"></script>
+<script src="js/sync.js"></script>
+<!-- 심층 도감 데이터 (app.js 보다 먼저 로드) -->
+<script src="js/cocktail-deep.js"></script>
+<script src="js/whisky-deep.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

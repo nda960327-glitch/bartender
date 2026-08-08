@@ -3,6 +3,14 @@
   "use strict";
 
   /* ---------- 상수 ---------- */
+  /* ---------- 앱 메타 (js/legal.js 가 단일 원본) ---------- */
+  const LEGAL_META = (window.BARTALK_LEGAL && window.BARTALK_LEGAL.meta) || {};
+  const APP_VER = LEGAL_META.version || "1.0.0";
+  const SUPPORT_EMAIL = LEGAL_META.email || "3663hong@gmail.com";
+  // 출시 시 기능 on/off. 스토어는 실제 판매/배송·PG 연동 전까지 "사전 오픈" 안내로 동작해요.
+  // 결제 인프라 없이 실제 주문을 받으면 Play 심사에서 반려될 수 있으니, 정식 오픈 전엔 STORE_LIVE = false 를 유지하세요.
+  const FEATURES = { STORE_LIVE: false };
+
   const COLORS = [
     "#ff6b5e", "#ff8ad4", "#c9a58f", "#ff9b3d", "#ffcb52",
     "#8fbf8f", "#cbe08a", "#a6e6de", "#6b9fff", "#b8a6f5",
@@ -723,6 +731,7 @@
   const DEFAULT_USER = {
     nick: "", color: 2, points: 0, onboarded: false,
     myPostIds: [], mySpiritIds: [], favJobs: [], keywords: [], pointLog: [],
+    blocked: [], hiddenPosts: [], hiddenSpirits: [],
   };
   let state = {
     user: Object.assign({}, DEFAULT_USER, store.get("user", {})),
@@ -781,6 +790,7 @@
     obColor: 2,
     selColor: null,
     agreeWithdraw: false,
+    docFrom: "mypage",
   };
   const saveUser = () => store.set("user", state.user);
   const savePosts = () => store.set("posts", state.posts);
@@ -800,6 +810,14 @@
   state.user.myComments = state.user.myComments || 0;
   state.user.lastAttend = state.user.lastAttend || "";
   state.user.attendStreak = state.user.attendStreak || 0;
+  state.user.blocked = state.user.blocked || [];
+  // 예전 버전은 차단 대상을 숫자로 저장했어요. 문자열 키로 옮겨둡니다.
+  if (state.user.blocked.some((b) => typeof b === "number")) {
+    state.user.blocked = state.user.blocked.map((b) => (typeof b === "number" ? "local:" + b : b));
+    store.set("user", state.user);
+  }
+  state.user.hiddenPosts = state.user.hiddenPosts || [];
+  state.user.hiddenSpirits = state.user.hiddenSpirits || [];
 
   /* ---------- 시드 병합 (앱 업데이트 시 새 데이터 추가) ---------- */
   const SEED_V = 5;
@@ -817,6 +835,19 @@
   localStorage.removeItem("bartalk_market");
 
   /* ---------- 유틸 ---------- */
+  /* ---------- 전역 고유 ID ----------
+   * 기기마다 따로 번호를 매기면 서버에서 충돌하므로 시간 기반 ID를 써요.
+   * 숫자로 유지해야 기존 `+el.dataset.id` 코드가 그대로 동작합니다.
+   * (밀리초 × 1000 + 난수 → 2255년까지 안전 정수 범위 안)
+   */
+  let lastId = 0;
+  function newId() {
+    let id = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+    if (id <= lastId) id = lastId + 1;   // 같은 밀리초 안에서도 항상 증가
+    lastId = id;
+    return id;
+  }
+
   const $ = (s) => document.querySelector(s);
   const $$ = (s) => document.querySelectorAll(s);
 
@@ -916,9 +947,10 @@
     }
     state.view = view;
     $$(".view").forEach((v) => { v.hidden = v.id !== "view-" + view; });
-    $("#bottom-nav").style.display = view === "onboard" ? "none" : "";
+    const hideNav = view === "onboard" || (view === "doc" && state.docFrom === "onboard");
+    $("#bottom-nav").style.display = hideNav ? "none" : "";
     const navView = NAV_VIEWS.includes(view) ? view
-      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", market: "home", "market-detail": "home", cart: "home", worklog: "home", units: "home", search: "home", timer: "home", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage" }[view] || "home";
+      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", market: "home", "market-detail": "home", cart: "home", worklog: "home", units: "home", search: "home", timer: "home", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", doc: "mypage" }[view] || "home";
     $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === navView));
     if (view === "home") renderHome();
     if (view === "market") renderStore();
@@ -949,6 +981,7 @@
     if (view === "mypage") renderMyPage();
     if (view === "settings") renderSettings();
     if (view === "alerts") renderNoti();
+    if (view === "blocked") renderBlocked();
   }
 
   /* ---------- 온보딩 ---------- */
@@ -970,6 +1003,8 @@
     state.user.color = state.obColor;
     state.user.onboarded = true;
     saveUser();
+    startSync();
+    Sync.saveProfile(state.user);
     if (first) {
       addPoints(500, "가입 축하");
       addNoti("🎉", `${nick}님, 바텐톡에 오신 걸 환영해요! 가입 축하 500P를 드렸어요.`);
@@ -1105,13 +1140,17 @@
   function fileReport(type, targetId, title, reason, mine) {
     const authorMid = authorMidOf(type, targetId, mine);
     state.reports.unshift({
-      id: Math.max(0, ...state.reports.map((r) => r.id)) + 1,
+      id: newId(),
       type, targetId, title, reason, authorMid, time: Date.now(), status: "접수",
     });
     if (state.reports.length > 200) state.reports.length = 200;
     const author = state.members.find((m) => m.id === authorMid);
     if (author) { author.reported = (author.reported || 0) + 1; saveMembers(); }
     saveReports();
+    // 운영자가 Supabase 대시보드에서 확인할 수 있도록 서버에도 접수해요.
+    const target = type === "post" ? state.posts.find((x) => x.id === targetId)
+      : type === "spirit" ? state.spirits.find((x) => x.id === targetId) : null;
+    Sync.saveReport(type, targetId, title, reason, target && target.authorId);
   }
   function reportPost(p) {
     openSheet("게시글 신고", ["스팸/광고", "욕설/비방", "음란물", "불법 정보", "기타"], null, (reason) => {
@@ -1122,6 +1161,54 @@
       show("community");
       toast(`신고가 접수되었어요 (${reason}). 관리자 확인 후 규정에 따라 처리돼요.`);
     });
+  }
+
+  /* ---------- 사용자 차단 ---------- */
+  // 익명 커뮤니티라 화면에는 닉네임이 안 보이지만, 글마다 작성자 식별자는 있어요.
+  // 서버에 연결돼 있으면 실제 계정 id(uuid), 아니면 기기 안에서만 쓰는 "local:번호"를 씁니다.
+  const postAuthorKey = (p) => p.authorId || ("local:" + authorMidOf("post", p.id, !!p.mine));
+  const blockedKeys = () => state.user.blocked || [];
+  const isBlockedPost = (p) => !p.mine && blockedKeys().includes(postAuthorKey(p));
+  const blockedLabel = (key) => "익명 사용자 #" +
+    (String(key).indexOf("local:") === 0 ? String(key).slice(6) : String(key).slice(0, 6));
+
+  function blockAuthorOfPost(p) {
+    if (p.mine) { toast("내 글은 차단할 수 없어요."); return; }
+    const key = postAuthorKey(p);
+    if (blockedKeys().includes(key)) { toast("이미 차단한 사용자예요."); return; }
+    state.user.blocked.push(key);
+    saveUser();
+    Sync.setBlock(key, true);
+    const n = state.posts.filter((x) => !x.mine && postAuthorKey(x) === key).length;
+    show("community");
+    toast(`이 작성자를 차단했어요. 글 ${n}개가 목록에서 숨겨져요.`);
+  }
+  function unblockKey(key) {
+    state.user.blocked = blockedKeys().filter((x) => x !== key);
+    saveUser();
+    Sync.setBlock(key, false);
+    renderBlocked();
+    toast("차단을 해제했어요.");
+  }
+  function renderBlocked() {
+    const list = blockedKeys();
+    $("#blocked-area").innerHTML = `
+      <p class="warn-text" style="margin:4px 4px 12px">차단한 사용자의 글은 커뮤니티·홈·검색에서 보이지 않아요. 언제든 해제할 수 있어요.</p>
+      ${list.length
+        ? list.map((key) => {
+            const cnt = state.posts.filter((x) => !x.mine && postAuthorKey(x) === key).length;
+            return `
+              <div class="card row-link no-tap" style="margin-bottom:8px">
+                <span class="avatar" style="background:${COLORS[Math.abs(hashHue(String(key))) % COLORS.length]}"></span>
+                <span class="row-label" style="margin-left:10px">${blockedLabel(key)}</span>
+                <span class="flex-1"></span>
+                <span class="row-value" style="margin-right:10px">숨긴 글 ${cnt}개</span>
+                <button class="text-btn strong" data-unblock="${esc(String(key))}">해제</button>
+              </div>`;
+          }).join("")
+        : '<div class="empty-state">차단한 사용자가 없어요.</div>'}`;
+    $$("#blocked-area [data-unblock]").forEach((b) =>
+      b.addEventListener("click", () => unblockKey(b.dataset.unblock)));
   }
 
   function reportSpirit(sp) {
@@ -1591,7 +1678,7 @@
         <div class="hm-body"><div class="hm-title">${esc(sp.name)}</div>
         <div class="hm-sub">${sp.kind === "cocktail" ? esc(sp.base) + " 베이스" : esc(sp.cat)} · ★ ${avgStars(sp) ? avgStars(sp).toFixed(1) : "-"}</div></div>
       </div>`);
-    const posts = state.posts.filter((p) => has(p.title, q) || has(p.body, q)).slice(0, 5).map((p) => `
+    const posts = state.posts.filter((p) => !(state.user.hiddenPosts || []).includes(p.id) && !isBlockedPost(p) && (has(p.title, q) || has(p.body, q))).slice(0, 5).map((p) => `
       <div class="home-mini" data-go-post="${p.id}">
         <span class="hm-emoji">💬</span>
         <div class="hm-body"><div class="hm-title">${esc(p.title)}</div>
@@ -2027,7 +2114,7 @@
     $$("#home-meets .home-mini").forEach((el) =>
       el.addEventListener("click", () => openMeet(+el.dataset.id)));
 
-    const hot = state.posts.filter((p) => !(state.user.hiddenPosts || []).includes(p.id))
+    const hot = state.posts.filter((p) => !(state.user.hiddenPosts || []).includes(p.id) && !isBlockedPost(p))
       .sort((a, b) => (b.likes + b.comments.length) - (a.likes + a.comments.length)).slice(0, 3);
     $("#home-posts").innerHTML = hot.map((p) => `
       <div class="home-mini" data-id="${p.id}">
@@ -2182,6 +2269,225 @@
     wireImgFallback("#spirit-list");
   }
 
+  /* ---------- 심층 도감 렌더링 ---------- */
+  // 칵테일/위스키 심층 데이터는 별도 파일(cocktail-deep.js / whisky-deep.js)에 있어요.
+  // localStorage 에 저장된 시드와 무관하게 매번 코드에서 읽으므로 항상 최신입니다.
+  const deepOf = (sp) => {
+    const src = sp.kind === "cocktail" ? window.COCKTAIL_DEEP : window.WHISKY_DEEP;
+    return (src && src[sp.id]) || null;
+  };
+  const hasDeep = (sp) => !!deepOf(sp);
+
+  // 섹션 껍데기
+  const dpSec = (id, ic, title, sub, inner) => `
+    <div class="dp-sec" id="dp-${id}">
+      <div class="dp-h"><span class="dp-h-ic">${ic}</span>${esc(title)}
+        ${sub ? `<span class="dp-h-sub">${esc(sub)}</span>` : ""}</div>
+      ${inner}
+    </div>`;
+
+  // 여러 문단(\n\n 구분) → <p>
+  const dpParas = (txt) =>
+    String(txt || "").split("\n\n").filter(Boolean)
+      .map((t) => `<p class="dp-p">${esc(t)}</p>`).join("");
+
+  // 접히는 긴 글
+  const dpFold = (key, txt) => `
+    <div class="dp-fold closed" data-fold="${key}">
+      <div class="dp-fold-body">${dpParas(txt)}</div>
+      <button class="dp-fold-btn" data-foldbtn="${key}">전문 보기 ▾</button>
+    </div>`;
+
+  // 핵심 정보 카드 — [라벨, 값] 배열
+  const dpFacts = (pairs) => `
+    <div class="dp-facts">
+      ${pairs.filter((p) => p && p[1]).map(([k, v, wide]) => `
+        <div class="dp-fact${wide ? " wide" : ""}">
+          <div class="dp-fact-k">${esc(k)}</div>
+          <div class="dp-fact-v">${esc(v)}</div>
+        </div>`).join("")}
+    </div>`;
+
+  // 맛 프로필 막대 (0~5)
+  const PROFILE_LABEL = { sweet: "단맛", sour: "산미", strong: "도수", body: "바디", aroma: "향", peat: "피트", smoke: "스모크", fruit: "과실", spice: "스파이스" };
+  const dpBars = (profile) => `
+    <div class="dp-bars">
+      ${Object.keys(profile).map((k) => {
+        const v = Math.max(0, Math.min(5, +profile[k] || 0));
+        return `<div class="dp-bar-row">
+          <span class="dp-bar-label">${esc(PROFILE_LABEL[k] || k)}</span>
+          <span class="dp-bar-track"><span class="dp-bar-fill" style="width:${(v / 5) * 100}%"></span></span>
+          <span class="dp-bar-val">${v}</span>
+        </div>`;
+      }).join("")}
+    </div>`;
+
+  // 노즈 / 팔레트 / 피니시
+  const dpNPF = (d) => `
+    <div class="dp-npf">
+      ${d.nose ? `<div class="dp-npf-item nose"><span class="dp-npf-ic">👃</span>
+        <div class="dp-npf-body"><div class="dp-npf-t">NOSE · 향</div><div class="dp-npf-d">${esc(d.nose)}</div></div></div>` : ""}
+      ${d.palate ? `<div class="dp-npf-item palate"><span class="dp-npf-ic">👅</span>
+        <div class="dp-npf-body"><div class="dp-npf-t">PALATE · 맛</div><div class="dp-npf-d">${esc(d.palate)}</div></div></div>` : ""}
+      ${d.finish ? `<div class="dp-npf-item finish"><span class="dp-npf-ic">🌬️</span>
+        <div class="dp-npf-body"><div class="dp-npf-t">FINISH · 여운</div><div class="dp-npf-d">${esc(d.finish)}</div></div></div>` : ""}
+    </div>`;
+
+  // 단계별 리스트
+  const dpSteps = (arr) => `
+    <div class="dp-steps">
+      ${arr.map((s, i) => `<div class="dp-step${i === arr.length - 1 ? " end" : ""}">
+        <span class="dp-step-no"></span><div class="dp-step-t">${esc(s)}</div></div>`).join("")}
+    </div>`;
+
+  // 팁 / 실수
+  const dpList = (arr, kind) => `
+    <div class="dp-list">
+      ${arr.map((t) => `<div class="dp-li ${kind}"><span class="dp-li-ic">${kind === "tip" ? "✓" : "✕"}</span><span>${esc(t)}</span></div>`).join("")}
+    </div>`;
+
+  // 변형 카드
+  const dpVars = (arr) => `
+    <div class="dp-vars">
+      ${arr.map((v) => `<div class="dp-var">
+        <div class="dp-var-n">${esc(v.n)}</div>
+        <div class="dp-var-d">${esc(v.d)}</div></div>`).join("")}
+    </div>`;
+
+  const dpTags = (arr) => `<div class="dp-tags">${arr.map((t) => `<span class="dp-tag">#${esc(t)}</span>`).join("")}</div>`;
+
+  // 상단 점프 목차
+  const dpToc = (items) =>
+    items.length < 2 ? "" : `
+    <div class="dp-toc">
+      ${items.map((it) => `<button class="dp-toc-btn" data-jump="dp-${it[0]}">${esc(it[1])}</button>`).join("")}
+    </div>`;
+
+  /* ----- 칵테일 심층 블록 ----- */
+  function deepCocktailHTML(sp, d) {
+    const s = d.spec || {};
+    const toc = [];
+    const out = [];
+
+    toc.push(["facts", "한눈에"]);
+    out.push(dpSec("facts", "📌", "한눈에 보기", "", dpFacts([
+      ["탄생", d.origin],
+      ["계열", d.family],
+      ["글라스", s.glass],
+      ["얼음", s.ice],
+      ["기법", s.method],
+      ["가니시", s.garnish],
+      ["바텐더 기준", s.pro, true],
+    ])));
+
+    if (d.profile || d.flavor) {
+      toc.push(["taste", "맛 프로필"]);
+      out.push(dpSec("taste", "🎯", "맛 프로필", "0~5 기준",
+        (d.profile ? dpBars(d.profile) : "") +
+        (d.flavor ? `<div style="height:14px"></div><p class="dp-p">${esc(d.flavor)}</p>` : "")));
+    }
+    if (d.steps) {
+      toc.push(["steps", "만드는 법"]);
+      out.push(dpSec("steps", "🍸", "제대로 만드는 법", `${d.steps.length}단계`, dpSteps(d.steps)));
+    }
+    if (d.story) {
+      toc.push(["story", "유래"]);
+      out.push(dpSec("story", "📖", "유래와 역사", "", dpFold("story", d.story)));
+    }
+    if (d.tips) {
+      toc.push(["tips", "프로 팁"]);
+      out.push(dpSec("tips", "💡", "프로 팁", `${d.tips.length}가지`, dpList(d.tips, "tip")));
+    }
+    if (d.mistakes) {
+      toc.push(["miss", "흔한 실수"]);
+      out.push(dpSec("miss", "⚠️", "흔한 실수", `${d.mistakes.length}가지`, dpList(d.mistakes, "warn")));
+    }
+    if (d.variations) {
+      toc.push(["vars", "변형"]);
+      out.push(dpSec("vars", "🔀", "변형 레시피", `${d.variations.length}종`, dpVars(d.variations)));
+    }
+    if (d.pairing) {
+      toc.push(["pair", "페어링"]);
+      out.push(dpSec("pair", "🍽", "어울리는 안주", "",
+        `<div class="dp-pair"><span class="dp-pair-ic">🍽</span><span>${esc(d.pairing)}</span></div>`));
+    }
+    if (d.serve) {
+      toc.push(["serve", "서빙 노하우"]);
+      out.push(dpSec("serve", "🗣", "손님에게 낼 때", "", `<div class="dp-quote">${esc(d.serve)}</div>`));
+    }
+    return { toc: dpToc(toc), html: out.join("") };
+  }
+
+  /* ----- 위스키(스피릿) 심층 블록 ----- */
+  function deepWhiskyHTML(sp, d) {
+    const toc = [];
+    const out = [];
+
+    toc.push(["facts", "한눈에"]);
+    out.push(dpSec("facts", "📌", "한눈에 보기", "", dpFacts([
+      ["종류", d.type],
+      ["지역", d.region],
+      ["숙성", d.age],
+      ["도수", sp.abv ? sp.abv + "%" : ""],
+      ["캐스크", d.cask, true],
+      ["가격대", sp.price],
+      ["냉각여과·착색", d.filter],
+      ["추천 음용법", d.best, true],
+    ])));
+
+    if (d.nose || d.palate || d.finish) {
+      toc.push(["npf", "테이스팅"]);
+      out.push(dpSec("npf", "🥃", "테이스팅 노트", "노즈 · 팔레트 · 피니시", dpNPF(d)));
+    }
+    if (d.profile) {
+      toc.push(["taste", "맛 프로필"]);
+      out.push(dpSec("taste", "🎯", "맛 프로필", "0~5 기준", dpBars(d.profile)));
+    }
+    if (d.story) {
+      toc.push(["story", "증류소 이야기"]);
+      out.push(dpSec("story", "📖", "증류소와 배경", "", dpFold("story", d.story)));
+    }
+    if (d.tips) {
+      toc.push(["tips", "즐기는 법"]);
+      out.push(dpSec("tips", "💡", "더 맛있게 즐기는 법", `${d.tips.length}가지`, dpList(d.tips, "tip")));
+    }
+    if (d.cocktail) {
+      toc.push(["ct", "칵테일 활용"]);
+      out.push(dpSec("ct", "🍸", "칵테일로 쓸 때", "", `<p class="dp-p">${esc(d.cocktail)}</p>`));
+    }
+    if (d.similar) {
+      toc.push(["sim", "비슷한 술"]);
+      out.push(dpSec("sim", "🔀", "이거 좋아하면 이것도", "", dpVars(d.similar)));
+    }
+    if (d.pairing) {
+      toc.push(["pair", "페어링"]);
+      out.push(dpSec("pair", "🍽", "어울리는 안주", "",
+        `<div class="dp-pair"><span class="dp-pair-ic">🍽</span><span>${esc(d.pairing)}</span></div>`));
+    }
+    if (d.serve) {
+      toc.push(["serve", "서빙 노하우"]);
+      out.push(dpSec("serve", "🗣", "손님에게 낼 때", "", `<div class="dp-quote">${esc(d.serve)}</div>`));
+    }
+    if (d.tags) out.push(dpSec("tags", "🏷", "키워드", "", dpTags(d.tags)));
+
+    return { toc: dpToc(toc), html: out.join("") };
+  }
+
+  // 접기 버튼 · 목차 점프 배선
+  function wireDeep(root) {
+    $$(root + " .dp-fold-btn").forEach((b) =>
+      b.addEventListener("click", () => {
+        const box = b.closest(".dp-fold");
+        const open = box.classList.toggle("closed");
+        b.textContent = open ? "전문 보기 ▾" : "접기 ▴";
+      }));
+    $$(root + " .dp-toc-btn").forEach((b) =>
+      b.addEventListener("click", () => {
+        const el = document.getElementById(b.dataset.jump);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }));
+  }
+
   /* ---------- 술 상세 ---------- */
   function openSpirit(id) {
     rememberScroll("dogam");
@@ -2197,17 +2503,23 @@
     if (!sp) return;
     const avg = avgStars(sp);
     const isCt = sp.kind === "cocktail";
+    const deep = deepOf(sp);
+    // 심층 데이터가 있으면 목차 + 상세 섹션을 만들어 둡니다.
+    const dp = deep ? (isCt ? deepCocktailHTML(sp, deep) : deepWhiskyHTML(sp, deep)) : null;
     $("#spirit-detail").innerHTML = `
       <div class="sp-hero-media">${thumbHTML(sp)}</div>
       <div class="sp-hero">
         <h2>${esc(sp.name)}</h2>
         <div class="sp-sub">${isCt ? esc(sp.base) + " 베이스 칵테일 · 약 " + sp.abv + "%" : esc(sp.cat) + " · " + sp.abv + "%" + (sp.price ? " · " + esc(sp.price) : "")}</div>
         <div class="sp-stars">${starStr(avg)} ${avg ? avg.toFixed(1) : ""} <small>(리뷰 ${sp.reviews.length})</small></div>
+        ${deep ? '<div><span class="dp-badge">📚 심층 도감</span></div>' : ""}
         <div class="cellar-row">
           <button class="cellar-btn ${inCellar("tried", sp.id) ? "on" : ""}" id="cellar-tried">🥃 마셔봤어요</button>
           <button class="cellar-btn ${inCellar("wish", sp.id) ? "on" : ""}" id="cellar-wish">⭐ 위시리스트</button>
         </div>
       </div>
+      ${deep && deep.tagline ? `<div class="dp-tagline">${esc(deep.tagline)}</div>` : ""}
+      ${dp ? dp.toc : ""}
       ${isCt ? `
       <div class="sp-body">
         <h3>재료 🧾
@@ -2217,13 +2529,15 @@
         </h3>
         <p>${esc(scaleIngs(sp.ings, state.ctMult))}</p>
       </div>
+      ${deep && deep.steps ? "" : `
       <div class="sp-body">
         <h3>만드는 법 🍸</h3>
         <p>${esc(sp.recipe)}</p>
-      </div>` : ""}
+      </div>`}` : ""}
+      ${dp ? dp.html : ""}
       <div class="sp-body">
-        <h3>${isCt ? "메모" : "테이스팅 노트"} 📝</h3>
-        <p>${esc(sp.note || "아직 설명이 없어요.")}</p>
+        <h3>${isCt ? "한 줄 메모" : "한 줄 요약"} 📝</h3>
+        <p>${esc(sp.note || (deep ? deep.tagline : "") || "아직 설명이 없어요.")}</p>
         <div class="sp-by">등록 · ${esc(sp.by)} · ${fmtTime(sp.time)}</div>
       </div>
       <div class="comment-sec-title">리뷰 ${sp.reviews.length}</div>
@@ -2243,6 +2557,7 @@
         </div>`).join("") || '<div class="empty-state" style="padding:32px 0">첫 리뷰를 남겨보세요!</div>'}
       <div style="height:24px"></div>`;
     wireImgFallback("#spirit-detail");
+    wireDeep("#spirit-detail");
     $$("#spirit-detail .cmt-img").forEach((im) =>
       im.addEventListener("click", () => openLightbox(im.src)));
     $("#cellar-tried").addEventListener("click", () => { toggleCellar("tried", sp.id); renderSpiritDetail(); });
@@ -2285,11 +2600,12 @@
     if (isBanned() || !isClean(text)) return;
     const sp = state.spirits.find((x) => x.id === state.curSpirit);
     if (!sp) return;
-    const rv = { color: state.user.color, stars: state.reviewStars, text, time: Date.now(), mine: true };
+    const rv = { id: newId(), color: state.user.color, stars: state.reviewStars, text, time: Date.now(), mine: true };
     if (pendingImg.review) rv.img = pendingImg.review;
     sp.reviews.push(rv);
     state.user.myReviews++;
     saveSpirits(); saveUser();
+    Sync.saveReview(sp.id, rv);
     $("#review-input").value = "";
     clearCmtAttach("review");
     renderSpiritDetail();
@@ -2345,7 +2661,7 @@
     if (state.spirits.some((s) => s.name === newName) &&
       !confirm(`'${newName}'은(는) 이미 도감에 있어요. 그래도 등록할까요?`)) return;
     if (overDailyLimit("spirit", 5, "도감 등록")) return;
-    const id = Math.max(0, ...state.spirits.map((s) => s.id)) + 1;
+    const id = newId();
     const item = {
       id, kind: state.swKind, emoji: EMOJIS[state.swEmoji],
       name: newName, abv: abvVal,
@@ -2365,6 +2681,7 @@
     state.spirits.push(item);
     state.user.mySpiritIds.push(id);
     saveSpirits(); saveUser();
+    Sync.saveSpirit(item);
     checkKeywords(item.name, item.note || "");
     ["sw-name", "sw-abv", "sw-price", "sw-note", "sw-ings", "sw-recipe", "sw-img"].forEach((i) => { $("#" + i).value = ""; });
     setSwImg(null);
@@ -2472,6 +2789,7 @@
       m.isJoined = !m.isJoined;
       m.joined += m.isJoined ? 1 : -1;
       saveMeets();
+      Sync.joinMeet(m.id, m.isJoined);
       renderMeetDetail();
       if (m.isJoined) {
         toast("모임에 참여했어요! 🎉");
@@ -2499,11 +2817,12 @@
     if (isBanned() || !isClean(text)) return;
     const m = state.meets.find((x) => x.id === state.curMeet);
     if (!m) return;
-    const c = { color: state.user.color, text, time: Date.now(), mine: true };
+    const c = { id: newId(), color: state.user.color, text, time: Date.now(), mine: true };
     if (pendingImg.meet) c.img = pendingImg.meet;
     m.comments.push(c);
     state.user.myComments++;
     saveMeets(); saveUser();
+    Sync.saveMeetComment(m.id, c);
     $("#meet-comment-input").value = "";
     clearCmtAttach("meet-comment");
     renderMeetDetail();
@@ -2530,7 +2849,7 @@
     if (isBanned() || !isClean($("#mw-title").value, $("#mw-desc").value)) return;
     if (overDailyLimit("meet", 3, "모임 만들기")) return;
     const dateStr = $("#mw-date").value + "T" + ($("#mw-time").value || "19:00");
-    const id = Math.max(0, ...state.meets.map((m) => m.id)) + 1;
+    const id = newId();
     const meet = {
       id, region: state.mwRegion, title: $("#mw-title").value.trim(),
       date: new Date(dateStr).getTime(), place: $("#mw-place").value.trim(),
@@ -2539,6 +2858,7 @@
     };
     state.meets.push(meet);
     saveMeets();
+    Sync.saveMeet(meet);
     checkKeywords(meet.title, meet.desc);
     ["mw-title", "mw-date", "mw-time", "mw-place", "mw-max", "mw-desc"].forEach((i) => { $("#" + i).value = ""; });
     state.mwRegion = null;
@@ -2551,7 +2871,7 @@
   function renderPosts() {
     const q = $("#post-search").value.trim();
     const hidden = state.user.hiddenPosts || [];
-    let list = state.posts.filter((p) => !hidden.includes(p.id));
+    let list = state.posts.filter((p) => !hidden.includes(p.id) && !isBlockedPost(p));
     if (state.commTab === "hot") list = list.filter((p) => p.cat === "hot" || p.likes + p.comments.length >= 10);
     else if (state.commTab !== "all") list = list.filter((p) => p.cat === state.commTab);
     if (q) list = list.filter((p) => has(p.title, q) || has(p.body, q));
@@ -2633,7 +2953,7 @@
     rememberScroll("community");
     state.curPost = id;
     const p = state.posts.find((x) => x.id === id);
-    if (p) { p.views = (p.views || 0) + 1; savePosts(); }
+    if (p) { p.views = (p.views || 0) + 1; savePosts(); if (p.remote) Sync.bumpViews(p.id, p.views); }
     renderPostDetail();
     show("post");
   }
@@ -2727,6 +3047,7 @@
       p.likedByMe = !p.likedByMe;
       p.likes += p.likedByMe ? 1 : -1;
       savePosts();
+      Sync.toggleLike(p.id, p.likedByMe);
       renderPostDetail();
     });
   }
@@ -2736,12 +3057,14 @@
     if (isBanned() || !isClean(text)) return;
     const p = state.posts.find((x) => x.id === state.curPost);
     if (!p) return;
-    const c = { color: state.user.color, text, time: Date.now(), mine: true };
+    const c = { id: newId(), color: state.user.color, text, time: Date.now(), mine: true };
     if (pendingImg.post) c.img = pendingImg.post;
+    let parentCid = null;
     if (state.replyTo !== null && p.comments[state.replyTo]) {
       const parent = p.comments[state.replyTo];
       parent.replies = parent.replies || [];
       parent.replies.push(c);
+      parentCid = parent.id || null;   // 서버에 없는 옛 댓글이면 최상위로 저장돼요
     } else {
       p.comments.push(c);
     }
@@ -2749,6 +3072,7 @@
     $("#reply-bar").hidden = true;
     state.user.myComments++;
     savePosts(); saveUser();
+    Sync.saveComment(p.id, c, parentCid);
     $("#comment-input").value = "";
     clearCmtAttach("comment");
     renderPostDetail();
@@ -2761,6 +3085,7 @@
     state.posts = state.posts.filter((x) => x.id !== p.id);
     state.user.myPostIds = state.user.myPostIds.filter((i) => i !== p.id);
     savePosts(); saveUser();
+    Sync.deletePost(p.id);
     show("community");
     toast("글을 삭제했어요.");
   }
@@ -2829,6 +3154,7 @@
         } else { p.nick = "익명"; delete p.biz; delete p.contact; }
         if (state.pendingImg) p.img = state.pendingImg;
         savePosts();
+        Sync.savePost(p);
       }
       state.editPost = null;
       $("#view-write .topbar-title").textContent = "글쓰기";
@@ -2842,7 +3168,7 @@
       else show("community");
       return;
     }
-    const id = Math.max(0, ...state.posts.map((p) => p.id)) + 1;
+    const id = newId();
     const post = {
       id, cat: state.writeCat, color: state.user.color,
       nick: state.writeCat === "promo" ? state.user.bizProfile.name : "익명",
@@ -2856,6 +3182,7 @@
     state.posts.push(post);
     state.user.myPostIds.push(id);
     savePosts(); saveUser();
+    Sync.savePost(post);
     checkBadges();
     checkKeywords(title, body);
     store.set("draft", null);
@@ -2917,7 +3244,7 @@
   function openChatWith(color, key, ctx) {
     let c = state.chats.find((x) => x.key === key);
     if (!c) {
-      const id = Math.max(0, ...state.chats.map((x) => x.id)) + 1;
+      const id = newId();
       c = { id, key, color, ctx, msgs: [], time: Date.now() };
       state.chats.push(c);
       saveChats();
@@ -2968,6 +3295,7 @@
     $("#favjob-cnt").textContent = state.user.favJobs.length ? state.user.favJobs.length + "개" : "";
     const cel = state.user.cellar.tried.length + state.user.cellar.wish.length;
     $("#cellar-cnt").textContent = cel ? cel + "병" : "";
+    $("#blocked-cnt").textContent = blockedKeys().length ? blockedKeys().length + "명" : "";
     checkBadges();
     $("#badge-count").textContent = `${state.user.badges.length}/${BADGES.length}`;
     $("#badge-grid").innerHTML = BADGES.map((b) => {
@@ -3099,10 +3427,25 @@
   function openSupportSheet() {
     openSheetHTML(`
       <h3>고객센터</h3>
-      <div class="sheet-row"><span>📧 이메일 문의</span><span class="r">3663hong@gmail.com</span></div>
+      <div class="sheet-row"><span>📧 이메일 문의</span><span class="r">${SUPPORT_EMAIL}</span></div>
       <div class="sheet-row"><span>🕐 운영 시간</span><span class="r">평일 10:00 ~ 19:00</span></div>
-      <div class="sheet-row"><span>📱 앱 버전</span><span class="r">v1.0</span></div>
-      <p class="sheet-note">신고·건의사항은 이메일로 보내주시면 순차적으로 답변드려요. 커뮤니티 규칙 위반 게시물은 발견 즉시 제재됩니다.</p>`);
+      <div class="sheet-row"><span>📱 앱 버전</span><span class="r">v${APP_VER}</span></div>
+      <p class="sheet-note">신고·건의사항은 이메일로 보내주시면 영업일 기준 3일 이내에 답변드려요. 커뮤니티 규칙 위반 게시물은 신고 접수 후 24시간 이내에 검토합니다.</p>`);
+  }
+
+  /* ---------- 약관·정책 문서 (js/legal.js 가 단일 원본) ---------- */
+  const DOCS = (window.BARTALK_LEGAL && window.BARTALK_LEGAL.docs) || {};
+  function openDoc(key) {
+    const d = DOCS[key];
+    if (!d) return;
+    // 온보딩 중에도 약관을 볼 수 있어야 해서 돌아갈 화면을 기억해둬요.
+    state.docFrom = state.view === "doc" ? state.docFrom : state.view;
+    $("#view-doc .back-btn").dataset.back = state.docFrom;
+    $("#doc-title").textContent = d.title;
+    $("#doc-area").innerHTML = `<div class="doc">${d.html}<div style="height:32px"></div></div>`;
+    show("doc");
+    const sa = $("#view-doc .scroll-area");
+    if (sa) sa.scrollTop = 0;
   }
   function openRulesSheet() {
     openSheetHTML(`
@@ -3130,6 +3473,10 @@
     });
   }
   function renderStore() {
+    if (!FEATURES.STORE_LIVE) {
+      $("#store-banner-ic").textContent = "🚧";
+      $("#store-banner-txt").textContent = "정식 오픈 준비 중이에요. 지금은 사전 신청만 받고 있어요.";
+    }
     if (!STORE_CATS.includes(state.storeCat)) state.storeCat = "전체";
     $("#store-cats").innerHTML = STORE_CATS.map((c) =>
       `<button class="chip ${c === state.storeCat ? "active" : ""}" data-c="${c}">${c}</button>`).join("");
@@ -3191,7 +3538,7 @@
         </div>
         <div class="pd-actions">
           <button class="mkd-chat-btn outline" id="pd-add">장바구니 담기</button>
-          <button class="mkd-chat-btn" id="pd-buy">바로 구매</button>
+          <button class="mkd-chat-btn" id="pd-buy">${FEATURES.STORE_LIVE ? "바로 구매" : "바로 신청"}</button>
         </div>
         <button class="host-chat-btn" id="pd-ask" style="margin-top:12px">💬 상품 문의하기</button>
       </div>
@@ -3245,27 +3592,34 @@
         </div>`;
       }).join("")}
       <div class="cart-summary">
+        ${FEATURES.STORE_LIVE ? "" : `
+        <div class="banner static" style="margin:0 0 16px">
+          <span class="banner-ic">🚧</span>
+          <span class="banner-txt">스토어는 정식 오픈 준비 중이에요. 지금은 <b>사전 신청</b>만 받고 있어요.</span>
+        </div>`}
         <label class="form-label">받는 분</label>
         <input type="text" class="input" id="ship-name" placeholder="이름" value="${esc(ship0.name || "")}">
         <label class="form-label">연락처</label>
         <input type="tel" class="input" id="ship-phone" placeholder="010-0000-0000" value="${esc(ship0.phone || "")}">
         <label class="form-label">배송지 주소</label>
         <input type="text" class="input" id="ship-addr" placeholder="주소를 입력해주세요" value="${esc(ship0.addr || "")}">
-        <label class="form-label">포인트 사용 (보유 ${fmtNum(state.user.points)}P)</label>
-        <input type="number" class="input" id="cart-points" placeholder="0" min="0" max="${maxP}" inputmode="numeric">
+        <label class="form-label" style="${FEATURES.STORE_LIVE ? "" : "display:none"}">포인트 사용 (보유 ${fmtNum(state.user.points)}P)</label>
+        <input type="number" class="input" id="cart-points" placeholder="0" min="0" max="${maxP}" inputmode="numeric" style="${FEATURES.STORE_LIVE ? "" : "display:none"}">
         <div class="calc-result show" id="cart-total"></div>
-        <button class="big-btn accent ready" id="cart-order" style="margin-top:16px">주문하기</button>
-        <p class="sheet-note">주문 후 안내되는 계좌로 입금하면 배송이 시작돼요. 배송 정보는 내 기기에만 저장돼요. (데모: 실제 결제는 PG 연동이 필요해요)</p>
+        <button class="big-btn accent ready" id="cart-order" style="margin-top:16px">${FEATURES.STORE_LIVE ? "주문하기" : "사전 신청하기"}</button>
+        <p class="sheet-note">${FEATURES.STORE_LIVE
+          ? "주문 후 안내되는 계좌로 입금하면 배송이 시작돼요."
+          : "지금은 결제가 진행되지 않아요. 사전 신청만 접수되며, 정식 오픈 시 입력하신 연락처로 안내드려요. 포인트도 차감되지 않아요."} 입력하신 배송 정보는 이 기기에만 저장돼요. 🔒</p>
       </div>
       <div style="height:24px"></div>`;
     const renderTotal = () => {
       let used = Math.floor(+$("#cart-points").value || 0);
-      used = Math.max(0, Math.min(used, maxP));
+      used = FEATURES.STORE_LIVE ? Math.max(0, Math.min(used, maxP)) : 0;
       $("#cart-total").innerHTML = `
         <div class="cr-row"><span>상품 합계</span><b>${fmtNum(subtotal)}원</b></div>
         <div class="cr-row"><span>배송비 ${ship === 0 ? "(3만원 이상 무료)" : ""}</span><b>${ship === 0 ? "무료" : fmtNum(ship) + "원"}</b></div>
-        <div class="cr-row"><span>포인트 할인</span><b>-${fmtNum(used)}P</b></div>
-        <div class="cr-row hl"><span>결제 예정 금액</span><b>${fmtNum(subtotal + ship - used)}원</b></div>`;
+        ${FEATURES.STORE_LIVE ? `<div class="cr-row"><span>포인트 할인</span><b>-${fmtNum(used)}P</b></div>` : ""}
+        <div class="cr-row hl"><span>${FEATURES.STORE_LIVE ? "결제 예정 금액" : "예상 금액"}</span><b>${fmtNum(subtotal + ship - used)}원</b></div>`;
       return used;
     };
     renderTotal();
@@ -3301,7 +3655,7 @@
         items: state.cart.map((c) => ({ name: product(c.pid).name, price: product(c.pid).price, qty: c.qty })),
         subtotal, ship, used, total: subtotal + ship - used,
         shipTo: shipInfo,
-        time: Date.now(), status: "입금 대기",
+        time: Date.now(), status: FEATURES.STORE_LIVE ? "입금 대기" : "사전 신청",
       });
       saveOrders();
       if (used > 0) {
@@ -3312,15 +3666,19 @@
       state.cart = [];
       saveCart();
       updateCartBadges();
-      addNoti("📦", `주문 #BT${String(id).padStart(4, "0")}이 접수됐어요. 입금 확인 후 배송이 시작돼요!`);
+      addNoti("📦", FEATURES.STORE_LIVE
+        ? `주문 #BT${String(id).padStart(4, "0")}이 접수됐어요. 입금 확인 후 배송이 시작돼요!`
+        : `사전 신청 #BT${String(id).padStart(4, "0")}이 접수됐어요. 스토어 정식 오픈 시 안내드릴게요!`);
       show("orders");
-      toast("주문이 접수되었어요! 📦");
+      toast(FEATURES.STORE_LIVE ? "주문이 접수되었어요! 📦" : "사전 신청이 접수되었어요! 📦");
     });
   }
 
   function renderOrders() {
     const list = [...state.orders].sort((a, b) => b.time - a.time);
-    $("#orders-area").innerHTML = list.length
+    $("#orders-area").innerHTML = (FEATURES.STORE_LIVE ? "" : `
+      <p class="sheet-note" style="margin:0 0 12px">스토어 정식 오픈 전이라 결제·배송은 진행되지 않아요. 아래는 사전 신청 내역이에요.</p>`)
+      + (list.length
       ? list.map((o) => `
         <div class="order-item">
           <div class="order-head">
@@ -3331,7 +3689,7 @@
           <div class="order-title">${esc(o.items[0].name)}${o.items.length > 1 ? ` 외 ${o.items.length - 1}건` : ""}</div>
           <div class="order-total">${fmtNum(o.total)}원 ${o.used ? `<small style="color:var(--text-sub);font-weight:500">(${fmtNum(o.used)}P 할인)</small>` : ""}</div>
         </div>`).join("")
-      : '<div class="empty-state">주문 내역이 없어요.</div>';
+      : `<div class="empty-state">${FEATURES.STORE_LIVE ? "주문 내역이" : "사전 신청 내역이"} 없어요.</div>`);
   }
 
   /* ---------- 근무일지 ---------- */
@@ -3382,7 +3740,7 @@
   }
   function addWorklog() {
     if ($("#wl-add").disabled) return;
-    const id = Math.max(0, ...state.worklog.map((w) => w.id)) + 1;
+    const id = newId();
     state.worklog.push({
       id, date: $("#wl-date").value, hours: +$("#wl-hours").value,
       tip: +$("#wl-tip").value || 0, memo: $("#wl-memo").value.trim(),
@@ -3667,6 +4025,8 @@
   $("#ob-adult").addEventListener("click", () => { state.obAdult = !state.obAdult; renderOnboard(); });
   $("#ob-start").addEventListener("click", startApp);
   $("#ob-nick").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("#ob-start").disabled) startApp(); });
+  $("#ob-terms").addEventListener("click", () => openDoc("terms"));
+  $("#ob-privacy").addEventListener("click", () => openDoc("privacy"));
 
   // 술도감
   $$("#dogam-seg .seg-btn").forEach((b) =>
@@ -3737,8 +4097,11 @@
   $("#post-report").addEventListener("click", () => {
     const p = state.posts.find((x) => x.id === state.curPost);
     if (!p) return;
-    if (p.mine) { toast("내 글은 신고할 수 없어요."); return; }
-    reportPost(p);
+    if (p.mine) { toast("내 글은 신고·차단할 수 없어요."); return; }
+    openSheet("이 게시글", ["🚩 신고하기", "🚫 이 작성자 차단하기"], null, (v) => {
+      if (v.includes("신고")) reportPost(p);
+      else blockAuthorOfPost(p);
+    });
   });
 
   // 데이터 백업/복원
@@ -3957,6 +4320,12 @@
   $("#btn-myposts").addEventListener("click", () => show("myposts"));
   $("#btn-support").addEventListener("click", openSupportSheet);
   $("#btn-points").addEventListener("click", openPointSheet);
+  $("#btn-blocked").addEventListener("click", () => show("blocked"));
+  $("#btn-rules").addEventListener("click", openRulesSheet);
+  $("#btn-terms").addEventListener("click", () => openDoc("terms"));
+  $("#btn-privacy").addEventListener("click", () => openDoc("privacy"));
+  $("#btn-opensource").addEventListener("click", () => openDoc("opensource"));
+  $("#btn-deletion-doc").addEventListener("click", () => openDoc("deletion"));
   $("#btn-logout").addEventListener("click", () => {
     if (!confirm("로그아웃할까요? 데이터는 이 기기에 안전하게 보관돼요.")) return;
     state.user.onboarded = false;
@@ -3985,6 +4354,7 @@
     if (!v || v === state.user.nick) return;
     state.user.nick = v;
     saveUser();
+    Sync.saveProfile(state.user);
     updateNickBtn();
     toast("닉네임이 변경되었어요.");
   });
@@ -3996,6 +4366,7 @@
     if (!isClean(name)) return;
     state.user.bizProfile = { name, type: state.bizTypeSel, since: state.user.bizProfile ? state.user.bizProfile.since : Date.now() };
     saveUser();
+    Sync.saveProfile(state.user);
     renderBizProfile();
     toast(`'${name}' 비즈니스 프로필이 등록됐어요. 📢 홍보 글은 이 이름으로 게시돼요.`);
   });
@@ -4003,12 +4374,14 @@
     if (!confirm("비즈니스 프로필을 해제할까요? 홍보 글을 더 이상 쓸 수 없어요.")) return;
     state.user.bizProfile = null;
     saveUser();
+    Sync.saveProfile(state.user);
     renderBizProfile();
     toast("비즈니스 프로필을 해제했어요.");
   });
   $("#btn-profile-save").addEventListener("click", () => {
     state.user.color = state.selColor;
     saveUser();
+    Sync.saveProfile(state.user);
     $("#btn-profile-save").disabled = true;
     $("#btn-profile-save").classList.remove("ready");
     toast("프로필이 변경되었어요.");
@@ -4028,10 +4401,170 @@
     location.reload();
   });
 
+  /* ============================================================
+   *  서버 동기화
+   *  js/config.js 가 비어 있으면 아래 호출은 전부 아무 일도 하지 않아요.
+   *  즉 서버 없이도 앱은 지금까지와 똑같이 동작합니다.
+   * ============================================================ */
+  const NOOP = () => {};
+  const Sync = window.BarTalkSync || {
+    enabled: false, status: "off", uid: null, queued: 0,
+    ready: () => false, init: async () => false, refresh: NOOP, uploadPhoto: async () => null,
+    saveProfile: NOOP, savePost: NOOP, deletePost: NOOP, bumpViews: NOOP, saveComment: NOOP,
+    toggleLike: NOOP, saveMeet: NOOP, joinMeet: NOOP, saveMeetComment: NOOP,
+    saveSpirit: NOOP, saveReview: NOOP, saveReport: NOOP, setBlock: NOOP,
+  };
+
+  // 서버에 아직 못 올린 내 글이 화면에서 사라지지 않도록 남겨둬요.
+  function mergeRemote(remote, local) {
+    const ids = new Set(remote.map((x) => x.id));
+    const pendingMine = local.filter((x) => x.mine && x.remote !== true && !ids.has(x.id));
+    return remote.concat(pendingMine);
+  }
+
+  function applyRemote(data) {
+    if (data.profile) {
+      state.user.bannedUntil = data.profile.bannedUntil || 0;
+      if (data.profile.bizProfile && !state.user.bizProfile) state.user.bizProfile = data.profile.bizProfile;
+      saveUser();
+    }
+    if (data.blocks) {
+      // 서버 차단 목록 + 이 기기에만 있는 항목(local:) 을 합쳐요.
+      const localOnly = blockedKeys().filter((k) => String(k).indexOf("local:") === 0);
+      state.user.blocked = data.blocks.concat(localOnly);
+      saveUser();
+    }
+    if (data.posts) {
+      state.posts = mergeRemote(data.posts, state.posts);
+      savePosts();
+    }
+    if (data.meets) {
+      state.meets = mergeRemote(data.meets, state.meets);
+      saveMeets();
+    }
+    if (data.spirits) {
+      // 앱에 내장된 도감(기준 데이터)은 그대로 두고 사용자 등록분만 교체해요.
+      const builtin = state.spirits.filter((s) => !s.remote && !s.mine);
+      const mine = state.spirits.filter((s) => s.mine && !s.remote);
+      const ids = new Set(data.spirits.map((s) => s.id));
+      state.spirits = builtin.concat(data.spirits, mine.filter((s) => !ids.has(s.id)));
+      // 내장 항목에 달린 리뷰도 서버 것으로 맞춰요.
+      if (data.reviewsBySpirit) {
+        builtin.forEach((s) => {
+          const rv = data.reviewsBySpirit[s.id];
+          if (rv) s.reviews = rv;
+        });
+      }
+      saveSpirits();
+    }
+    rerenderCurrentView();
+    updateSyncBadge();
+  }
+
+  // 지금 보고 있는 화면만 다시 그려요 (스크롤 위치가 튀지 않도록 상세 화면은 제외)
+  function rerenderCurrentView() {
+    const v = state.view;
+    if (v === "home") renderHome();
+    else if (v === "community") renderPosts();
+    else if (v === "myposts") renderMyPosts();
+    else if (v === "dogam") renderDogam();
+    else if (v === "meet") renderMeets();
+    else if (v === "mypage") renderMyPage();
+    else if (v === "blocked") renderBlocked();
+    else if (v === "post" && state.posts.some((p) => p.id === state.curPost)) renderPostDetail();
+    else if (v === "meet-detail" && state.meets.some((m) => m.id === state.curMeet)) renderMeetDetail();
+    else if (v === "spirit" && state.spirits.some((s) => s.id === state.curSpirit)) renderSpiritDetail();
+  }
+
+  function updateSyncBadge() {
+    const el = $("#sync-badge");
+    if (!el) return;
+    if (!Sync.enabled) { el.hidden = true; return; }
+    const LABEL = {
+      connecting: ["⏳", "서버 연결 중…"],
+      online: ["🟢", "실시간 연결됨"],
+      offline: ["🔌", "오프라인 · 연결되면 자동 전송돼요"],
+      error: ["⚠️", "서버 연결 실패 · 이 기기에만 저장돼요"],
+    };
+    const [ic, txt] = LABEL[Sync.status] || ["", ""];
+    if (!ic) { el.hidden = true; return; }
+    el.hidden = Sync.status === "online";   // 정상일 땐 굳이 알리지 않아요
+    const n = Sync.queued;
+    el.innerHTML = `<span class="sync-ic">${ic}</span><span>${txt}${n ? ` (대기 ${n}건)` : ""}</span>`;
+  }
+
+  /* 서버가 꺼져 있는 동안 만든 내 글·모임·도감을 연결된 뒤에 올려요.
+   * 전송은 전부 id 기준 upsert 라서 여러 번 보내도 중복이 생기지 않아요.
+   * 서버에서 받아온 항목은 remote 표시가 붙으므로 두 번 올라가지 않습니다. */
+  function backfillLocal() {
+    if (!Sync.ready()) return;
+    let n = 0;
+    state.posts.forEach((p) => {
+      if (p.mine && !p.remote) { Sync.savePost(p); n++; }
+      (p.comments || []).forEach((c) => {
+        if (c.mine && !c.remote && c.id) { Sync.saveComment(p.id, c, null); n++; }
+        (c.replies || []).forEach((r) => {
+          if (r.mine && !r.remote && r.id) { Sync.saveComment(p.id, r, c.id || null); n++; }
+        });
+      });
+    });
+    state.meets.forEach((m) => {
+      if (m.mine && !m.remote) { Sync.saveMeet(m); n++; }
+      (m.comments || []).forEach((c) => {
+        if (c.mine && !c.remote && c.id) { Sync.saveMeetComment(m.id, c); n++; }
+      });
+    });
+    state.spirits.forEach((s) => {
+      if (s.mine && !s.remote) { Sync.saveSpirit(s); n++; }
+      (s.reviews || []).forEach((r) => {
+        if (r.mine && !r.remote && r.id) { Sync.saveReview(s.id, r); n++; }
+      });
+    });
+    blockedKeys().forEach((k) => {
+      if (String(k).indexOf("local:") !== 0) Sync.setBlock(k, true);
+    });
+    if (n) console.info("[sync] 이 기기에만 있던 " + n + "건을 서버로 올려요.");
+  }
+
+  // 로컬 개발 중에만 동기화 병합 로직을 콘솔에서 확인할 수 있게 열어둬요.
+  if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+    window.__bartalk = { state, applyRemote, rerenderCurrentView, newId, backfillLocal };
+  }
+
+  let syncStarted = false;
+  let syncTries = 0;
+  async function startSync() {
+    if (!Sync.enabled || syncStarted) return;
+    syncStarted = true;
+    updateSyncBadge();
+    const ok = await Sync.init({
+      onData: (data) => applyRemote(data),
+      onStatus: () => updateSyncBadge(),
+    });
+    if (ok && Sync.ready()) {
+      Sync.saveProfile(state.user);
+      backfillLocal();
+      Sync.refresh("backfill");
+      return;
+    }
+    // 연결에 실패했으면 잠시 뒤 다시 시도해요 (앱은 그동안 로컬로 계속 동작).
+    if (++syncTries <= 3) {
+      syncStarted = false;
+      setTimeout(startSync, syncTries * 15000);
+    }
+  }
+
   /* ---------- PWA ---------- */
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+    // 새 버전이 배포되면 한 번만 새로고침해 최신 화면을 보여줘요.
+    let swReloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (swReloaded) return;
+      swReloaded = true;
+      location.reload();
     });
   }
 
@@ -4044,10 +4577,20 @@
     show((e.state && e.state.view) || "home", true);
   });
   if (state.user.onboarded && state.user.nick) {
-    try { history.replaceState({ view: "home" }, "", "#home"); } catch {}
-    show("home", true);
+    // 홈 화면 바로가기(manifest shortcuts) 또는 해시로 진입한 화면
+    const ALLOWED_ENTRY = ["community", "dogam", "meet", "jobs", "market", "mypage"];
+    let entry = "home";
+    try {
+      const q = new URLSearchParams(location.search).get("go");
+      const hash = location.hash.replace("#", "");
+      if (ALLOWED_ENTRY.includes(q)) entry = q;
+      else if (ALLOWED_ENTRY.includes(hash)) entry = hash;
+    } catch {}
+    try { history.replaceState({ view: entry }, "", "#" + entry); } catch {}
+    show(entry, true);
     dailyAttend();
     checkMeetReminders();
+    startSync();
   } else {
     state.obColor = state.user.color;
     renderOnboard();

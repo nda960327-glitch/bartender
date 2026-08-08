@@ -1,0 +1,197 @@
+/* =====================================================================
+   바텐톡 · 심층 도감 (Deep Dogam)
+   칵테일 / 위스키 상세 화면 전용 스타일
+   style.css 의 컬러 토큰(--bg, --text, --accent …)을 그대로 씁니다.
+   ===================================================================== */
+
+/* ---- 섹션 공통 ---- */
+.dp-sec { padding: 20px; border-bottom: 8px solid var(--bg-gray); }
+.dp-sec.last { border-bottom: none; }
+.dp-h {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 16px; font-weight: 800; letter-spacing: -.3px;
+  margin-bottom: 14px; color: var(--text);
+}
+.dp-h-ic {
+  width: 26px; height: 26px; border-radius: 9px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; background: var(--accent-soft);
+}
+.dp-h-sub {
+  margin-left: auto; font-size: 12px; font-weight: 600;
+  color: var(--text-muted); letter-spacing: 0;
+}
+
+/* ---- 태그라인 (히어로 바로 아래 한 줄) ---- */
+.dp-tagline {
+  padding: 16px 20px; background: var(--bg-banner);
+  border-bottom: 8px solid var(--bg-gray);
+  font-size: 15px; line-height: 1.6; font-weight: 600;
+  color: var(--text); word-break: keep-all;
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.dp-tagline::before {
+  content: "\201C"; font-size: 24px; color: var(--accent);
+  line-height: .9; flex-shrink: 0; font-weight: 800;
+}
+
+/* ---- 핵심 정보 카드 ---- */
+.dp-facts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.dp-fact { background: var(--bg-input); border-radius: 12px; padding: 11px 13px; min-width: 0; }
+.dp-fact-k {
+  font-size: 11.5px; font-weight: 700; color: var(--text-muted);
+  letter-spacing: .2px; margin-bottom: 4px;
+}
+.dp-fact-v { font-size: 13.5px; font-weight: 600; line-height: 1.45; word-break: keep-all; }
+.dp-fact.wide { grid-column: 1 / -1; }
+
+/* ---- 맛 프로필 막대 ---- */
+.dp-bars { display: flex; flex-direction: column; gap: 11px; }
+.dp-bar-row { display: flex; align-items: center; gap: 10px; }
+.dp-bar-label { width: 46px; flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--text-sub); }
+.dp-bar-track {
+  flex: 1; height: 8px; border-radius: 5px;
+  background: var(--chip-bg); overflow: hidden;
+}
+.dp-bar-fill {
+  display: block;            /* span 이라 block 지정이 없으면 width/height 가 안 먹어요 */
+  height: 100%; border-radius: 5px;
+  background: linear-gradient(90deg, #ffb020, var(--accent));
+}
+.dp-bar-val {
+  width: 24px; flex-shrink: 0; text-align: right;
+  font-size: 12px; font-weight: 800; color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- 노즈 / 팔레트 / 피니시 ---- */
+.dp-npf { display: flex; flex-direction: column; gap: 10px; }
+.dp-npf-item {
+  display: flex; gap: 12px; padding: 13px 14px;
+  background: var(--bg-input); border-radius: 14px;
+  border-left: 3px solid var(--line-strong);
+}
+.dp-npf-item.nose   { border-left-color: #7cb3f5; }
+.dp-npf-item.palate { border-left-color: #ff9b4a; }
+.dp-npf-item.finish { border-left-color: #b98cf0; }
+.dp-npf-ic { font-size: 17px; line-height: 1.4; flex-shrink: 0; }
+.dp-npf-body { min-width: 0; }
+.dp-npf-t {
+  font-size: 12px; font-weight: 800; letter-spacing: .3px;
+  margin-bottom: 3px; color: var(--text-sub);
+}
+.dp-npf-d { font-size: 14.5px; line-height: 1.65; word-break: keep-all; }
+
+/* ---- 본문 문단 ---- */
+.dp-p { font-size: 14.5px; line-height: 1.8; word-break: keep-all; color: var(--text); }
+.dp-p + .dp-p { margin-top: 12px; }
+
+/* ---- 접기 / 펼치기 ---- */
+.dp-fold.closed .dp-fold-body {
+  max-height: 132px; overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, #000 60%, transparent 100%);
+          mask-image: linear-gradient(180deg, #000 60%, transparent 100%);
+}
+.dp-fold-btn {
+  margin-top: 10px; width: 100%; height: 38px; border-radius: 11px;
+  border: 1px solid var(--line-strong); background: var(--bg-card);
+  color: var(--text-sub); font-size: 13.5px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+}
+.dp-fold-btn:active { background: var(--chip-bg); }
+
+/* ---- 단계별 만드는 법 ---- */
+.dp-steps { display: flex; flex-direction: column; counter-reset: dpstep; }
+.dp-step { display: flex; gap: 12px; padding-bottom: 16px; position: relative; }
+.dp-step.end { padding-bottom: 0; }
+.dp-step-no {
+  counter-increment: dpstep;
+  width: 25px; height: 25px; flex-shrink: 0; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  font-size: 12.5px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1; position: relative;
+}
+.dp-step-no::after { content: counter(dpstep); }
+.dp-step:not(.end)::after {
+  content: ""; position: absolute; left: 12px; top: 27px; bottom: 4px;
+  width: 2px; background: var(--line-strong);
+}
+.dp-step-t { font-size: 14.5px; line-height: 1.7; padding-top: 2px; word-break: keep-all; }
+
+/* ---- 팁 / 흔한 실수 ---- */
+.dp-list { display: flex; flex-direction: column; gap: 9px; }
+.dp-li {
+  display: flex; gap: 9px; padding: 11px 13px; border-radius: 12px;
+  font-size: 14px; line-height: 1.65; word-break: keep-all;
+}
+.dp-li-ic { flex-shrink: 0; font-size: 13px; font-weight: 900; line-height: 1.75; }
+.dp-li.tip  { background: rgba(46,160,110,.09); }
+.dp-li.tip  .dp-li-ic { color: #2ea06e; }
+.dp-li.warn { background: rgba(226,74,60,.09); }
+.dp-li.warn .dp-li-ic { color: #e24a3c; }
+[data-theme="dark"] .dp-li.tip  { background: rgba(46,200,130,.13); }
+[data-theme="dark"] .dp-li.warn { background: rgba(255,110,95,.13); }
+
+/* ---- 변형 카드 ---- */
+.dp-vars { display: flex; flex-direction: column; gap: 8px; }
+.dp-var {
+  padding: 12px 14px; border-radius: 13px;
+  border: 1px solid var(--line-strong); background: var(--bg-card);
+}
+.dp-var-n { font-size: 14px; font-weight: 800; margin-bottom: 4px; }
+.dp-var-n::before { content: "\21B3"; color: var(--accent); font-weight: 700; margin-right: 6px; }
+.dp-var-d { font-size: 13.5px; line-height: 1.6; color: var(--text-sub); word-break: keep-all; }
+
+/* ---- 태그 칩 ---- */
+.dp-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.dp-tag {
+  padding: 6px 11px; border-radius: 20px; background: var(--chip-bg);
+  font-size: 12.5px; font-weight: 700; color: var(--text-sub);
+}
+
+/* ---- 서빙 멘트 ---- */
+.dp-quote {
+  padding: 15px 16px; border-radius: 14px;
+  background: var(--bg-banner); border-left: 3px solid var(--accent);
+  font-size: 14.5px; line-height: 1.75; word-break: keep-all;
+}
+
+/* ---- 페어링 ---- */
+.dp-pair {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 13px 14px; border-radius: 13px; background: var(--bg-input);
+  font-size: 14.5px; line-height: 1.7; word-break: keep-all;
+}
+.dp-pair-ic { font-size: 16px; flex-shrink: 0; line-height: 1.5; }
+
+/* ---- 심층 배지 ---- */
+.dp-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 9px; border-radius: 8px; margin-top: 8px;
+  background: var(--accent-soft); color: var(--accent);
+  font-size: 11.5px; font-weight: 800; letter-spacing: .2px;
+}
+
+/* ---- 목차 (가로 스크롤 점프바) ---- */
+.dp-toc {
+  display: flex; gap: 6px; overflow-x: auto; padding: 12px 20px;
+  border-bottom: 8px solid var(--bg-gray);
+  -ms-overflow-style: none; scrollbar-width: none;
+}
+.dp-toc::-webkit-scrollbar { display: none; }
+.dp-toc-btn {
+  flex-shrink: 0; padding: 8px 13px; border-radius: 18px;
+  border: 1px solid var(--line-strong); background: var(--bg-card);
+  color: var(--text-sub); font-size: 13px; font-weight: 700;
+  font-family: inherit; cursor: pointer; white-space: nowrap;
+}
+.dp-toc-btn:active { background: var(--chip-bg); }
+
+@media (max-width: 380px) {
+  .dp-sec { padding: 18px 16px; }
+  .dp-tagline { padding: 14px 16px; font-size: 14.5px; }
+  .dp-toc { padding: 11px 16px; }
+  .dp-facts { grid-template-columns: 1fr; }
+  .dp-npf-d, .dp-p, .dp-step-t { font-size: 14px; }
+}
