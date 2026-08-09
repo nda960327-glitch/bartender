@@ -339,9 +339,9 @@
      다만 무작위로 두면 다시 그릴 때마다 흔들리므로,
      각 스티커의 고유 seed 로 정해 늘 같은 모양이 나오게 했어요. */
   const TAG_SPOT = [
-    { x: 66, y: -12 },    // 왼쪽 위
-    { x: 120, y: -18 },   // 가운데 위
-    { x: 176, y: -12 },   // 오른쪽 위
+    { x: 66, y: -4 },     // 왼쪽 위
+    { x: 120, y: -9 },     // 가운데 위
+    { x: 176, y: -4 },     // 오른쪽 위
   ];
 
   const labelOf = (text, seed) => {
@@ -360,7 +360,7 @@
     const dim = size ? ` width="${size}" height="${size}"` : "";
     const t = `translate(120 ${120 + (p[4] || 0)}) rotate(${p[3]}) scale(${FIT}) translate(-120 -120)`;
     // 위쪽에 이름표 자리를 만들기 위해 화면을 -52 부터 시작합니다.
-    const head = `<svg viewBox="0 -40 240 280"${dim} role="img" aria-label="${p[0]}">`;
+    const head = `<svg viewBox="0 -48 240 288"${dim} role="img" aria-label="${p[0]}">`;
     const tag = labelOf(p[0], p[2] || 0);
     if (!rough) {
       return `${head}${tag}<g transform="${t}">${p[1].r}${p[1].s}</g></svg>`;
