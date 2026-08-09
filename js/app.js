@@ -1028,11 +1028,41 @@
    ["재패니즈", "야마자키 히비키 하쿠슈 산토리 니카 슈퍼 다케츠루 치타 마르스 아카시 이치로즈"],
   ].forEach(([region, brands]) => brands.split(" ").forEach((b) => { WREGION[b] = region; }));
   const TWO_TOKEN_REGION = { "하이랜드 파크": "아일랜즈", "글렌 스코시아": "캠벨타운", "올드 풀트니": "하이랜드", "포트 샬롯": "아일라", "포트 엘렌": "아일라", "페이머스 그라우스": "블렌디드", "몽키 숄더": "블렌디드", "글렌 엘긴": "스페이사이드" };
-  function regionOfWhisky(name) {
+  // 이름 첫 단어로 추측하는 방식(사용자가 직접 등록한 술처럼 심층 데이터가 없을 때의 대비책)
+  function regionByName(name) {
     const t = String(name).split(/\s+/);
     return TWO_TOKEN_REGION[t[0] + " " + (t[1] || "")] || WREGION[t[0]] || "기타";
   }
-  const WHISKY_REGIONS = ["전체", "스페이사이드", "하이랜드", "아일라", "아일랜즈", "캠벨타운", "로우랜드", "블렌디드", "아이리시", "아메리칸", "재패니즈", "기타"];
+  // 심층 도감의 type/region 을 필터 카테고리로 환산합니다.
+  // 이름 추측과 달리 증류소 실제 정보를 쓰므로 오분류가 없어요.
+  function regionByDeep(d) {
+    const t = d.type || "", r = d.region || "";
+    if (t.includes("아이리시") || r.includes("아일랜드")) return "아이리시";
+    if (t.includes("재패니즈") || r.includes("일본")) return "재패니즈";
+    if (t.includes("캐나디안") || r.includes("캐나다")) return "캐나디안";
+    if (t.includes("버번") || t.includes("테네시") || t.includes("아메리칸") || r.includes("미국")) return "아메리칸";
+    if (t.includes("블렌디드 스카치") || t.includes("블렌디드 몰트 스카치")) return "블렌디드";
+    if (t.includes("스카치") || r.includes("스코틀랜드")) {
+      if (r.includes("스페이사이드")) return "스페이사이드";
+      if (r.includes("아일라")) return "아일라";
+      if (r.includes("아일랜즈")) return "아일랜즈";
+      if (r.includes("캠벨타운")) return "캠벨타운";
+      if (r.includes("로우랜드")) return "로우랜드";
+      if (r.includes("하이랜드")) return "하이랜드";
+      return "블렌디드"; // 지역 표기가 없는 스카치는 블렌디드
+    }
+    return "월드";
+  }
+  // sp 객체를 받아 지역을 판정합니다. 심층 데이터가 있으면 그쪽이 우선이에요.
+  function regionOfWhisky(sp) {
+    if (sp && typeof sp === "object") {
+      const d = window.WHISKY_DEEP && window.WHISKY_DEEP[sp.id];
+      if (d) return regionByDeep(d);
+      return regionByName(sp.name);
+    }
+    return regionByName(sp); // 문자열이 넘어온 예전 호출 대비
+  }
+  const WHISKY_REGIONS = ["전체", "스페이사이드", "하이랜드", "아일라", "아일랜즈", "캠벨타운", "로우랜드", "블렌디드", "아이리시", "아메리칸", "캐나디안", "재패니즈", "월드", "기타"];
   function parsePriceMan(price) {
     const m = String(price || "").match(/(\d+)/);
     return m ? +m[1] : null;
@@ -1624,7 +1654,7 @@
     // 위스키 지역 취향
     const regions = {};
     tried.filter((s) => s.cat === "위스키").forEach((s) => {
-      const r = regionOfWhisky(s.name);
+      const r = regionOfWhisky(s);
       regions[r] = (regions[r] || 0) + 1;
     });
     const topRegion = Object.entries(regions).sort((a, b) => b[1] - a[1])[0];
@@ -2201,11 +2231,18 @@
     if (priceBtn) priceBtn.addEventListener("click", () =>
       openSheet("가격대 필터", ["전체", "5만원 이하", "5~10만원", "10~20만원", "20만원 이상"], state.dogamPrice, (v) => { state.dogamPrice = v; renderDogam(); }));
 
-    // 위스키 지역 필터
+    // 위스키 지역 필터 — 실제로 술이 있는 지역만 개수와 함께 보여줍니다.
     $("#dogam-region").hidden = !isWhisky;
     if (isWhisky) {
-      $("#dogam-region").innerHTML = WHISKY_REGIONS.map((r) =>
-        `<button class="chip ${r === state.dogamRegion ? "active" : ""}" data-r="${r}">${r}</button>`).join("");
+      const rCount = {};
+      state.spirits.forEach((s) => {
+        if (s.kind !== "spirit" || s.cat !== "위스키" || hiddenSp().includes(s.id)) return;
+        const r = regionOfWhisky(s);
+        rCount[r] = (rCount[r] || 0) + 1;
+      });
+      const shown = WHISKY_REGIONS.filter((r) => r === "전체" || rCount[r] || r === state.dogamRegion);
+      $("#dogam-region").innerHTML = shown.map((r) =>
+        `<button class="chip ${r === state.dogamRegion ? "active" : ""}" data-r="${r}">${r}${r === "전체" ? "" : ` ${rCount[r] || 0}`}</button>`).join("");
       $$("#dogam-region .chip").forEach((ch) =>
         ch.addEventListener("click", () => { state.dogamRegion = ch.dataset.r; renderDogam(); }));
     }
@@ -2228,7 +2265,7 @@
       !hiddenSp().includes(sp.id) &&
       sp.kind === state.dogamKind &&
       (state.dogamCat === "전체" || (sp.kind === "spirit" ? sp.cat : sp.base) === state.dogamCat) &&
-      (!isWhisky || state.dogamRegion === "전체" || regionOfWhisky(sp.name) === state.dogamRegion) &&
+      (!isWhisky || state.dogamRegion === "전체" || regionOfWhisky(sp) === state.dogamRegion) &&
       (state.dogamKind !== "spirit" || (abvOk(sp) && priceOk(sp))) &&
       (!q || has(sp.name, q))
     ).sort((a, b) =>
