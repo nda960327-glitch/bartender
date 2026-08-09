@@ -4760,6 +4760,15 @@
     if (data.profile) {
       state.user.bannedUntil = data.profile.bannedUntil || 0;
       if (data.profile.bizProfile && !state.user.bizProfile) state.user.bizProfile = data.profile.bizProfile;
+      // 새 기기에서 같은 계정으로 로그인한 경우.
+      // 서버에 이미 닉네임이 있으면 온보딩을 다시 시키지 않아요.
+      // (기기를 바꿔도 그대로 이어지는 것이 로그인의 이유입니다)
+      const serverNick = (data.profile.nick || "").trim();
+      if (serverNick && serverNick !== "익명" && !state.user.nick) {
+        state.user.nick = serverNick;
+        if (typeof data.profile.color === "number") state.user.color = data.profile.color;
+        state.user.onboarded = true;
+      }
       saveUser();
     }
     if (data.reports) state.serverReports = data.reports;

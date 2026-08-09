@@ -17,6 +17,8 @@ index.html               앱 본체 (모든 화면이 하나의 문서 안에 �
 css/style.css            앱 스타일
 css/legal.css            공개 정책 페이지 스타일
 js/config.js             ★ 서버 연결 설정 (비우면 오프라인 모드)
+api/naver-login.js       네이버 로그인 서버 함수 (Supabase 미지원분)
+supabase/admin.sql       ★ 운영자 권한 (관리자 지정은 이 파일 주석 참고)
 js/app.js                앱 로직 전체
 js/sync.js               서버 동기화 계층 (인증·전송 큐·실시간·사진 업로드)
 js/legal.js              약관·정책 원본 ★ 앱과 공개 페이지가 함께 사용
@@ -64,10 +66,19 @@ tools/gen-icons.js       PNG 아이콘 생성 스크립트
 대시보드 > **SQL Editor** 에 [`supabase/schema.sql`](supabase/schema.sql) 내용을 통째로 붙여넣고 실행하세요.
 테이블·보안정책(RLS)·집계 트리거·실시간 발행·사진 버킷이 한 번에 만들어집니다. 여러 번 실행해도 안전합니다.
 
-### 3. 익명 로그인 켜기
+### 3. 운영자 권한 넣기
 
-대시보드 > **Authentication > Sign In / Providers** 에서 **Anonymous sign-ins** 를 켜주세요.
-앱은 회원가입 없이 기기별 익명 계정으로 동작합니다. 이걸 안 켜면 연결에 실패합니다.
+대시보드 > **SQL Editor** 에 [`supabase/admin.sql`](supabase/admin.sql) 을 붙여넣고 실행하세요.
+운영자만 모든 글을 삭제하고 사용자를 정지할 수 있게 하는 권한 체계입니다.
+
+실행 후, 본인을 운영자로 지정합니다. 이용자 번호는 앱의 **마이페이지 > 고객센터**에서 확인할 수 있어요.
+
+```sql
+insert into admins (user_id, note) values ('여기에-이용자-번호', '운영자');
+```
+
+> 관리자 권한은 **서버가 판정**합니다. 앱 코드를 조작해도 서버가 삭제를 거부합니다.
+> `admins` 테이블에는 쓰기 정책이 아예 없어서, 앱을 통해서는 누구도 스스로 운영자가 될 수 없습니다.
 
 ### 4. 키 넣기
 
@@ -85,6 +96,92 @@ window.BARTALK_CONFIG = {
 > **`service_role` 키는 절대 넣지 마세요.** 넣으면 누구나 모든 데이터를 지울 수 있습니다.
 
 새로고침하면 좌측 상단에 연결 상태가 잠깐 표시되고, 이후 다른 기기와 글이 공유됩니다.
+
+---
+
+## 로그인 설정
+
+앱은 **로그인해야 들어갈 수 있습니다.** 로그인 정보는 본인 확인과 이용 정지 관리에만 쓰이고, 게시물은 계속 "익명"으로 표시됩니다.
+
+아직 켜지지 않은 로그인 방법은 화면에서 자동으로 **"(준비 중)"** 으로 표시되고 눌리지 않습니다. 하나씩 켜면 그때부터 버튼이 살아납니다.
+
+### 0. 주소 등록 ⚠️ 이걸 빼먹으면 로그인 후 앱으로 못 돌아옵니다
+
+Supabase 대시보드 > **Authentication > URL Configuration**
+
+| 항목 | 값 |
+|---|---|
+| Site URL | `https://bartender-gamma.vercel.app` |
+| Redirect URLs | `https://bartender-gamma.vercel.app/**` |
+
+로컬에서도 테스트하려면 `http://localhost:8777/**` 도 함께 추가하세요.
+
+### 1. 이메일 (이미 켜져 있음)
+
+기본으로 동작합니다. 비밀번호 없이 메일로 받은 링크로 로그인합니다.
+
+> ⚠️ Supabase 기본 메일은 **시간당 2~3통 제한**이 있어 실제 서비스에는 못 씁니다.
+> 출시 전 **Authentication > Emails > SMTP Settings** 에서 외부 SMTP(Resend, SendGrid 등)를 연결하세요.
+
+### 2. 구글
+
+1. [Google Cloud Console](https://console.cloud.google.com) > API 및 서비스 > **사용자 인증 정보**
+2. **OAuth 클라이언트 ID 만들기** > 웹 애플리케이션
+3. 승인된 리디렉션 URI 에 추가:
+   `https://dvharpjpemxpbrhhlolx.supabase.co/auth/v1/callback`
+4. 발급된 **클라이언트 ID / 보안 비밀**을 Supabase > Authentication > Sign In / Providers > **Google** 에 붙여넣고 켜기
+
+### 3. 카카오
+
+1. [Kakao Developers](https://developers.kakao.com) > 내 애플리케이션 > **애플리케이션 추가**
+2. **앱 설정 > 플랫폼 > Web** 에 사이트 도메인 등록: `https://bartender-gamma.vercel.app`
+3. **제품 설정 > 카카오 로그인** 활성화 ON
+4. Redirect URI 에 추가: `https://dvharpjpemxpbrhhlolx.supabase.co/auth/v1/callback`
+5. **동의 항목**에서 `카카오계정(이메일)` 을 **필수 동의**로 설정
+6. **앱 키 > REST API 키** → Supabase 의 Kakao `Client ID` 에
+   **보안 > Client Secret** 생성 후 → Supabase 의 `Client Secret` 에
+
+### 4. 네이버
+
+Supabase 가 네이버를 지원하지 않아 [`api/naver-login.js`](api/naver-login.js) 가 대신 처리합니다. 코드는 이미 배포돼 있고, **환경 변수만 넣으면** 동작합니다.
+
+1. [네이버 개발자 센터](https://developers.naver.com/apps) > **애플리케이션 등록**
+   - 사용 API: **네이버 로그인** / 제공 정보: **이메일 주소 (필수)**
+   - 서비스 URL: `https://bartender-gamma.vercel.app`
+   - Callback URL: `https://bartender-gamma.vercel.app/api/naver-login`
+2. Vercel 프로젝트 > **Settings > Environment Variables** 에 4개 추가:
+
+| 이름 | 값 |
+|---|---|
+| `NAVER_CLIENT_ID` | 네이버가 발급한 Client ID |
+| `NAVER_CLIENT_SECRET` | 네이버가 발급한 Client Secret |
+| `SUPABASE_URL` | `https://dvharpjpemxpbrhhlolx.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase > Project Settings > API Keys > **service_role** |
+
+3. Vercel > Deployments 에서 **Redeploy** (환경 변수는 재배포해야 반영됩니다)
+
+> 🔐 `service_role` 키는 **서버 함수 안에서만** 쓰이고 브라우저로 나가지 않습니다.
+> 절대 `js/config.js` 나 다른 클라이언트 파일에 넣지 마세요. 넣으면 누구나 모든 데이터를 지울 수 있습니다.
+
+설정이 됐는지 확인:
+
+```bash
+curl https://bartender-gamma.vercel.app/api/naver-login?probe=1
+```
+
+`{"configured":true}` 가 나오면 앱의 네이버 버튼이 활성화됩니다.
+
+### 로그인 관련 동작
+
+| 상황 | 동작 |
+|---|---|
+| 새 기기에서 같은 계정 로그인 | 서버의 닉네임을 그대로 이어받아 **온보딩을 건너뜁니다** |
+| 정지된 사용자가 앱 재설치 | 같은 계정이라 정지가 유지됩니다 |
+| 로그아웃 | 세션 종료 후 로그인 화면으로 |
+| 회원탈퇴 | 기기 데이터 삭제 + 로그아웃. 서버 게시물은 별도 요청 필요(안내 표시) |
+| 서버 연결 실패 | 이미 쓰던 사람은 오프라인으로 계속 사용 가능 |
+
+---
 
 ### 동작 방식
 
@@ -109,16 +206,21 @@ window.BARTALK_CONFIG = {
 
 ### 운영 (신고 처리)
 
-관리자 화면은 기기 안 데모 데이터를 보여주므로, 실제 신고는 Supabase 대시보드에서 확인하세요.
+운영자로 지정되면 **앱 안에서 바로 처리**할 수 있습니다.
+
+- 아무 게시글·도감 항목 > 🚩 > **관리자 조치** — 삭제 / 삭제 + 작성자 정지(3·7·30일·영구)
+- 마이페이지 > 🛡️ 관리자 페이지 > **신고함** — 접수된 신고를 조치 또는 기각
+
+모든 조치는 `admin_actions` 테이블에 누가·무엇을·왜 했는지 기록됩니다.
+
+> 관리자 화면의 **현황·회원 탭은 아직 예시 데이터**입니다 (화면에도 경고가 표시됩니다).
+> 거기서 누른 정지는 서버에 반영되지 않습니다.
+
+대시보드에서 직접 볼 수도 있습니다.
 
 ```sql
 select * from reports where status = '접수' order by created_at desc;
-```
-
-사용자 정지는 `profiles.banned_until` 을 미래 시각으로 설정하면 앱이 다음 접속 때 반영합니다.
-
-```sql
-update profiles set banned_until = now() + interval '7 days' where id = '<uuid>';
+select * from admin_actions order by created_at desc limit 50;
 ```
 
 ---
@@ -210,6 +312,8 @@ npx @bubblewrap/cli build
       - `config.js` 비움: 수집 없음 / 데이터는 기기에만 저장
       - Supabase 연결: 사용자 생성 콘텐츠(글·사진) 수집 / 전송 중 암호화 됨 / 삭제 요청 가능 / 제3자 공유 없음
 - [ ] 콘텐츠 등급 설문 — **알코올 언급을 반드시 "예"로** 신고 (숨기면 삭제 사유)
+- [ ] **로그인 필수 앱이므로 심사용 계정 제공** — 앱 콘텐츠 > 앱 액세스 권한 에서
+      테스트용 이메일 주소와 로그인 방법(메일 링크)을 안내하세요
 - [ ] 광고 포함 여부: 아니오 (광고 SDK 미사용)
 
 ### 5. 정책 대응 현황
@@ -226,6 +330,8 @@ npx @bubblewrap/cli build
 | 욕설 필터 · 도배 제한 | ✅ |
 | 광고 식별자 / 분석 SDK | ✅ 미사용 |
 | 결제 | ⚠️ `STORE_LIVE=false` — 사전 신청만 접수 |
+| 로그인 (정지 우회 방지) | ✅ 구글·카카오·네이버·이메일 |
+| 운영자 권한 (모든 글 삭제·정지) | ✅ 서버 판정. 앱에서 권한 탈취 불가 |
 
 ### 6. 업데이트 배포
 
@@ -242,6 +348,8 @@ npx @bubblewrap/cli build
 
 - `js/config.js` 를 비워두면 사용자 간 글이 공유되지 않습니다
 - 1:1 채팅은 아직 기기 전용입니다 (서버 연동 안 됨)
+- 관리자 화면의 **현황·회원 탭은 예시 데이터**입니다. 실제 조치는 신고함 탭 또는 게시글의 관리자 조치를 쓰세요
+- 이메일 로그인은 Supabase 기본 메일 서버 기준 시간당 2~3통 제한이 있어, 출시 전 외부 SMTP 연결이 필요합니다
 - 댓글 작성자 단위 차단은 지원하지 않습니다 (게시글 작성자 단위만)
 - 관리자 화면은 데모 데이터를 보여줍니다. 실제 신고 처리는 Supabase 대시보드에서 하세요
 - 포인트·뱃지는 기기별로 계산되므로 기기를 바꾸면 초기화됩니다
