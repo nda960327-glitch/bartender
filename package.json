@@ -1,0 +1,8 @@
+{
+  "name": "bartalk",
+  "private": true,
+  "description": "바텐톡 - 정적 PWA + Vercel 서버리스 함수. 빌드 단계는 없습니다.",
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}

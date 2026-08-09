@@ -10,7 +10,7 @@
  * 커뮤니티 앱에서는 치명적이라 네트워크 우선으로 바꿨습니다.
  * 첫 화면이 아주 조금 느려지지만 파일이 작아 체감되지 않습니다.
  */
-const VERSION = "2.6.0";
+const VERSION = "2.7.0";
 const CACHE = "bartalk-v" + VERSION;
 
 // 오프라인에서도 앱이 뜨도록 미리 받아두는 파일
@@ -57,6 +57,46 @@ self.addEventListener("activate", (e) => {
 // 앱이 "지금 당장 새 버전으로 바꿔줘" 라고 요청할 때
 self.addEventListener("message", (e) => {
   if (e.data === "skip-waiting") self.skipWaiting();
+});
+
+/* ---------- 앱을 꺼둬도 오는 알림 ----------
+ * 앱이 떠 있어야만 알림이 온다면 그건 알림이 아닙니다.
+ * 서비스워커는 앱이 닫혀 있어도 안드로이드가 깨워주므로 여기서 받습니다.
+ *
+ * 메시지 내용은 싣지 않습니다. 푸시 본문은 구글·애플의 서버를 지나가요.
+ * "새 메시지가 왔다"까지만 알리고, 내용은 앱을 열어 확인하게 합니다.
+ */
+self.addEventListener("push", (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) { d = {}; }
+  e.waitUntil(
+    self.registration.showNotification(d.title || "바텐톡", {
+      body: d.body || "새 메시지가 도착했어요.",
+      icon: "./icons/icon-192.png",
+      badge: "./icons/icon-192.png",
+      tag: d.tag || "bartalk",       // 같은 대화의 알림은 겹쳐 쌓이지 않게
+      renotify: true,
+      data: { cid: d.cid || null },
+    })
+  );
+});
+
+// 알림을 누르면 이미 열려 있는 앱으로 가고, 없으면 새로 엽니다.
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const cid = e.notification.data && e.notification.data.cid;
+  e.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const w of wins) {
+      try {
+        if (new URL(w.url).origin !== self.location.origin) continue;
+      } catch (err) { continue; }
+      await w.focus();
+      w.postMessage({ type: "open-chat", cid: cid });
+      return;
+    }
+    await self.clients.openWindow(cid ? "./?chat=" + cid : "./");
+  })());
 });
 
 self.addEventListener("fetch", (e) => {

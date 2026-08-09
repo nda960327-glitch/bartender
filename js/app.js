@@ -1057,6 +1057,123 @@
     if (id) openChat(id);
   });
 
+  /* ---------- 앱을 꺼둬도 오는 알림 ----------
+   * 지금까지는 앱이 떠 있을 때만 알림이 보였습니다. 그건 알림이 아니에요.
+   * 브라우저가 기기마다 주소를 하나 발급해주고, 그 주소로 서버가 알림을 쏩니다.
+   * 앱이 닫혀 있어도 안드로이드가 서비스워커를 깨워 알림을 띄워줘요.
+   *
+   * 되는 곳 / 안 되는 곳
+   *   안드로이드 크롬·삼성인터넷 : 앱을 닫아도 옵니다
+   *   아이폰                     : 홈 화면에 추가해야 옵니다 (사파리 탭에서는 안 와요)
+   *   폰이 완전히 꺼져 있으면      : 켜질 때 밀려서 옵니다 (카카오톡도 같습니다)
+   */
+  const Push = {
+    supported() {
+      return "serviceWorker" in navigator && "PushManager" in window &&
+        typeof Notification !== "undefined";
+    },
+
+    async publicKey() {
+      if (Push._key !== undefined) return Push._key;
+      try {
+        const r = await fetch("/api/push-key");
+        const j = await r.json();
+        Push._key = j && j.key ? j.key : null;
+      } catch (e) { Push._key = null; }
+      return Push._key;
+    },
+
+    async current() {
+      if (!Push.supported()) return null;
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        return await reg.pushManager.getSubscription();
+      } catch (e) { return null; }
+    },
+
+    async isOn() {
+      return Notification.permission === "granted" && !!(await Push.current());
+    },
+
+    /* 반드시 사용자가 누른 직후에 불러야 합니다.
+       그냥 물어보면 브라우저가 무시하거나 아예 차단해버려요. */
+    async enable() {
+      if (!Push.supported()) return { ok: false, error: "이 브라우저는 알림을 지원하지 않아요." };
+      if (!Sync.ready()) return { ok: false, error: "로그인 후에 켤 수 있어요." };
+
+      const key = await Push.publicKey();
+      if (!key) return { ok: false, error: "알림 서버가 아직 준비되지 않았어요." };
+
+      let perm = Notification.permission;
+      if (perm === "default") { try { perm = await Notification.requestPermission(); } catch (e) {} }
+      if (perm === "denied") {
+        return { ok: false, error: "브라우저에서 알림이 차단돼 있어요. 주소창 옆 자물쇠에서 허용해주세요." };
+      }
+      if (perm !== "granted") return { ok: false, error: "알림을 켜지 못했어요." };
+
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        // 서버 키가 바뀌었으면 예전 구독은 쓸 수 없어 다시 만듭니다.
+        if (sub && !sameKey(sub, key)) { await sub.unsubscribe(); sub = null; }
+        if (!sub) {
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlB64ToBytes(key),
+          });
+        }
+        const saved = await Sync.savePushSub(sub);
+        if (!saved) return { ok: false, error: "알림 설정을 저장하지 못했어요." };
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "알림을 켜지 못했어요." };
+      }
+    },
+
+    async disable() {
+      const sub = await Push.current();
+      if (!sub) return { ok: true };
+      const endpoint = sub.endpoint;
+      try { await sub.unsubscribe(); } catch (e) {}
+      Sync.removePushSub(endpoint);
+      return { ok: true };
+    },
+  };
+
+  // 서버 공개키와 지금 구독의 키가 같은지 봅니다.
+  function sameKey(sub, key) {
+    try {
+      const a = new Uint8Array(sub.options.applicationServerKey);
+      const b = urlB64ToBytes(key);
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+      return true;
+    } catch (e) { return true; }   // 확인할 수 없으면 그대로 씁니다
+  }
+
+  // 공개키는 URL 안전 base64 로 오는데, 구독 함수는 바이트 배열을 받아요.
+  function urlB64ToBytes(s) {
+    const pad = "=".repeat((4 - (s.length % 4)) % 4);
+    const b64 = (s + pad).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(b64);
+    const out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  // 알림 스위치. 브라우저는 사용자가 누른 직후에만 물어봐 주므로 여기서 켭니다.
+  $("#btn-push").addEventListener("click", async () => {
+    const btn = $("#btn-push");
+    if (btn.dataset.busy) return;
+    btn.dataset.busy = "1";
+    const wasOn = btn.classList.contains("on");
+    const r = wasOn ? await Push.disable() : await Push.enable();
+    delete btn.dataset.busy;
+    if (!r.ok) toast(r.error);
+    else toast(wasOn ? "알림을 껐어요." : "알림을 켰어요. 앱을 닫아둬도 메시지가 오면 알려드려요.");
+    renderPushRow();
+  });
+
   function addPoints(amt, reason) {
     vibrate(12);
     state.user.points += amt;
@@ -4696,7 +4813,35 @@
   }
 
   /* ---------- 계정설정 ---------- */
+  async function renderPushRow() {
+    const row = $("#push-row");
+    if (!row) return;
+    const btn = $("#btn-push");
+    const desc = $("#push-desc");
+
+    if (!Push.supported()) {
+      desc.textContent = "이 브라우저는 알림을 지원하지 않아요. 크롬이나 삼성인터넷에서 열어주세요.";
+      btn.hidden = true;
+      return;
+    }
+    if (!(await Push.publicKey())) {
+      desc.textContent = "알림 서버를 준비하는 중이에요.";
+      btn.hidden = true;
+      return;
+    }
+    btn.hidden = false;
+    const on = await Push.isOn();
+    btn.classList.toggle("on", on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    desc.textContent = on
+      ? "앱을 닫아둬도 새 메시지 알림이 옵니다."
+      : Notification.permission === "denied"
+        ? "브라우저에서 알림이 차단돼 있어요. 주소창 옆 자물쇠 > 알림 에서 허용해주세요."
+        : "켜두면 앱을 닫아둬도 메시지가 온 걸 알 수 있어요.";
+  }
+
   function renderSettings() {
+    renderPushRow();
     state.selColor = state.user.color;
     state.agreeWithdraw = false;
     $("#withdraw-agree").classList.remove("on");
@@ -5945,6 +6090,7 @@
   const Sync = window.BarTalkSync || {
     enabled: false, status: "off", uid: null, queued: 0,
     ready: () => false, init: async () => false, refresh: NOOP, refreshView: NOOP,
+    savePushSub: async () => false, removePushSub: NOOP,
     uploadPhoto: async () => null,
     saveProfile: NOOP, savePost: NOOP, deletePost: NOOP, bumpViews: NOOP, saveComment: NOOP,
     toggleLike: NOOP, saveMeet: NOOP, joinMeet: NOOP, saveMeetComment: NOOP,
@@ -6313,6 +6459,25 @@
     show(entry, true);
     dailyAttend();
     checkMeetReminders();
+  }
+
+  /* ---------- 알림을 눌러 들어온 경우 ----------
+   * 이미 열려 있던 앱이면 서비스워커가 알려주고,
+   * 새로 연 경우엔 주소에 붙은 대화 번호를 보고 들어갑니다.
+   */
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", (e) => {
+      const d = e.data || {};
+      if (d.type === "open-chat" && d.cid && state.chats.some((c) => c.id === d.cid)) openChat(d.cid);
+    });
+  }
+  {
+    const wanted = +new URLSearchParams(location.search).get("chat");
+    if (wanted) {
+      // 주소는 정리해둡니다. 새로고침할 때마다 그 대화로 튀면 곤란해요.
+      try { history.replaceState(null, "", location.pathname + location.hash); } catch (e) {}
+      setTimeout(() => { if (state.chats.some((c) => c.id === wanted)) openChat(wanted); }, 800);
+    }
   }
 
   /* ---------- PWA ---------- */

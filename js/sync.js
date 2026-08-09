@@ -454,6 +454,23 @@
     });
   }
 
+  /* ---------- 상대에게 알림 보내기 ----------
+   * 알림을 실제로 쏘는 것은 서버 함수입니다. 여기서는 부탁만 해요.
+   * 발송 서버는 이 토큰으로 "정말 그 대화의 참여자인지" 다시 확인합니다.
+   */
+  async function notifyPeer(conversationId) {
+    try {
+      var s = await sb.auth.getSession();
+      var token = s && s.data && s.data.session && s.data.session.access_token;
+      if (!token) return;
+      await fetch("/api/push-send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        body: JSON.stringify({ conversationId: conversationId }),
+      });
+    } catch (e) { /* 알림이 안 가도 메시지는 갑니다 */ }
+  }
+
   /* ---------- 화면에 필요한 것만 새로고침 ----------
    * 실시간은 끊길 수 있습니다. 재접속·화면 복귀 때 전체를 맞추긴 하지만,
    * 그 사이 탭만 오가는 동안에는 예전 목록이 그대로 남아 있었어요.
@@ -1136,6 +1153,34 @@
           text: msg.text, created_at: new Date(msg.time).toISOString(),
         },
       });
+      // 상대 폰이 꺼져 있어도 알림이 가도록 발송을 부탁합니다.
+      // 실패해도 메시지 자체는 이미 전송 대기열에 들어가 있어요.
+      notifyPeer(conversationId);
+    },
+
+    /* ---------- 알림 구독 ----------
+     * 브라우저가 기기마다 발급한 "우편함 주소"를 서버에 맡깁니다.
+     * 이 주소가 있어야 앱이 꺼져 있을 때도 알림을 보낼 수 있어요.
+     */
+    async savePushSub(sub) {
+      if (!ready() || !sub) return false;
+      var j = sub.toJSON ? sub.toJSON() : sub;
+      if (!j.keys || !j.keys.p256dh || !j.keys.auth) return false;
+      try {
+        var r = await sb.from("push_subscriptions").upsert({
+          endpoint: j.endpoint,
+          user_id: S.uid,
+          p256dh: j.keys.p256dh,
+          auth: j.keys.auth,
+          ua: (navigator.userAgent || "").slice(0, 200),
+        }, { onConflict: "endpoint" });
+        return !r.error;
+      } catch (e) { return false; }
+    },
+
+    async removePushSub(endpoint) {
+      if (!ready() || !endpoint) return;
+      try { await sb.from("push_subscriptions").delete().eq("endpoint", endpoint); } catch (e) {}
     },
 
     // 내가 쓴 것만 지울 수 있어요 (서버 정책이 한 번 더 막습니다).

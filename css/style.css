@@ -1451,3 +1451,15 @@ textarea.input { height: auto; }
 @media (prefers-reduced-motion: reduce) {
   .chat-pop { transition: opacity .15s ease; transform: none; }
 }
+
+/* ---------- 알림 스위치 ---------- */
+.push-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px; margin-bottom: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+}
+.push-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.push-text b { font-size: 15px; font-weight: 700; }
+.push-text span { font-size: 12.5px; line-height: 1.45; color: var(--text-sub); }
