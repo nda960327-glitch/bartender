@@ -746,6 +746,7 @@
     members: store.get("members", []),
     adminLog: store.get("adminLog", []),
     adminMode: false,
+    serverReports: [],
     adminTab: "dash",
     adminUserQ: "",
     adminUserFilter: "전체",
@@ -1300,21 +1301,85 @@
     ["허위 도감 등록(장난)", "삭제 + 경고"],
     ["누적 3회 이상 위반", "영구 정지"],
   ];
+  // 진짜 권한은 서버(admins 테이블)가 판정해요. 이 PIN 은 화면을 여는 자물쇠일 뿐,
+  // PIN 을 뚫어도 서버가 삭제·정지를 거부합니다.
+  const isAdmin = () => !!Sync.isAdmin;
+
   function adminEnter() {
+    if (!Sync.enabled) {
+      toast("서버에 연결된 상태에서만 관리자 기능을 쓸 수 있어요.");
+      return;
+    }
+    if (!isAdmin()) {
+      openSheetHTML(`
+        <h3>🛡️ 관리자 권한 없음</h3>
+        <p class="sheet-note" style="text-align:left">이 계정은 운영자로 등록되어 있지 않아요. 관리자 권한은 <b>서버에서만</b> 부여할 수 있어서, 앱에서는 만들 수 없습니다.</p>
+        <p class="sheet-note" style="text-align:left">Supabase 대시보드 &gt; SQL Editor 에서 아래를 실행하면 이 기기가 운영자가 돼요.</p>
+        <div class="calc-result show" style="font-family:monospace;font-size:11.5px;word-break:break-all;text-align:left">
+          insert into admins (user_id, note)<br>values ('${esc(Sync.uid || "이용자-번호")}', '운영자');
+        </div>
+        <button class="big-btn" id="copy-admin-sql" style="margin-top:14px">SQL 복사하기</button>`);
+      const b = document.querySelector(".sheet #copy-admin-sql");
+      if (b) b.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(
+            `insert into admins (user_id, note)\nvalues ('${Sync.uid}', '운영자')\non conflict (user_id) do nothing;`);
+          toast("복사했어요. SQL Editor 에 붙여넣고 실행한 뒤 앱을 새로고침하세요.");
+        } catch { toast("복사에 실패했어요."); }
+      });
+      return;
+    }
     const saved = store.get("adminPin", null);
     if (!saved) {
       const pin = prompt("관리자 PIN을 설정해주세요 (4자리 이상)");
       if (!pin || pin.length < 4) { toast("PIN은 4자리 이상이어야 해요."); return; }
       store.set("adminPin", pin);
-      state.adminMode = true;
       toast("관리자 모드가 활성화됐어요. 🛡️");
     } else {
       const pin = prompt("관리자 PIN을 입력해주세요");
       if (pin !== saved) { if (pin !== null) toast("PIN이 일치하지 않아요."); return; }
-      state.adminMode = true;
     }
+    state.adminMode = true;
     renderMyPage();
     show("admin");
+  }
+
+  /* ---------- 관리자 조치 (서버 반영) ---------- */
+  const BAN_OPTIONS = [
+    ["글만 삭제", 0],
+    ["삭제 + 작성자 3일 정지", 3],
+    ["삭제 + 작성자 7일 정지", 7],
+    ["삭제 + 작성자 30일 정지", 30],
+    ["삭제 + 작성자 영구 정지", -1],
+  ];
+
+  // kind: post | spirit | meet | comment ...
+  function openAdminSheet(kind, id, title, targetUser, afterDone) {
+    if (!isAdmin()) return;
+    const labels = BAN_OPTIONS.map(([l]) => l);
+    openSheet(`🛡️ 관리자 조치 — ${title.slice(0, 18)}${title.length > 18 ? "…" : ""}`,
+      labels, null, async (picked) => {
+        const days = (BAN_OPTIONS.find(([l]) => l === picked) || [])[1];
+        const reason = prompt("사유를 남겨주세요 (기록에 저장됩니다)", "커뮤니티 규칙 위반");
+        if (reason === null) return;
+
+        toast("처리 중이에요…");
+        const del = await Sync.adminDelete(kind, id, { title, reason, targetUser });
+        if (!del.ok) { toast("삭제 실패: " + del.error); return; }
+
+        let msg = "삭제했어요.";
+        if (days !== 0) {
+          if (!targetUser) {
+            msg = "삭제했어요. (작성자를 알 수 없어 정지는 못 했어요)";
+          } else {
+            const ban = await Sync.adminBan(targetUser, days, reason);
+            msg = ban.ok ? `삭제하고 작성자를 ${ban.label} 처리했어요.` : "삭제했지만 정지 실패: " + ban.error;
+          }
+        }
+        toast("🛡️ " + msg);
+        await Sync.refresh("admin");
+        if (afterDone) afterDone();
+      });
   }
   /* ---------- 회원 디렉토리 (서버 연동 전 시뮬레이션) ---------- */
   function genMembers() {
@@ -1370,6 +1435,17 @@
     if (state.adminTab === "dash") renderAdminDash();
     else if (state.adminTab === "reports") renderAdminReports();
     else renderAdminUsers();
+
+    // 현황·회원 탭은 아직 이 기기 안의 예시 데이터예요.
+    // 실제 조치가 되는 것처럼 보이면 안 되니 분명히 표시합니다.
+    if (state.adminTab !== "reports") {
+      const area = $("#admin-area");
+      const note = document.createElement("p");
+      note.className = "sheet-note";
+      note.style.cssText = "margin:0 0 12px;text-align:left";
+      note.innerHTML = "⚠️ 이 탭은 <b>이 기기 안의 예시 데이터</b>예요. 여기서 한 정지·제재는 서버에 반영되지 않습니다.<br>실제 조치는 <b>신고함</b> 탭 또는 각 게시글의 🚩 &gt; 관리자 조치를 이용하세요.";
+      area.insertBefore(note, area.firstChild);
+    }
   }
   function renderAdminDash() {
     const pending = state.reports.filter((r) => r.status === "접수").length;
@@ -1456,25 +1532,42 @@
     URL.revokeObjectURL(a.href);
     toast("CSV 파일을 저장했어요. 📄");
   }
+  const TYPE_LABEL = { post: "게시글", spirit: "도감", comment: "댓글", meet: "모임", user: "사용자" };
+
   function renderAdminReports() {
+    const list = state.serverReports || [];
     $("#admin-area").innerHTML = `
-      ${state.reports.length ? state.reports.map((r) => {
-        const author = state.members.find((m) => m.id === r.authorMid);
+      <p class="sheet-note" style="margin:0 0 12px">서버에 접수된 실제 신고예요. 처리하면 모든 사용자에게 즉시 반영됩니다.</p>
+      ${list.length ? list.map((r) => {
+        const target = r.type === "post"
+          ? state.posts.find((p) => p.id === r.targetId)
+          : r.type === "spirit" ? state.spirits.find((s) => s.id === r.targetId) : null;
+        const gone = r.targetId !== null && !target;
         return `
         <div class="order-item">
           <div class="order-head">
             <span class="mk-state ${r.status === "접수" ? "" : "sold"}">${esc(r.status)}</span>
-            <span class="order-no">${r.type === "post" ? "게시글" : "도감"}</span>
+            <span class="order-no">${TYPE_LABEL[r.type] || esc(r.type)}</span>
             <span class="order-date">${fmtTime(r.time)}</span>
           </div>
-          <div class="order-title">${esc(r.title)}</div>
-          <div class="market-meta">사유: ${esc(r.reason)} · 작성자: ${author ? esc(author.nick) : "알 수 없음"}${author && author.reported ? ` (신고 누적 ${author.reported}회)` : ""}${r.action ? ` · ${esc(r.action)}` : ""}</div>
-          ${r.status === "접수" ? `<button class="host-chat-btn" data-proc="${r.id}" style="margin-top:10px">규정에 따라 처리하기</button>` : ""}
+          <div class="order-title">${esc(r.title || "(제목 없음)")}</div>
+          <div class="market-meta">사유: ${esc(r.reason)}${gone ? " · <b>이미 삭제됨</b>" : ""}${r.targetUser ? ` · 작성자 ${esc(r.targetUser.slice(0, 6))}` : ""}</div>
+          ${r.status === "접수" ? `
+            <div style="display:flex;gap:8px;margin-top:10px">
+              ${gone ? "" : `<button class="host-chat-btn" data-proc="${r.id}" style="flex:1">조치하기</button>`}
+              <button class="host-chat-btn outline" data-dismiss="${r.id}" style="flex:1">기각</button>
+            </div>` : ""}
         </div>`;
       }).join("") : '<div class="empty-state">접수된 신고가 없어요.</div>'}
       <div style="height:24px"></div>`;
     $$("#admin-area [data-proc]").forEach((b) =>
       b.addEventListener("click", () => processReport(+b.dataset.proc)));
+    $$("#admin-area [data-dismiss]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        const res = await Sync.adminResolveReport(+b.dataset.dismiss, "기각");
+        toast(res.ok ? "신고를 기각했어요." : "실패: " + res.error);
+        if (res.ok) Sync.refresh("admin");
+      }));
   }
   function renderAdminUsers() {
     const q = state.adminUserQ || "";
@@ -1562,31 +1655,14 @@
         toast(`${m.nick}님에게 '${label}'을 적용했어요.`);
       }));
   }
+  // 서버에 실제로 반영되는 신고 처리. 실패하면 실패했다고 알려줘요.
   function processReport(rid) {
-    const r = state.reports.find((x) => x.id === rid);
+    const r = (state.serverReports || []).find((x) => x.id === rid);
     if (!r) return;
-    const author = state.members.find((m) => m.id === r.authorMid);
-    openSheet(`신고 처리${author ? ` — 작성자: ${author.nick}` : ""}`,
-      ["삭제 + 3일 정지", "삭제 + 7일 정지", "삭제 + 30일 정지", "삭제 + 영구 정지", "콘텐츠만 삭제", "기각 (문제 없음)"], null, (action) => {
-      if (action.startsWith("기각")) {
-        r.status = "기각";
-      } else {
-        if (r.type === "post") {
-          state.posts = state.posts.filter((p) => p.id !== r.targetId);
-          savePosts();
-        } else {
-          state.spirits = state.spirits.filter((s) => s.id !== r.targetId);
-          saveSpirits();
-        }
-        const days = action.includes("영구") ? -1 : action.includes("30일") ? 30 : action.includes("7일") ? 7 : action.includes("3일") ? 3 : 0;
-        if (author && days !== 0) applySanction(author, action.replace("삭제 + ", ""), days, r.reason);
-        r.status = "처리완료";
-        r.action = action;
-      }
-      saveReports();
-      logAdmin(`신고 #${r.id} '${r.title.slice(0, 14)}' → ${action}`);
-      renderAdmin();
-      toast(`신고를 처리했어요: ${action}`);
+    openAdminSheet(r.type, r.targetId, r.title || "(제목 없음)", r.targetUser, async () => {
+      await Sync.adminResolveReport(rid, "완료");
+      Sync.refresh("admin");
+      if (state.view === "admin") renderAdmin();
     });
   }
 
@@ -3468,8 +3544,8 @@
         <span class="badge-name">${b.name}</span>
       </div>`;
     }).join("");
-    $("#btn-admin").hidden = !state.adminMode;
-    const pendingR = state.reports.filter((r) => r.status === "접수").length;
+    $("#btn-admin").hidden = !(state.adminMode || isAdmin());
+    const pendingR = (state.serverReports || []).filter((r) => r.status === "접수").length;
     $("#admin-report-cnt").textContent = pendingR ? `신고 ${pendingR}건` : "";
     $("#toggle-push").classList.toggle("on", state.push);
     $("#toggle-push").setAttribute("aria-checked", state.push);
@@ -4241,6 +4317,13 @@
   $("#spirit-report").addEventListener("click", () => {
     const sp = state.spirits.find((x) => x.id === state.curSpirit);
     if (!sp) return;
+    if (isAdmin() && sp.remote) {
+      openSheet("이 도감 항목", ["🚩 신고하기", "🛡️ 관리자 조치 (삭제·정지)"], null, (v) => {
+        if (v.includes("신고")) reportSpirit(sp);
+        else openAdminSheet("spirit", sp.id, sp.name, sp.authorId, () => show("dogam"));
+      });
+      return;
+    }
     if (sp.mine) { toast("내가 등록한 항목은 신고할 수 없어요."); return; }
     reportSpirit(sp);
   });
@@ -4274,10 +4357,14 @@
   $("#post-report").addEventListener("click", () => {
     const p = state.posts.find((x) => x.id === state.curPost);
     if (!p) return;
-    if (p.mine) { toast("내 글은 신고·차단할 수 없어요."); return; }
-    openSheet("이 게시글", ["🚩 신고하기", "🚫 이 작성자 차단하기"], null, (v) => {
+    const opts = [];
+    if (!p.mine) opts.push("🚩 신고하기", "🚫 이 작성자 차단하기");
+    if (isAdmin() && p.remote) opts.push("🛡️ 관리자 조치 (삭제·정지)");
+    if (!opts.length) { toast("내 글은 신고·차단할 수 없어요."); return; }
+    openSheet("이 게시글", opts, null, (v) => {
       if (v.includes("신고")) reportPost(p);
-      else blockAuthorOfPost(p);
+      else if (v.includes("차단")) blockAuthorOfPost(p);
+      else openAdminSheet("post", p.id, p.title, p.authorId, () => show("community"));
     });
   });
 
@@ -4350,7 +4437,11 @@
     verTapTimer = setTimeout(() => { verTaps = 0; }, 1500);
     if (verTaps >= 7) { verTaps = 0; adminEnter(); }
   });
-  $("#btn-admin").addEventListener("click", () => show("admin"));
+  $("#btn-admin").addEventListener("click", () => {
+    if (!isAdmin()) { adminEnter(); return; }   // 권한 안내 시트를 띄워줘요
+    state.adminMode = true;
+    show("admin");
+  });
   $$("#admin-tabs .seg-btn").forEach((b) =>
     b.addEventListener("click", () => { state.adminTab = b.dataset.atab; renderAdmin(); }));
   $("#fab-write").addEventListener("click", () => {
@@ -4605,6 +4696,7 @@
       if (data.profile.bizProfile && !state.user.bizProfile) state.user.bizProfile = data.profile.bizProfile;
       saveUser();
     }
+    if (data.reports) state.serverReports = data.reports;
     if (data.blocks) {
       // 서버 차단 목록 + 이 기기에만 있는 항목(local:) 을 합쳐요.
       const localOnly = blockedKeys().filter((k) => String(k).indexOf("local:") === 0);

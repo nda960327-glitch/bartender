@@ -23,6 +23,7 @@
     status: "off",     // off | connecting | online | offline | error
     uid: null,
     error: null,
+    isAdmin: false,    // 서버가 판정. 앱에서 조작해도 서버가 거부해요.
   };
 
   var sb = null;              // supabase client
@@ -334,16 +335,44 @@
     return (res.data || []).map(function (r) { return r.blocked_id; });
   }
 
+  // 내가 관리자인지 서버에 물어봐요. admins 테이블은 앱에서 쓰기가 아예 막혀 있어
+  // 이 값을 조작해도 서버가 실제 삭제를 거부합니다 (화면만 잠깐 바뀔 뿐).
+  async function pullIsAdmin() {
+    var res = await sb.from("admins").select("user_id").eq("user_id", S.uid).maybeSingle();
+    if (res.error) return false;
+    return !!res.data;
+  }
+
+  // 신고함 (관리자만 조회됩니다. 일반 사용자는 빈 배열)
+  async function pullReports() {
+    if (!S.isAdmin) return [];
+    var res = await sb.from("reports").select("*").order("created_at", { ascending: false }).limit(200);
+    if (res.error) return [];
+    return (res.data || []).map(function (r) {
+      return {
+        id: r.id,
+        type: r.target_type,
+        targetId: r.target_id === null ? null : Number(r.target_id),
+        targetUser: r.target_user,
+        title: r.title || "",
+        reason: r.reason,
+        status: r.status,
+        time: t(r.created_at),
+      };
+    });
+  }
+
   /* ---------- 전체 새로고침 ---------- */
   var pulling = false;
   async function pullAll(reason) {
     if (!sb || !S.uid || pulling) return;
     pulling = true;
     try {
+      S.isAdmin = await pullIsAdmin();
       var results = await Promise.allSettled([
-        pullPosts(), pullMeets(), pullSpirits(), pullProfile(), pullBlocks(),
+        pullPosts(), pullMeets(), pullSpirits(), pullProfile(), pullBlocks(), pullReports(),
       ]);
-      var data = {};
+      var data = { isAdmin: S.isAdmin };
       if (results[0].status === "fulfilled") data.posts = results[0].value;
       if (results[1].status === "fulfilled") data.meets = results[1].value;
       if (results[2].status === "fulfilled") {
@@ -352,6 +381,7 @@
       }
       if (results[3].status === "fulfilled" && results[3].value) data.profile = results[3].value;
       if (results[4].status === "fulfilled" && results[4].value) data.blocks = results[4].value;
+      if (results[5].status === "fulfilled") data.reports = results[5].value;
 
       var failed = results.filter(function (r) { return r.status === "rejected"; });
       if (failed.length === results.length) { setStatus("offline"); return; }
@@ -373,7 +403,7 @@
   /* ---------- 실시간 구독 ---------- */
   function subscribe() {
     var ch = sb.channel("bartalk-live");
-    ["posts", "comments", "likes", "meets", "meet_participants", "meet_comments", "spirits", "reviews"]
+    ["posts", "comments", "likes", "meets", "meet_participants", "meet_comments", "spirits", "reviews", "reports"]
       .forEach(function (table) {
         ch.on("postgres_changes", { event: "*", schema: "public", table: table }, function () {
           schedulePull("realtime");
@@ -443,6 +473,7 @@
     get uid() { return S.uid; },
     get error() { return S.error; },
     get queued() { return queue.length; },
+    get isAdmin() { return S.isAdmin; },
     ready: ready,
     init: init,
     refresh: function (reason) { return pullAll(reason || "manual"); },
@@ -582,6 +613,88 @@
       if (typeof blockedId !== "string" || blockedId.indexOf("local:") === 0) return;
       if (on) enqueue({ table: "blocks", op: "upsert", row: { user_id: S.uid, blocked_id: blockedId } });
       else enqueue({ table: "blocks", op: "delete", match: { user_id: S.uid, blocked_id: blockedId } });
+    },
+
+    /* ---------- 관리자 조치 ----------
+     * 일반 쓰기와 달리 큐에 넣지 않고 즉시 실행하고 결과를 돌려줘요.
+     * 권한이 없으면 서버가 거부하는데, 그걸 조용히 재시도 큐에 쌓으면
+     * 운영자는 "지웠다"고 착각하게 됩니다. 실패는 실패로 알려야 해요.
+     */
+    async adminDelete(kind, id, meta) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      var TABLE = {
+        post: "posts", comment: "comments", spirit: "spirits",
+        review: "reviews", meet: "meets", "meet-comment": "meet_comments",
+      };
+      var table = TABLE[kind];
+      if (!table) return { ok: false, error: "알 수 없는 대상이에요." };
+      try {
+        var res = await sb.from(table).delete().eq("id", id).select("id");
+        if (res.error) return { ok: false, error: res.error.message };
+        if (!res.data || !res.data.length) {
+          return { ok: false, error: "권한이 없거나 이미 삭제된 항목이에요." };
+        }
+        await api.logAdmin("삭제", kind, id, (meta && meta.title) || "", (meta && meta.reason) || "", meta && meta.targetUser);
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "삭제에 실패했어요." };
+      }
+    },
+
+    // days: -1 영구정지 / 0 정지해제 / 그 외 일수
+    async adminBan(targetUser, days, reason) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      if (!targetUser) return { ok: false, error: "작성자를 알 수 없는 글이에요." };
+      var until = days === 0 ? null
+        : days === -1 ? new Date(Date.now() + 100 * 365 * 86400e3).toISOString()
+        : new Date(Date.now() + days * 86400e3).toISOString();
+      try {
+        var res = await sb.from("profiles").update({ banned_until: until }).eq("id", targetUser).select("id");
+        if (res.error) return { ok: false, error: res.error.message };
+        if (!res.data || !res.data.length) return { ok: false, error: "권한이 없어요." };
+        var label = days === 0 ? "정지 해제" : days === -1 ? "영구 정지" : days + "일 정지";
+        await api.logAdmin(label, "user", null, "", reason || "", targetUser);
+        return { ok: true, label: label };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "처리에 실패했어요." };
+      }
+    },
+
+    async adminResolveReport(reportId, status) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      try {
+        var res = await sb.from("reports").update({ status: status }).eq("id", reportId).select("id");
+        if (res.error) return { ok: false, error: res.error.message };
+        if (!res.data || !res.data.length) return { ok: false, error: "권한이 없어요." };
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "처리에 실패했어요." };
+      }
+    },
+
+    // 조치 기록. 실패해도 본 작업을 되돌리지는 않아요 (기록보다 조치가 우선).
+    async logAdmin(action, targetType, targetId, title, reason, targetUser) {
+      if (!ready() || !S.isAdmin) return;
+      try {
+        await sb.from("admin_actions").insert({
+          admin_id: S.uid, action: action, target_type: targetType || null,
+          target_id: typeof targetId === "number" ? targetId : null,
+          target_user: targetUser || null, title: title || null, reason: reason || null,
+        });
+      } catch (e) {}
+    },
+
+    async adminLog(limit) {
+      if (!ready() || !S.isAdmin) return [];
+      var res = await sb.from("admin_actions").select("*")
+        .order("created_at", { ascending: false }).limit(limit || 50);
+      if (res.error) return [];
+      return (res.data || []).map(function (r) {
+        return {
+          at: t(r.created_at), action: r.action, type: r.target_type,
+          targetId: r.target_id, title: r.title, reason: r.reason,
+        };
+      });
     },
   };
 
