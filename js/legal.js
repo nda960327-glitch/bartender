@@ -2,7 +2,7 @@
 (function () {
   var META = {
     appName: "바텐톡",
-    version: "1.2.0",
+    version: "1.3.0",
     operator: "바텐톡 운영팀",
     email: "3663hong@gmail.com",
     updated: "2026-08-09",

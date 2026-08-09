@@ -14,7 +14,20 @@
   const COLORS = [
     "#ff6b5e", "#ff8ad4", "#c9a58f", "#ff9b3d", "#ffcb52",
     "#8fbf8f", "#cbe08a", "#a6e6de", "#6b9fff", "#b8a6f5",
+    /* 10~12 은 공식(운영) 계정 전용 금·은·동입니다.
+     * 아래 USER_COLORS 로 잘라내서 일반 사용자 색상 선택지에는 안 나옵니다.
+     * style="background:..." 에 그대로 들어가므로 그라데이션도 됩니다. */
+    "linear-gradient(135deg,#fbe9a7 0%,#e3b53f 38%,#fff6d0 52%,#b8860b 100%)",  // 10 금
+    "linear-gradient(135deg,#f4f7fa 0%,#bcc6d0 38%,#ffffff 52%,#8a95a1 100%)",  // 11 은
+    "linear-gradient(135deg,#f0c9a4 0%,#bd7c3c 38%,#f7dcc0 52%,#8a5223 100%)",  // 12 동
   ];
+  const METAL_FROM = 10;                          // 여기부터가 금속색
+  const USER_COLORS = COLORS.slice(0, METAL_FROM); // 사용자가 고를 수 있는 색
+  const isMetal = (c) => +c >= METAL_FROM;
+  // 금속색이면 테두리와 광택을 더해 한눈에 구분되게 합니다.
+  const avatarHTML = (color, cls) =>
+    `<span class="avatar${cls ? " " + cls : ""}${isMetal(color) ? " metal" : ""}"` +
+    ` style="background:${COLORS[color] || COLORS[0]}"></span>`;
   const REGIONS = ["전체", "서울", "경기", "인천", "부산", "대구", "대전", "광주"];
   const JOB_TYPES = ["전체", "칵테일바", "펍/호프", "와인바", "위스키바", "호텔바", "이자카야"];
   const SPIRIT_CATS = ["위스키", "진", "럼", "보드카", "데킬라", "리큐르", "와인", "전통주", "브랜디", "기타"];
@@ -1080,7 +1093,7 @@
 
   /* ---------- 온보딩 ---------- */
   function renderOnboard() {
-    $("#ob-colors").innerHTML = COLORS.map((c, i) =>
+    $("#ob-colors").innerHTML = USER_COLORS.map((c, i) =>
       `<button class="color-dot ${i === state.obColor ? "selected" : ""}" style="background:${c}" data-i="${i}" aria-label="색상 ${i + 1}"></button>`).join("");
     $$("#ob-colors .color-dot").forEach((d) =>
       d.addEventListener("click", () => { state.obColor = +d.dataset.i; renderOnboard(); }));
@@ -1326,7 +1339,7 @@
             const cnt = state.posts.filter((x) => !x.mine && postAuthorKey(x) === key).length;
             return `
               <div class="card row-link no-tap" style="margin-bottom:8px">
-                <span class="avatar" style="background:${COLORS[Math.abs(hashHue(String(key))) % COLORS.length]}"></span>
+                <span class="avatar" style="background:${USER_COLORS[Math.abs(hashHue(String(key))) % USER_COLORS.length]}"></span>
                 <span class="row-label" style="margin-left:10px">${blockedLabel(key)}</span>
                 <span class="flex-1"></span>
                 <span class="row-value" style="margin-right:10px">숨긴 글 ${cnt}개</span>
@@ -2150,7 +2163,7 @@
         const c = (s) => mine.filter((q) => q.status === s).length;
         return `
         <button class="row-link pressable card bot-row" data-bot="${esc(p.id)}">
-          <span class="avatar" style="background:${COLORS[p.color]}"></span>
+          ${avatarHTML(p.color, "md")}
           <span class="flex-1" style="text-align:left">
             <span class="bot-name">${esc(p.nick)}<span class="official-tag">${esc(p.official_label || "공식")}</span></span>
             <span class="market-meta">발행 ${c("published")} · 예약 ${c("approved")} · 초안 ${c("draft")}</span>
@@ -4043,7 +4056,7 @@
       <div class="comment-sec-title">댓글 ${m.comments.length}</div>
       ${m.comments.map((c, mi) => `
         <div class="comment-item">
-          <span class="avatar" style="background:${COLORS[c.color]}"></span>
+          ${avatarHTML(c.color)}
           <div class="comment-body">
             <div class="comment-head"><span class="comment-nick">${speakerHTML(c, m)}</span><span class="comment-time">${fmtTime(c.time)}</span>${c.mine ? `<button class="cmt-del" data-mi="${mi}">삭제</button>` : ""}</div>
             ${c.text ? `<div class="comment-text">${escMsg(c.text)}</div>` : ""}
@@ -4172,7 +4185,7 @@
       <div class="post-item" data-id="${p.id}">
         <div class="post-main">
           <div class="post-head">
-            <span class="avatar" style="background:${COLORS[p.color]}"></span>
+            ${avatarHTML(p.color)}
             ${p.boostUntil && p.boostUntil > Date.now() ? '<span class="boost-tag">📌 AD</span>' : ""}
             <span class="post-nick${p.official ? " official" : ""}">${posterName(p)}</span>${officialTag(p)}
             <span class="post-time">· ${fmtTime(p.time)}</span>
@@ -4258,7 +4271,7 @@
     $("#post-detail").innerHTML = `
       <div class="detail-wrap">
         <div class="detail-head">
-          <span class="avatar md" style="background:${COLORS[p.color]}"></span>
+          ${avatarHTML(p.color, "md")}
           <div><div class="detail-nick">${p.official ? `<span class="official">${esc(p.nick)}</span>` : p.cat === "promo" ? `<span class="biz-link" id="biz-link">${esc(p.nick)}</span>` : esc(dropName(p.color))}${officialTag(p)}${p.cat === "promo" ? ` <span class="biz-tag">📢 ${esc(p.biz || "비즈니스")}</span>` : ""}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""} · 조회 ${p.views || 0}</div></div>
           <span class="cat-tag detail-cat">${CAT_LABEL[p.cat] || "자유"}</span>
         </div>
@@ -4279,7 +4292,7 @@
       <div class="comment-sec-title">댓글 ${p.comments.length}</div>
       ${p.comments.map((c, ci) => `
         <div class="comment-item">
-          <span class="avatar" style="background:${COLORS[c.color]}"></span>
+          ${avatarHTML(c.color)}
           <div class="comment-body">
             <div class="comment-head"><span class="comment-nick">${speakerHTML(c, p)}</span><span class="comment-time">${fmtTime(c.time)}</span>
               <button class="reply-btn" data-ci="${ci}">답글</button>${c.mine ? `<button class="cmt-del" data-ci="${ci}">삭제</button>` : ""}</div>
@@ -4287,7 +4300,7 @@
             ${c.img ? `<img class="cmt-img" src="${c.img}" alt="댓글 사진">` : ""}
             ${(c.replies || []).map((rp, ri) => `
               <div class="reply-item">
-                <span class="avatar" style="background:${COLORS[rp.color]}"></span>
+                ${avatarHTML(rp.color)}
                 <div class="comment-body">
                   <div class="comment-head"><span class="comment-nick">${speakerHTML(rp, p)}</span><span class="comment-time">${fmtTime(rp.time)}</span>${rp.mine ? `<button class="cmt-del" data-ci="${ci}" data-ri="${ri}">삭제</button>` : ""}</div>
                   ${rp.text ? `<div class="comment-text">${escMsg(rp.text)}</div>` : ""}
@@ -4672,7 +4685,7 @@
     $("#btn-biz-save").classList.toggle("ready", ok);
   }
   function renderColorGrid() {
-    $("#color-grid").innerHTML = COLORS.map((c, i) =>
+    $("#color-grid").innerHTML = USER_COLORS.map((c, i) =>
       `<button class="color-dot ${i === state.selColor ? "selected" : ""}" style="background:${c}" data-i="${i}" aria-label="색상 ${i + 1}"></button>`
     ).join("");
     $$("#color-grid .color-dot").forEach((d) =>

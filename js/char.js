@@ -334,9 +334,24 @@
   /* 이름표 — 포즈만으로는 어떤 스티커인지 헷갈려서 위에 적어줍니다.
      글꼴이 아직 안 왔거나 막혔을 때를 대비해 기본 손글씨 계열을 함께 지정해요. */
   const HAND = "'Nanum Pen Script', 'Gaegu', 'Segoe Script', cursive";
-  const labelOf = (text) =>
-    `<text x="120" y="-14" text-anchor="middle" font-family="${HAND}" font-size="40"` +
-    ` fill="${L}" stroke="none" style="paint-order:stroke" stroke-width="0">${text}</text>`;
+
+  /* 이름표 — 위치와 기울기를 스티커마다 다르게 둡니다.
+     다만 무작위로 두면 다시 그릴 때마다 흔들리므로,
+     각 스티커의 고유 seed 로 정해 늘 같은 모양이 나오게 했어요. */
+  const TAG_SPOT = [
+    { x: 66, y: -12 },    // 왼쪽 위
+    { x: 120, y: -18 },   // 가운데 위
+    { x: 176, y: -12 },   // 오른쪽 위
+  ];
+
+  const labelOf = (text, seed) => {
+    const spot = TAG_SPOT[Math.abs(seed) % 3];
+    const tilt = (Math.abs(seed * 7) % 13) - 6;      // -6도 ~ +6도
+    return '<text x="' + spot.x + '" y="' + spot.y + '" text-anchor="middle"' +
+      ' transform="rotate(' + tilt + ' ' + spot.x + ' ' + spot.y + ')"' +
+      ' font-family="' + HAND + '" font-size="36" fill="' + L + '" stroke="none">' +
+      text + '</text>';
+  };
 
   function svg(key, size, rough) {
     const k = resolve(key);
@@ -345,8 +360,8 @@
     const dim = size ? ` width="${size}" height="${size}"` : "";
     const t = `translate(120 ${120 + (p[4] || 0)}) rotate(${p[3]}) scale(${FIT}) translate(-120 -120)`;
     // 위쪽에 이름표 자리를 만들기 위해 화면을 -52 부터 시작합니다.
-    const head = `<svg viewBox="0 -52 240 292"${dim} role="img" aria-label="${p[0]}">`;
-    const tag = labelOf(p[0]);
+    const head = `<svg viewBox="0 -40 240 280"${dim} role="img" aria-label="${p[0]}">`;
+    const tag = labelOf(p[0], p[2] || 0);
     if (!rough) {
       return `${head}${tag}<g transform="${t}">${p[1].r}${p[1].s}</g></svg>`;
     }

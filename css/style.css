@@ -492,6 +492,18 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
   clip-path: polygon(0 0, 100% 0, 100% 55%, 0 55%);
 }
 .avatar.md { width: 40px; height: 40px; }
+/* 금·은·동 — 공식(운영) 계정 전용. 테두리와 광택으로 일반 아바타와 구분됩니다. */
+.avatar.metal {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .75),
+              inset 0 -2px 4px rgba(0, 0, 0, .18),
+              0 1px 4px rgba(0, 0, 0, .25);
+}
+.avatar.metal::after { background: rgba(255, 255, 255, .68); }
+:root[data-theme="dark"] .avatar.metal {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .5),
+              inset 0 -2px 4px rgba(0, 0, 0, .3),
+              0 1px 5px rgba(0, 0, 0, .55);
+}
 .post-time { font-size: 13.5px; color: var(--text-sub); }
 .post-nick { font-size: 13.5px; font-weight: 700; }
 .boost-tag {
@@ -1375,22 +1387,27 @@ textarea.input { height: auto; }
 
 /* ---------- 홈 인사말 + 마스코트 ---------- */
 /* 인사말 + 마스코트
-   화면 폭이 좁으면 캐릭터가 글자를 밀어내므로, 폭에 따라 같이 줄어들게 했어요.
-   아주 좁은 기기(320px 등)에서는 글이 우선이라 캐릭터를 숨깁니다. */
-.greet-wrap {
-  display: flex; align-items: flex-end; justify-content: space-between;
-  gap: 10px; padding-right: 16px;
+   마스코트를 흐름에서 빼서 배경처럼 뒤에 깝니다.
+   자리를 차지하면 인사말이 아래로 밀려 위쪽이 휑하게 비어요.
+   글자와 겹치지 않도록 인사말에 오른쪽 여백만 확보합니다. */
+.greet-wrap { position: relative; }
+.greet-wrap .greet {
+  position: relative; z-index: 1;
+  padding-right: 44%;                /* 마스코트 자리를 글자가 침범하지 않도록 */
 }
-.greet-wrap .greet { flex: 1 1 auto; min-width: 0; padding-right: 0; }
 .greet-char {
-  flex: 0 1 auto;
-  width: clamp(96px, 33vw, 160px);
-  margin-bottom: -8px;   /* 바닥 그림자를 인사말 밑줄에 맞춤 */
+  position: absolute; z-index: 0;
+  right: 4px; bottom: -18px;         /* 아래로 살짝 걸쳐 검색창과 이어 보이게 */
+  width: clamp(124px, 42vw, 196px);
   pointer-events: none;
 }
 .greet-char svg { width: 100%; height: auto; display: block; }
-@media (max-width: 359px) { .greet-char { display: none; } }
-@media (min-width: 520px) { .greet-char { width: 176px; } }
+/* 아주 좁은 기기: 글이 우선이라 마스코트를 더 연하게, 글자 여백도 줄임 */
+@media (max-width: 359px) {
+  .greet-wrap .greet { padding-right: 34%; }
+  .greet-char { width: 112px; bottom: -12px; opacity: .55; }
+}
+@media (min-width: 520px) { .greet-char { right: 12px; } }
 
 /* ---------- 앱 설치 버튼 ---------- */
 .install-btn { position: relative; color: var(--accent); }
