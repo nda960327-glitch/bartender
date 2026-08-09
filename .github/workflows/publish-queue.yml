@@ -1,0 +1,73 @@
+# ============================================================
+#  예약 콘텐츠 발행 크론
+#
+#  Vercel Cron 은 Hobby 요금제에서 "하루 1회"만 됩니다.
+#  15분마다 돌리려면 Pro 로 올리거나, 이 워크플로를 쓰세요. (무료)
+#
+#  준비물 — GitHub 저장소 > Settings
+#    Secrets and variables > Actions > Secrets
+#       CRON_SECRET   : Vercel 환경변수에 넣은 값과 똑같이
+#    Secrets and variables > Actions > Variables   (선택)
+#       PUBLISH_URL   : 기본값은 https://barapp.kr/api/publish
+#
+#  ⚠️ 자주 부른다고 글이 자주 올라가지 않습니다.
+#     실제 발행 여부는 DB 의 content_settings 가 정합니다
+#     (조용한 시간 · 하루 상한 · 최소 간격). 여기는 그냥 노크만 해요.
+#
+#  GitHub 의 스케줄은 정시에 안 옵니다. 몇 분씩 밀리고 가끔 건너뜁니다.
+#  오히려 그게 사람 손 같은 불규칙함이라 이 용도에는 문제가 없어요.
+# ============================================================
+name: 예약 콘텐츠 발행
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "한 번에 발행할 최대 건수 (1~5)"
+        required: false
+        default: "1"
+
+# 앞 실행이 아직 안 끝났으면 겹쳐 돌리지 않습니다.
+concurrency:
+  group: publish-queue
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: 발행 엔드포인트 호출
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PUBLISH_URL: ${{ vars.PUBLISH_URL }}
+          LIMIT: ${{ github.event.inputs.limit || '1' }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::error::CRON_SECRET 시크릿이 설정되지 않았습니다."
+            exit 1
+          fi
+
+          URL="${PUBLISH_URL:-https://barapp.kr/api/publish}"
+
+          BODY=$(mktemp)
+          CODE=$(curl -sS -m 30 -o "$BODY" -w '%{http_code}' \
+                   -H "x-cron-key: ${CRON_SECRET}" \
+                   "${URL}?limit=${LIMIT}")
+
+          echo "HTTP ${CODE}"
+          cat "$BODY"
+          echo
+
+          if [ "$CODE" != "200" ]; then
+            echo "::error::발행 요청이 실패했습니다 (HTTP ${CODE})"
+            exit 1
+          fi
+
+          # 발행된 게 있으면 요약을 실행 목록에 남깁니다.
+          COUNT=$(python3 -c "import json,sys; print(json.load(open('$BODY')).get('published',0))")
+          echo "발행 ${COUNT}건" >> "$GITHUB_STEP_SUMMARY"

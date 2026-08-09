@@ -1344,6 +1344,29 @@
   }
   const hiddenSp = () => state.user.hiddenSpirits || [];
 
+  /* ---------- 익명 이름 ----------
+   * 색상마다 그 색을 실제로 띠는 클래식 칵테일을 붙였어요.
+   * (아비에이션은 제비꽃 리큐르로 보랏빛, 그래스호퍼는 민트 그린)
+   * 같은 색이면 같은 이름이라 사람을 특정하지는 못합니다 — 익명 유지. */
+  const DROP_NAMES = [
+    "네그로니", "코스모폴리탄", "올드패션드", "아페롤", "위스키사워",
+    "모히토", "김렛", "그래스호퍼", "블루하와이", "아비에이션",
+  ];
+  const dropName = (color) => DROP_NAMES[((+color || 0) % DROP_NAMES.length + DROP_NAMES.length) % DROP_NAMES.length];
+
+  // 댓글 작성자가 글쓴이 본인인지. 서버에 붙어 있으면 계정으로 정확히 판별해요.
+  const isOP = (c, post) =>
+    !!(c && post && ((c.authorId && post.authorId && c.authorId === post.authorId) || (c.mine && post.mine)));
+
+  // 이름 + 꼬리표 (글쓴이 / 나)
+  const speakerHTML = (who, post) => {
+    const name = esc(dropName(who.color));
+    const tags = [];
+    if (isOP(who, post)) tags.push('<span class="op-tag">글쓴이</span>');
+    if (who.mine) tags.push('<span class="me-tag">나</span>');
+    return name + (tags.length ? " " + tags.join(" ") : "");
+  };
+
   /* ---------- 내장 도감 수정 (운영자) ---------- */
   const SP_FIELDS = [
     ["name", "이름", "text"],
@@ -1643,6 +1666,7 @@
   // 관리 화면 이동. target 이 섹션이면 하위 화면, 아니면 상단 탭이에요.
   function adminGo(target, opts) {
     opts = opts || {};
+    dropCaret();
     if (ADMIN_SECTIONS[target]) {
       state.adminSub = {
         kind: target, q: "", filter: opts.filter || "전체", rows: null, loading: false,
@@ -1661,6 +1685,7 @@
   // 하위 화면에 있으면 뒤로가기를 대시보드로 먹습니다. (true = 내가 처리함)
   function adminBack() {
     if (!state.adminSub) return false;
+    dropCaret();
     state.adminSub = null;
     renderAdmin();
     return true;
@@ -1884,6 +1909,22 @@
   }
   const TYPE_LABEL = { post: "게시글", spirit: "도감", comment: "댓글", meet: "모임", user: "사용자" };
 
+  /* 관리자 화면의 검색창은 목록을 다시 그릴 때마다 새로 만들어집니다.
+     그냥 두면 서버 응답이 도착하는 순간 커서가 튕겨 나가서 글자를 이어서 칠 수 없어요.
+     "지금 어느 검색창의 몇 번째 글자에 있었는지"를 따로 기억해뒀다가 되돌려놔요.
+     (다시 그리는 시점의 activeElement 를 믿으면 안 됩니다. 그 사이에 이미
+      입력창이 사라졌다 새로 생기는 일이 있어서요) */
+  const caretAt = { id: null, pos: 0 };
+  const markCaret = (el) => { caretAt.id = el.id; caretAt.pos = el.selectionStart; };
+  const dropCaret = () => { caretAt.id = null; };
+  function restoreCaret() {
+    if (!caretAt.id) return;
+    const el = document.getElementById(caretAt.id);
+    if (!el) return;
+    el.focus();
+    try { el.setSelectionRange(caretAt.pos, caretAt.pos); } catch {}
+  }
+
   const REPORT_FILTERS = ["전체", "접수", "완료", "기각"];
   function renderAdminReports() {
     const f = state.adminReportFilter || "전체";
@@ -1950,7 +1991,8 @@
         if (res.ok) Sync.refresh("admin");
       }));
   }
-  function renderAdminUsers() {
+  const renderAdminUsers = () => { drawAdminUsers(); restoreCaret(); };
+  function drawAdminUsers() {
     const q = state.adminUserQ || "";
     const f = state.adminUserFilter || "전체";
     const all = state.adminUserList || [];
@@ -1990,15 +2032,13 @@
       <div style="height:24px"></div>`;
 
     const qInput = $("#admin-user-q");
+    qInput.addEventListener("focus", () => markCaret(qInput));
     qInput.addEventListener("input", () => {
+      markCaret(qInput);
       state.adminUserQ = qInput.value.trim();
       clearTimeout(state.adminUserTimer);
       state.adminUserTimer = setTimeout(() => loadAdminUsers(), 300);
-      const pos = qInput.selectionStart;
       renderAdminUsers();
-      const nq = $("#admin-user-q");
-      nq.focus();
-      nq.setSelectionRange(pos, pos);
     });
     $$("#admin-area .sort-row .chip").forEach((ch) =>
       ch.addEventListener("click", () => { state.adminUserFilter = ch.dataset.f; renderAdminUsers(); }));
@@ -2089,7 +2129,8 @@
    * 대시보드 숫자를 누르면 여기로 옵니다. 목록은 서버를 직접 읽어요.
    * (내 기기에 받아둔 캐시가 아니라 "지금 서버에 실제로 있는 것")
    */
-  function renderAdminSection() {
+  const renderAdminSection = () => { drawAdminSection(); restoreCaret(); };
+  function drawAdminSection() {
     const sub = state.adminSub;
     if (!sub) return;
     if (sub.kind === "conv") { renderAdminConv(); return; }
@@ -2130,15 +2171,13 @@
     });
 
     const qInput = $("#admin-sec-q");
+    qInput.addEventListener("focus", () => markCaret(qInput));
     qInput.addEventListener("input", () => {
+      markCaret(qInput);
       state.adminSub.q = qInput.value.trim();
       clearTimeout(state.adminSecTimer);
       state.adminSecTimer = setTimeout(() => loadAdminSection(), 320);
-      const pos = qInput.selectionStart;
       renderAdminSection();
-      const nq = $("#admin-sec-q");
-      nq.focus();
-      nq.setSelectionRange(pos, pos);
     });
     $$("#admin-area .sort-row .chip").forEach((ch) =>
       ch.addEventListener("click", () => { state.adminSub.filter = ch.dataset.f; renderAdminSection(); }));
@@ -3467,7 +3506,7 @@
           <span class="avatar" style="background:${COLORS[r.color]}"></span>
           <div class="review-body">
             <div class="review-head">
-              <span class="review-nick">익명${r.mine ? " (나)" : ""}</span>
+              <span class="review-nick">${esc(dropName(r.color))}${r.mine ? ' <span class="me-tag">나</span>' : ""}</span>
               <span class="review-stars">${starStr(r.stars)}</span>
               ${r.mine ? `<button class="cmt-del" data-vi="${vi}">삭제</button>` : ""}
               <span class="review-time">${fmtTime(r.time)}</span>
@@ -3691,7 +3730,7 @@
         <div class="comment-item">
           <span class="avatar" style="background:${COLORS[c.color]}"></span>
           <div class="comment-body">
-            <div class="comment-head"><span class="comment-nick">익명${c.mine ? " (나)" : ""}</span><span class="comment-time">${fmtTime(c.time)}</span>${c.mine ? `<button class="cmt-del" data-mi="${mi}">삭제</button>` : ""}</div>
+            <div class="comment-head"><span class="comment-nick">${speakerHTML(c, m)}</span><span class="comment-time">${fmtTime(c.time)}</span>${c.mine ? `<button class="cmt-del" data-mi="${mi}">삭제</button>` : ""}</div>
             ${c.text ? `<div class="comment-text">${escMsg(c.text)}</div>` : ""}
             ${c.img ? `<img class="cmt-img" src="${c.img}" alt="댓글 사진">` : ""}
           </div>
@@ -3819,7 +3858,7 @@
           <div class="post-head">
             <span class="avatar" style="background:${COLORS[p.color]}"></span>
             ${p.boostUntil && p.boostUntil > Date.now() ? '<span class="boost-tag">📌 AD</span>' : ""}
-            ${p.cat === "promo" ? `<span class="post-nick">📢 ${esc(p.nick)}</span>` : ""}
+            <span class="post-nick">${p.cat === "promo" ? "📢 " + esc(p.nick) : esc(dropName(p.color))}</span>
             <span class="post-time">· ${fmtTime(p.time)}</span>
             ${p.mine ? '<span class="my-tag">내 글</span>' : ""}
           </div>
@@ -3904,7 +3943,7 @@
       <div class="detail-wrap">
         <div class="detail-head">
           <span class="avatar md" style="background:${COLORS[p.color]}"></span>
-          <div><div class="detail-nick">${p.cat === "promo" ? `<span class="biz-link" id="biz-link">${esc(p.nick)}</span>` : esc(p.nick)}${p.cat === "promo" ? ` <span class="biz-tag">📢 ${esc(p.biz || "비즈니스")}</span>` : ""}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""} · 조회 ${p.views || 0}</div></div>
+          <div><div class="detail-nick">${p.cat === "promo" ? `<span class="biz-link" id="biz-link">${esc(p.nick)}</span>` : esc(dropName(p.color))}${p.cat === "promo" ? ` <span class="biz-tag">📢 ${esc(p.biz || "비즈니스")}</span>` : ""}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""} · 조회 ${p.views || 0}</div></div>
           <span class="cat-tag detail-cat">${CAT_LABEL[p.cat] || "자유"}</span>
         </div>
         <div class="detail-title">${esc(p.title)}</div>
@@ -3926,7 +3965,7 @@
         <div class="comment-item">
           <span class="avatar" style="background:${COLORS[c.color]}"></span>
           <div class="comment-body">
-            <div class="comment-head"><span class="comment-nick">익명${c.mine ? " (나)" : ""}</span><span class="comment-time">${fmtTime(c.time)}</span>
+            <div class="comment-head"><span class="comment-nick">${speakerHTML(c, p)}</span><span class="comment-time">${fmtTime(c.time)}</span>
               <button class="reply-btn" data-ci="${ci}">답글</button>${c.mine ? `<button class="cmt-del" data-ci="${ci}">삭제</button>` : ""}</div>
             ${c.text ? `<div class="comment-text">${escMsg(c.text)}</div>` : ""}
             ${c.img ? `<img class="cmt-img" src="${c.img}" alt="댓글 사진">` : ""}
@@ -3934,7 +3973,7 @@
               <div class="reply-item">
                 <span class="avatar" style="background:${COLORS[rp.color]}"></span>
                 <div class="comment-body">
-                  <div class="comment-head"><span class="comment-nick">익명${rp.mine ? " (나)" : ""}</span><span class="comment-time">${fmtTime(rp.time)}</span>${rp.mine ? `<button class="cmt-del" data-ci="${ci}" data-ri="${ri}">삭제</button>` : ""}</div>
+                  <div class="comment-head"><span class="comment-nick">${speakerHTML(rp, p)}</span><span class="comment-time">${fmtTime(rp.time)}</span>${rp.mine ? `<button class="cmt-del" data-ci="${ci}" data-ri="${ri}">삭제</button>` : ""}</div>
                   ${rp.text ? `<div class="comment-text">${escMsg(rp.text)}</div>` : ""}
                   ${rp.img ? `<img class="cmt-img" src="${rp.img}" alt="댓글 사진">` : ""}
                 </div>
@@ -4170,7 +4209,7 @@
         <div class="chat-item" data-id="${c.id}">
           <span class="avatar md" style="background:${COLORS[c.color]}"></span>
           <div class="chat-body">
-            <div class="chat-nick">익명 <span style="font-weight:500;color:var(--text-sub);font-size:13px">· ${esc(c.ctx)}</span></div>
+            <div class="chat-nick">${esc(dropName(c.color))} <span style="font-weight:500;color:var(--text-sub);font-size:13px">· ${esc(c.ctx)}</span></div>
             <div class="chat-last">${last ? esc(last.text) : "대화를 시작해보세요."}</div>
           </div>
           <div class="chat-right">
@@ -4222,7 +4261,7 @@
     const c = state.chats.find((x) => x.id === state.curChat);
     if (!c) return;
     $("#chat-avatar").style.background = COLORS[c.color];
-    $("#chat-title").textContent = "익명 · " + c.ctx;
+    $("#chat-title").textContent = dropName(c.color) + " · " + c.ctx;
     $("#chat-msgs").innerHTML = `
       <div class="chat-hint">${c.remote
         ? "상대방도 익명으로 표시돼요.<br>메시지는 두 사람만 볼 수 있어요. 운영자도 볼 수 없습니다."
@@ -5250,7 +5289,11 @@
     show("admin");
   });
   $$("#admin-tabs .seg-btn").forEach((b) =>
-    b.addEventListener("click", () => { state.adminSub = null; state.adminTab = b.dataset.atab; renderAdmin(); }));
+    b.addEventListener("click", () => { dropCaret(); state.adminSub = null; state.adminTab = b.dataset.atab; renderAdmin(); }));
+  // 검색창 말고 다른 것을 누르면 커서 기억을 놓아줘요 (안 그러면 목록을 눌러도 자판이 다시 올라와요)
+  $("#admin-area").addEventListener("pointerdown", (e) => {
+    if (!e.target.closest("#admin-sec-q, #admin-user-q")) dropCaret();
+  });
   $("#fab-write").addEventListener("click", () => {
     state.editPost = null;
     $("#view-write .topbar-title").textContent = "글쓰기";

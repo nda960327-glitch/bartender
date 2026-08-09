@@ -6,10 +6,8 @@
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="120" fill="url(#g)"/>
-  <g stroke="#fff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" fill="none">
-    <path d="M150 150h212l-106 130z"/>
-    <path d="M256 280v110"/>
-    <path d="M196 390h120"/>
-    <circle cx="312" cy="176" r="16" fill="#fff" stroke="none"/>
-  </g>
+  <!-- 세 물방울: 크기가 다른 방울 셋이 대화를 주고받는 모습 -->
+  <path d="M146 228 L196 322 A58 58 0 1 1 96 322 Z" fill="#fff" opacity=".5"/>
+  <path d="M372 258 L412 333 A46 46 0 1 1 332 333 Z" fill="#fff" opacity=".72"/>
+  <path d="M256 88 L336 238 A92 92 0 1 1 176 238 Z" fill="#fff"/>
 </svg>

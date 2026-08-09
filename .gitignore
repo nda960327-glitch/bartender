@@ -4,6 +4,11 @@ node_modules/
 Thumbs.db
 *.log
 
+# 환경변수 — service_role 키가 들어갑니다. 유출되면 DB 전체가 열립니다. 절대 커밋 금지.
+.env
+.env.*
+!.env.example
+
 # 캐릭터 시안 등 작업용 임시 파일 (_ 로 시작)
 _*
 
