@@ -2,7 +2,7 @@
 
 바텐더 익명 커뮤니티 PWA. 술도감 · 칵테일 레시피 · 모임 · 채용정보 · 바텐더 도구.
 
-**운영 주소: https://bartender-gamma.vercel.app**
+**운영 주소: https://barapp.kr**
 
 - 프레임워크 없는 순수 HTML/CSS/JS (빌드 단계 없음)
 - **오프라인 우선**: 화면은 항상 기기 안 데이터로 즉시 그리고, 서버 데이터는 뒤이어 반영
@@ -111,8 +111,8 @@ Supabase 대시보드 > **Authentication > URL Configuration**
 
 | 항목 | 값 |
 |---|---|
-| Site URL | `https://bartender-gamma.vercel.app` |
-| Redirect URLs | `https://bartender-gamma.vercel.app/**` |
+| Site URL | `https://barapp.kr` |
+| Redirect URLs | `https://barapp.kr/**` |
 
 로컬에서도 테스트하려면 `http://localhost:8777/**` 도 함께 추가하세요.
 
@@ -146,7 +146,7 @@ curl -X POST "https://dvharpjpemxpbrhhlolx.supabase.co/auth/v1/signup" -H "apike
 ### 3. 카카오
 
 1. [Kakao Developers](https://developers.kakao.com) > 내 애플리케이션 > **애플리케이션 추가**
-2. **앱 설정 > 플랫폼 > Web** 에 사이트 도메인 등록: `https://bartender-gamma.vercel.app`
+2. **앱 설정 > 플랫폼 > Web** 에 사이트 도메인 등록: `https://barapp.kr`
 3. **제품 설정 > 카카오 로그인** 활성화 ON
 4. Redirect URI 에 추가: `https://dvharpjpemxpbrhhlolx.supabase.co/auth/v1/callback`
 5. **동의 항목**에서 `카카오계정(이메일)` 을 **필수 동의**로 설정
@@ -159,8 +159,8 @@ Supabase 가 네이버를 지원하지 않아 [`api/naver-login.js`](api/naver-l
 
 1. [네이버 개발자 센터](https://developers.naver.com/apps) > **애플리케이션 등록**
    - 사용 API: **네이버 로그인** / 제공 정보: **이메일 주소 (필수)**
-   - 서비스 URL: `https://bartender-gamma.vercel.app`
-   - Callback URL: `https://bartender-gamma.vercel.app/api/naver-login`
+   - 서비스 URL: `https://barapp.kr`
+   - Callback URL: `https://barapp.kr/api/naver-login`
 2. Vercel 프로젝트 > **Settings > Environment Variables** 에 4개 추가:
 
 | 이름 | 값 |
@@ -178,7 +178,7 @@ Supabase 가 네이버를 지원하지 않아 [`api/naver-login.js`](api/naver-l
 설정이 됐는지 확인:
 
 ```bash
-curl https://bartender-gamma.vercel.app/api/naver-login?probe=1
+curl https://barapp.kr/api/naver-login?probe=1
 ```
 
 `{"configured":true}` 가 나오면 앱의 네이버 버튼이 활성화됩니다.
@@ -225,8 +225,8 @@ curl https://bartender-gamma.vercel.app/api/naver-login?probe=1
 
 모든 조치는 `admin_actions` 테이블에 누가·무엇을·왜 했는지 기록됩니다.
 
-> 관리자 화면의 **현황·회원 탭은 아직 예시 데이터**입니다 (화면에도 경고가 표시됩니다).
-> 거기서 누른 정지는 서버에 반영되지 않습니다.
+**현황** 탭은 서버 실시간 수치(회원·게시글·신고·정지 등)를, **회원** 탭은 실제 가입자 목록을 보여줍니다.
+회원을 눌러 정지/해제하면 서버에 즉시 반영됩니다.
 
 대시보드에서 직접 볼 수도 있습니다.
 
@@ -267,9 +267,12 @@ node tools/gen-icons.js icons
 
 ### 1. 웹 호스팅 — 완료됨
 
-**운영 주소: https://bartender-gamma.vercel.app**
+**운영 주소: https://barapp.kr**
 
 Vercel이 GitHub `main` 브랜치에 연결돼 있어, **푸시하면 자동 배포**됩니다.
+
+> Vercel 기본 주소(`bartender-gamma.vercel.app`)도 계속 살아 있지만, **정식 주소는 barapp.kr** 입니다.
+> Vercel > Settings > Domains 에서 barapp.kr 을 Primary 로 지정하면 기본 주소는 자동으로 리다이렉트됩니다.
 
 [`vercel.json`](vercel.json) 의 헤더 설정 의도 (JSON은 주석을 못 달아 여기 정리합니다):
 
@@ -289,7 +292,7 @@ Vercel이 GitHub `main` 브랜치에 연결돼 있어, **푸시하면 자동 배
 ### 2. Bubblewrap으로 Android 패키지 만들기
 
 ```bash
-npx @bubblewrap/cli init --manifest https://bartender-gamma.vercel.app/manifest.json
+npx @bubblewrap/cli init --manifest https://barapp.kr/manifest.json
 ```
 
 ```bash
@@ -306,7 +309,7 @@ npx @bubblewrap/cli build
 
 1. Play Console > 설정 > 앱 서명 에서 **SHA-256 인증서 지문** 복사
 2. `.well-known/assetlinks.json`의 `package_name`과 `sha256_cert_fingerprints` 값을 실제 값으로 교체
-3. 재배포 후 `https://bartender-gamma.vercel.app/.well-known/assetlinks.json` 이 그대로 열리는지 확인
+3. 재배포 후 `https://barapp.kr/.well-known/assetlinks.json` 이 그대로 열리는지 확인
 
 > 이 파일이 없거나 지문이 틀리면 앱 상단에 URL 바가 보입니다.
 
@@ -318,8 +321,8 @@ npx @bubblewrap/cli build
 - [ ] 피처 그래픽 1024×500
 - [ ] 폰 스크린샷 최소 2장
 - [ ] 짧은 설명(80자) / 자세한 설명(4000자)
-- [ ] **개인정보처리방침 URL** → `https://bartender-gamma.vercel.app/privacy.html`
-- [ ] **계정 삭제 URL** → `https://bartender-gamma.vercel.app/account-deletion.html`
+- [ ] **개인정보처리방침 URL** → `https://barapp.kr/privacy.html`
+- [ ] **계정 삭제 URL** → `https://barapp.kr/account-deletion.html`
 - [ ] 데이터 안전(Data Safety) 설문 — **연결 여부에 따라 답이 달라집니다**
       - `config.js` 비움: 수집 없음 / 데이터는 기기에만 저장
       - Supabase 연결: 사용자 생성 콘텐츠(글·사진) 수집 / 전송 중 암호화 됨 / 삭제 요청 가능 / 제3자 공유 없음
