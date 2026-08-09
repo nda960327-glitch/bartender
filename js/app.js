@@ -5161,7 +5161,9 @@
     }
 
     if (result === "signed-out") {
-      setLoginStatus("");
+      // 로그인 링크를 타고 왔는데 세션이 안 생긴 경우, 여기에 이유가 담겨 있어요.
+      // 그냥 비워두면 로그인 화면만 다시 떠서 왜 안 되는지 알 수가 없습니다.
+      setLoginStatus(Sync.error || "", Sync.error ? "err" : "");
       return;   // 로그인 화면 유지
     }
 

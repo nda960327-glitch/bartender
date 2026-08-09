@@ -619,6 +619,27 @@
     return msg;
   }
 
+  // 로그인 링크를 타고 왔는데 세션이 안 생겼을 때, 왜 그런지 알려줍니다.
+  // 주소에 흔적이 남아 있어서 구분할 수 있어요.
+  //  · ?code=…            → 예전 pkce 방식 링크. 요청한 브라우저가 아니면 실패합니다.
+  //  · #access_token=…    → 토큰은 왔는데 세션 저장에 실패 (시크릿 모드·저장소 차단 등)
+  // 흔적은 지웁니다. 안 지우면 새로고침할 때마다 같은 실패를 반복해요.
+  function staleLinkMessage() {
+    var msg = null;
+    try {
+      var q = new URLSearchParams(location.search);
+      var h = location.hash || "";
+      if (q.get("code")) {
+        msg = "로그인 링크가 만료됐거나 다른 브라우저에서 열렸어요. " +
+              "메일을 다시 받아, 링크를 길게 눌러 기본 브라우저로 열어주세요.";
+      } else if (h.indexOf("access_token=") >= 0) {
+        msg = "로그인 정보를 저장하지 못했어요. 시크릿 모드가 아닌 창에서 다시 시도해주세요.";
+      }
+      if (msg) history.replaceState(null, "", location.pathname);
+    } catch (e) {}
+    return msg;
+  }
+
   // 네이버 로그인 함수가 돌려준 1회용 토큰으로 세션을 완성해요.
   // (구글·카카오는 supabase-js 가 알아서 처리하므로 이 과정이 없습니다)
   async function consumeTokenHash() {
@@ -690,7 +711,17 @@
       sb = mod.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, {
         auth: {
           persistSession: true, autoRefreshToken: true,
-          detectSessionInUrl: true, flowType: "pkce",
+          detectSessionInUrl: true,
+          // pkce 가 아니라 implicit 입니다. 이유가 있어요.
+          //
+          // pkce 는 메일을 "요청한 브라우저"의 localStorage 에 code_verifier 를 저장해두고,
+          // 링크를 눌렀을 때 그 값으로 코드를 교환합니다. 그런데 사람들은 메일을
+          // 카카오·네이버·지메일 앱에서 열고, 그 인앱 브라우저는 저장소가 따로예요.
+          // 그래서 verifier 를 못 찾고 조용히 실패합니다. 화면엔 아무 말도 안 뜨고
+          // 로그인 화면만 다시 보이죠. PC 에서 요청하고 폰에서 여는 경우도 마찬가지고요.
+          //
+          // implicit 는 링크 자체에 토큰이 담겨 오므로 어느 브라우저에서 열어도 됩니다.
+          flowType: "implicit",
           storageKey: "bartalk_auth",
         },
         realtime: { params: { eventsPerSecond: 3 } },
@@ -722,7 +753,9 @@
       var sess = await sb.auth.getSession();
       var user = sess.data && sess.data.session && sess.data.session.user;
       if (!user) {
-        setStatus("signed-out");
+        // 로그인 링크를 눌러서 왔는데 세션이 안 생긴 경우입니다.
+        // 그냥 두면 로그인 화면만 다시 떠서 "왜 안 되지" 하게 되므로 이유를 알려줘요.
+        setStatus("signed-out", staleLinkMessage());
         return "signed-out";
       }
       S.uid = user.id;

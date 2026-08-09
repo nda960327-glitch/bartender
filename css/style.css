@@ -124,6 +124,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
   text-align: center; font-size: 13.5px; line-height: 1.6; margin-top: 16px;
   padding: 12px 14px; border-radius: 12px; word-break: keep-all;
   background: var(--bg-gray); color: var(--text-sub);
+  /* 안내문에 \n 을 넣어 두 줄로 쓰는 곳이 있어요. 없으면 한 줄로 붙어버립니다. */
+  white-space: pre-line;
 }
 .login-status.err { color: #e11d48; }
 .login-status.ok { color: var(--accent); }
