@@ -755,6 +755,10 @@
     adminTab: "dash",
     adminUserQ: "",
     adminUserFilter: "전체",
+    adminReportFilter: "전체",
+    adminLogRows: null,
+    adminSub: null,        // { kind, q, filter, rows, loading } — 콘텐츠 관리 하위 화면
+    adminSecTimer: null,
     noti: store.get("noti", []),
     chats: store.get("chats", []),
     dark: store.get("dark", !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)),
@@ -912,6 +916,74 @@
     toastTimer = setTimeout(() => { el.hidden = true; }, 2000);
   }
 
+  /* ---------- 캐릭터 알림창 ----------
+     confirm()/prompt() 자리를 대신합니다. 기본 창은 'barapp.kr 내용:' 이 붙고
+     글꼴·색·버튼을 못 바꿔서, 앱 한가운데서만 남의 화면처럼 보였어요.
+
+     기본 창과 달리 이건 비동기라 호출부에 await 이 필요합니다.
+     - btConfirm(msg) → true/false
+     - btAlert(msg)   → 닫히면 끝
+     - btPrompt(msg, 기본값) → 입력한 문자열 / 취소하면 null
+     문구에 삭제·탈퇴 같은 말이 있으면 알아서 빨간 버튼(danger)으로 뜹니다. */
+  const MODAL_FACE = { ask: "think", danger: "wcry", info: "hi" };
+  const DANGER_RE = /삭제|탈퇴|해제|정지|되돌|복원|로그아웃/;
+
+  function btModal(o) {
+    return new Promise((resolve) => {
+      const kind = o.kind || "confirm";
+      const tone = o.tone || (kind === "alert" ? "info" : (DANGER_RE.test(o.msg) ? "danger" : "ask"));
+      const face = window.BTChar ? window.BTChar.svg(o.face || MODAL_FACE[tone], 0, true) : "";
+      const back = document.createElement("div");
+      back.className = "bt-modal-back";
+      back.innerHTML =
+        `<div class="bt-modal" role="alertdialog" aria-modal="true">` +
+        `<div class="bt-modal-char">${face}</div>` +
+        (o.title ? `<h3 class="bt-modal-title">${esc(o.title)}</h3>` : "") +
+        `<p class="bt-modal-msg">${esc(o.msg).replace(/\n/g, "<br>")}</p>` +
+        (kind === "prompt" ? `<input class="bt-modal-input" type="text" value="${esc(o.value || "")}">` : "") +
+        `<div class="bt-modal-btns">` +
+        (kind === "alert" ? "" : `<button class="bt-modal-btn ghost" data-no>${esc(o.no || "취소")}</button>`) +
+        `<button class="bt-modal-btn go${tone === "danger" ? " danger" : ""}" data-yes>${esc(o.yes || "확인")}</button>` +
+        `</div></div>`;
+
+      const input = back.querySelector(".bt-modal-input");
+      // 취소했을 때 돌려줄 값 — prompt 만 null, 나머지는 false 로 맞춥니다.
+      const NO = kind === "prompt" ? null : false;
+      let done = false;
+      function finish(v) {
+        if (done) return;
+        done = true;
+        document.removeEventListener("keydown", onKey, true);
+        back.classList.add("out");
+        setTimeout(() => back.remove(), 120);
+        resolve(v);
+      }
+      const yes = () => finish(kind === "prompt" ? input.value : true);
+      const no = () => finish(NO);
+      // 창이 떠 있는 동안은 뒤쪽 입력창의 Enter 핸들러까지 가면 안 돼요.
+      function onKey(e) {
+        if (e.key !== "Escape" && e.key !== "Enter") return;
+        e.preventDefault();
+        e.stopPropagation();
+        (e.key === "Escape" ? no : yes)();
+      }
+
+      back.querySelector("[data-yes]").addEventListener("click", yes);
+      const noBtn = back.querySelector("[data-no]");
+      if (noBtn) noBtn.addEventListener("click", no);
+      // 바깥을 눌러도 닫힙니다. 안내(alert)는 확인한 걸로 봐요.
+      back.addEventListener("click", (e) => { if (e.target === back) (kind === "alert" ? yes : no)(); });
+      document.addEventListener("keydown", onKey, true);
+
+      $("#app").appendChild(back);
+      if (input) { input.focus(); input.select(); }
+      else back.querySelector("[data-yes]").focus();
+    });
+  }
+  const btConfirm = (msg, o) => btModal(Object.assign({ kind: "confirm", msg }, o));
+  const btAlert = (msg, o) => btModal(Object.assign({ kind: "alert", msg }, o));
+  const btPrompt = (msg, value, o) => btModal(Object.assign({ kind: "prompt", msg, value: value || "" }, o));
+
   /* ---------- 알림/포인트 ---------- */
   function addNoti(ic, text) {
     sfx("notify");
@@ -928,7 +1000,6 @@
     b.textContent = n > 9 ? "9+" : n;
   }
   function addPoints(amt, reason) {
-    if (amt > 0) sfx("coin");
     vibrate(12);
     state.user.points += amt;
     state.user.pointLog.unshift({ amt, reason, time: Date.now() });
@@ -961,7 +1032,6 @@
     if (!fromPop && view !== state.view && view !== "onboard" && view !== "login") {
       try { history.pushState({ view }, "", "#" + view); } catch {}
     }
-    if (view !== state.view) sfx(fromPop ? "back" : "nav");
     state.view = view;
     $$(".view").forEach((v) => { v.hidden = v.id !== "view-" + view; });
     const hideNav = view === "onboard" || view === "login" ||
@@ -1339,7 +1409,7 @@
   }
 
   async function revertSpirit(sp) {
-    if (!confirm("이 항목의 수정을 취소하고 원래 내용으로 되돌릴까요?")) return;
+    if (!await btConfirm("이 항목의 수정을 취소하고\n원래 내용으로 되돌릴까요?", { yes: "되돌리기" })) return;
     toast("되돌리는 중이에요…");
     const res = await Sync.clearOverride("spirit", sp.id);
     if (!res.ok) { toast("실패: " + res.error); return; }
@@ -1426,7 +1496,7 @@
   // PIN 을 뚫어도 서버가 삭제·정지를 거부합니다.
   const isAdmin = () => !!Sync.isAdmin;
 
-  function adminEnter() {
+  async function adminEnter() {
     if (!Sync.enabled) {
       toast("서버에 연결된 상태에서만 관리자 기능을 쓸 수 있어요.");
       return;
@@ -1452,15 +1522,17 @@
     }
     const saved = store.get("adminPin", null);
     if (!saved) {
-      const pin = prompt("관리자 PIN을 설정해주세요 (4자리 이상)");
+      const pin = await btPrompt("관리자 PIN을 설정해주세요 (4자리 이상)", "", { title: "🛡️ 관리자 모드" });
       if (!pin || pin.length < 4) { toast("PIN은 4자리 이상이어야 해요."); return; }
       store.set("adminPin", pin);
       toast("관리자 모드가 활성화됐어요. 🛡️");
     } else {
-      const pin = prompt("관리자 PIN을 입력해주세요");
+      const pin = await btPrompt("관리자 PIN을 입력해주세요", "", { title: "🛡️ 관리자 모드" });
       if (pin !== saved) { if (pin !== null) toast("PIN이 일치하지 않아요."); return; }
     }
     state.adminMode = true;
+    state.adminSub = null;
+    state.adminTab = "dash";
     renderMyPage();
     show("admin");
   }
@@ -1481,7 +1553,7 @@
     openSheet(`🛡️ 관리자 조치 — ${title.slice(0, 18)}${title.length > 18 ? "…" : ""}`,
       labels, null, async (picked) => {
         const days = (BAN_OPTIONS.find(([l]) => l === picked) || [])[1];
-        const reason = prompt("사유를 남겨주세요 (기록에 저장됩니다)", "커뮤니티 규칙 위반");
+        const reason = await btPrompt("사유를 남겨주세요\n(기록에 저장됩니다)", "커뮤니티 규칙 위반", { title: "🛡️ 관리자 조치" });
         if (reason === null) return;
 
         toast("처리 중이에요…");
@@ -1529,17 +1601,71 @@
     return 2 + ((targetId * 7 + (type === "post" ? 3 : 5)) % (state.members.length - 1));
   }
 
-  /* ---------- 관리자 화면 ---------- */
+  /* ---------- 관리자 화면 ----------
+   * 대시보드의 숫자·행은 전부 눌러서 해당 관리 화면으로 들어갑니다.
+   * 숫자만 보여주고 막다른 길이면 운영자는 결국 DB 대시보드를 켜게 되니까,
+   * "본 곳에서 바로 조치"까지 앱 안에서 끝나야 해요.
+   */
+  const ADMIN_SECTIONS = {
+    post:    { ic: "📝", title: "게시글 관리", empty: "게시글이 없어요." },
+    comment: { ic: "💬", title: "댓글 관리",   empty: "댓글이 없어요." },
+    spirit:  { ic: "🥃", title: "도감 관리",   empty: "이용자가 등록한 도감이 없어요." },
+    meet:    { ic: "🍻", title: "모임 관리",   empty: "모임이 없어요." },
+    review:  { ic: "⭐", title: "리뷰 관리",   empty: "리뷰가 없어요." },
+    conv:    { ic: "✉️", title: "1:1 대화",    empty: "" },
+  };
+  const SECTION_FILTERS = {
+    post:    ["전체", "오늘", "신고됨", "인기"],
+    comment: ["전체", "오늘", "신고됨"],
+    spirit:  ["전체", "오늘", "술", "칵테일"],
+    meet:    ["전체", "예정", "지난"],
+    review:  ["전체", "오늘", "별점 낮음"],
+  };
+
   function renderAdmin() {
     const my = state.members.find((m) => m.id === 1);
     if (my) { my.nick = state.user.nick; my.color = state.user.color; my.bannedUntil = state.user.bannedUntil || 0; }
+
+    const sub = state.adminSub;
+    const sec = sub && ADMIN_SECTIONS[sub.kind];
+    const titleEl = $("#admin-title");
+    if (titleEl) titleEl.textContent = sec ? `${sec.ic} ${sec.title}` : "🛡️ 관리자";
+    // hidden 속성은 .seg 의 display:flex 에 밀리므로 직접 감춰요.
+    $("#admin-tabs").style.display = sub ? "none" : "";
+    if (sub) { renderAdminSection(); return; }
+
     $$("#admin-tabs .seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.atab === state.adminTab));
-    if (state.adminTab === "dash") renderAdminDash();
+    if (state.adminTab === "dash") { renderAdminDash(); loadAdminStats(); }
     else if (state.adminTab === "reports") renderAdminReports();
     else renderAdminUsers();
-    if (state.adminTab === "dash") loadAdminStats();
-
   }
+
+  // 관리 화면 이동. target 이 섹션이면 하위 화면, 아니면 상단 탭이에요.
+  function adminGo(target, opts) {
+    opts = opts || {};
+    if (ADMIN_SECTIONS[target]) {
+      state.adminSub = {
+        kind: target, q: "", filter: opts.filter || "전체", rows: null, loading: false,
+        author: opts.author || null, authorNick: opts.authorNick || "",
+      };
+    } else {
+      state.adminSub = null;
+      state.adminTab = target;
+      if (target === "users") state.adminUserFilter = opts.filter || "전체";
+      if (target === "reports") state.adminReportFilter = opts.filter || "전체";
+    }
+    renderAdmin();
+    const sa = $("#view-admin .scroll-area");
+    if (sa) sa.scrollTop = 0;
+  }
+  // 하위 화면에 있으면 뒤로가기를 대시보드로 먹습니다. (true = 내가 처리함)
+  function adminBack() {
+    if (!state.adminSub) return false;
+    state.adminSub = null;
+    renderAdmin();
+    return true;
+  }
+
   function renderAdminDash() {
     const st = state.adminStats;
     if (!st) {
@@ -1547,31 +1673,174 @@
       loadAdminStats();
       return;
     }
-    const card = (rows) => `
-      <div class="stat-row" style="padding:6px 0 0">
-        ${rows.map(([v, l, c]) => `<div class="stat"><b${c ? ` style="color:${c}"` : ""}>${fmtNum(v)}</b><span>${l}</span></div>`).join("")}
-      </div>`;
+    // [값, 이름, 이동할 곳, 필터, 강조색]
+    const tile = ([v, l, go, filter, c]) => `
+      <button class="stat astat" data-go="${go}"${filter ? ` data-filter="${esc(filter)}"` : ""}>
+        <b${c ? ` style="color:${c}"` : ""}>${fmtNum(v || 0)}</b><span>${l}</span>
+      </button>`;
+    const card = (rows) => `<div class="stat-row" style="padding:6px 0 0">${rows.map(tile).join("")}</div>`;
+    const pending = st.reports_pending || 0;
+    const logs = state.adminLogRows || [];
+
     $("#admin-area").innerHTML = `
+      ${pending ? `
+        <button class="admin-alert" data-go="reports" data-filter="접수">
+          <span>🚩 처리를 기다리는 신고가 <b>${fmtNum(pending)}건</b> 있어요</span>
+          <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+        </button>` : ""}
+
       <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
-        <h3>현황 <span style="font-size:12.5px;font-weight:500;color:var(--text-sub)">· 서버 실시간</span></h3>
-        ${card([[st.users, "회원"], [st.reports_pending, "미처리 신고", "var(--accent)"], [st.banned, "정지 중"]])}
-        ${card([[st.posts, "게시글"], [st.comments, "댓글"], [st.spirits, "등록 도감"]])}
-        ${card([[st.meets, "모임"], [st.reviews, "리뷰"], [st.conversations, "1:1 대화"]])}
+        <button class="admin-h3" id="admin-refresh">
+          <h3 style="margin:0">현황 <span style="font-size:12.5px;font-weight:500;color:var(--text-sub)">· 서버 실시간</span></h3>
+          <span class="admin-h3-go">새로고침 ↻</span>
+        </button>
+        ${card([
+          [st.users, "회원", "users", "전체"],
+          [pending, "미처리 신고", "reports", "접수", "var(--accent)"],
+          [st.banned, "정지 중", "users", "정지 중"],
+        ])}
+        ${card([
+          [st.posts, "게시글", "post", "전체"],
+          [st.comments, "댓글", "comment", "전체"],
+          [st.spirits, "등록 도감", "spirit", "전체"],
+        ])}
+        ${card([
+          [st.meets, "모임", "meet", "전체"],
+          [st.reviews, "리뷰", "review", "전체"],
+          [st.conversations, "1:1 대화", "conv", "전체"],
+        ])}
       </div>
+
       <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
-        <h3>오늘</h3>
-        ${card([[st.users_today, "신규 가입"], [st.posts_today, "새 글"], [st.meets_upcoming, "예정 모임"]])}
+        <button class="admin-h3" data-go="post" data-filter="오늘">
+          <h3 style="margin:0">오늘</h3>
+          <span class="admin-h3-go">오늘 올라온 글 ›</span>
+        </button>
+        ${card([
+          [st.users_today, "신규 가입", "users", "전체"],
+          [st.posts_today, "새 글", "post", "오늘"],
+          [st.meets_upcoming, "예정 모임", "meet", "예정"],
+        ])}
       </div>
-      <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
-        <h3>빠른 작업</h3>
-        <div class="pd-actions">
-          <button class="mkd-chat-btn outline" id="admin-refresh">현황 새로고침</button>
-          <button class="mkd-chat-btn outline" id="admin-log">조치 기록 보기</button>
+
+      <div class="sp-body" style="border-bottom:8px solid var(--bg-gray);padding-bottom:6px">
+        <h3>관리 화면</h3>
+        <div class="admin-links">
+          ${[
+            ["reports", "🚩", "신고함", pending ? `${fmtNum(pending)}건 대기` : "대기 없음", "접수"],
+            ["users", "👥", "회원 관리", `${fmtNum(st.users || 0)}명`, "전체"],
+            ["users", "⛔", "정지 회원", `${fmtNum(st.banned || 0)}명`, "정지 중"],
+            ["post", "📝", "게시글 관리", `${fmtNum(st.posts || 0)}개`, "전체"],
+            ["comment", "💬", "댓글 관리", `${fmtNum(st.comments || 0)}개`, "전체"],
+            ["spirit", "🥃", "도감 관리", `${fmtNum(st.spirits || 0)}개`, "전체"],
+            ["meet", "🍻", "모임 관리", `${fmtNum(st.meets || 0)}개`, "전체"],
+            ["review", "⭐", "리뷰 관리", `${fmtNum(st.reviews || 0)}개`, "전체"],
+            ["conv", "✉️", "1:1 대화", `${fmtNum(st.conversations || 0)}개`, "전체"],
+          ].map(([go, ic, label, badge, filter]) => `
+            <button class="row-link" data-go="${go}" data-filter="${esc(filter)}">
+              <span class="row-label">${ic} ${label}</span>
+              <span class="flex-1"></span>
+              <span class="row-badge">${esc(badge)}</span>
+              <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+            </button>`).join("")}
+        </div>
+      </div>
+
+      <div class="sp-body" style="border-bottom:8px solid var(--bg-gray);padding-bottom:6px">
+        <button class="admin-h3" id="admin-log">
+          <h3 style="margin:0">최근 조치</h3>
+          <span class="admin-h3-go">전체 기록 ›</span>
+        </button>
+        ${state.adminLogRows === null ? '<p class="sheet-note" style="text-align:left;margin:4px 0 12px">불러오는 중이에요…</p>'
+          : logs.length ? logs.slice(0, 4).map((r) => `
+          <button class="row-link admin-log-row" style="padding:13px 0">
+            <span class="row-label" style="font-size:15px">${esc(r.action)} · ${esc(TYPE_LABEL[r.type] || r.type || "")}${r.title ? ` — ${esc(r.title.slice(0, 14))}` : ""}</span>
+            <span class="flex-1"></span>
+            <span class="row-badge">${fmtRel(r.at)}</span>
+          </button>`).join("")
+          : '<p class="sheet-note" style="text-align:left;margin:4px 0 12px">아직 조치 기록이 없어요.</p>'}
+      </div>
+
+      <div class="sp-body" style="border-bottom:8px solid var(--bg-gray);padding-bottom:6px">
+        <h3>운영 도구</h3>
+        <div class="admin-links">
+          <button class="row-link" id="admin-rules">
+            <span class="row-label">📜 제재 기준 보기</span><span class="flex-1"></span>
+            <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+          <button class="row-link" id="admin-csv">
+            <span class="row-label">📄 현황 CSV 내보내기</span><span class="flex-1"></span>
+            <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+          <button class="row-link" id="admin-whoami">
+            <span class="row-label">🪪 내 운영자 계정</span><span class="flex-1"></span>
+            <span class="row-badge">${esc(String(Sync.uid || "").slice(0, 8))}…</span>
+            <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
         </div>
       </div>
       <div style="height:24px"></div>`;
-    $("#admin-refresh").addEventListener("click", () => { state.adminStats = null; loadAdminStats(true); });
+
+    bindAdminGo($("#admin-area"));
+    $("#admin-refresh").addEventListener("click", () => {
+      state.adminStats = null;
+      state.adminLogRows = null;
+      loadAdminStats(true);
+      loadAdminRecent();
+      toast("현황을 다시 불러왔어요.");
+    });
     $("#admin-log").addEventListener("click", openAdminLogSheet);
+    $$("#admin-area .admin-log-row").forEach((b) => b.addEventListener("click", openAdminLogSheet));
+    $("#admin-rules").addEventListener("click", openSanctionSheet);
+    $("#admin-csv").addEventListener("click", () => exportCSV("바텐톡-현황", [
+      ["항목", "값"],
+      ["회원", st.users], ["오늘 가입", st.users_today], ["정지 중", st.banned],
+      ["게시글", st.posts], ["오늘 새 글", st.posts_today], ["댓글", st.comments],
+      ["등록 도감", st.spirits], ["리뷰", st.reviews],
+      ["모임", st.meets], ["예정 모임", st.meets_upcoming],
+      ["1:1 대화", st.conversations],
+      ["미처리 신고", st.reports_pending], ["전체 신고", st.reports_total],
+      ["뽑은 시각", new Date().toLocaleString("ko-KR")],
+    ]));
+    $("#admin-whoami").addEventListener("click", openAdminWhoAmI);
+    if (!state.adminLogRows) loadAdminRecent();
+  }
+
+  // data-go / data-filter 가 붙은 요소를 관리 화면 이동으로 연결해요.
+  function bindAdminGo(root) {
+    if (!root) return;
+    root.querySelectorAll("[data-go]").forEach((el) =>
+      el.addEventListener("click", () => adminGo(el.dataset.go, { filter: el.dataset.filter })));
+  }
+
+  async function loadAdminRecent() {
+    if (!isAdmin()) return;
+    const rows = await Sync.adminLog(10);
+    state.adminLogRows = rows || [];
+    if (state.view === "admin" && !state.adminSub && state.adminTab === "dash") renderAdminDash();
+  }
+
+  function openSanctionSheet() {
+    openSheetHTML(`
+      <h3>📜 제재 기준</h3>
+      <p class="sheet-note" style="text-align:left;margin:0 0 10px">신고를 처리할 때 이 기준을 참고해요. 조치는 모두 기록에 남습니다.</p>
+      ${SANCTION_RULES.map(([a, b]) =>
+        `<div class="sheet-row"><span>${esc(a)}</span><b class="r" style="font-size:13.5px">${esc(b)}</b></div>`).join("")}`);
+  }
+
+  function openAdminWhoAmI() {
+    openSheetHTML(`
+      <h3>🪪 내 운영자 계정</h3>
+      <div class="sheet-row"><span>닉네임</span><span class="r">${esc(state.user.nick || "-")}</span></div>
+      <div class="sheet-row"><span>이용자 번호</span><span class="r" style="font-family:monospace;font-size:11.5px">${esc(Sync.uid || "-")}</span></div>
+      <div class="sheet-row"><span>서버 연결</span><span class="r">${Sync.status === "online" ? "정상" : esc(Sync.status)}</span></div>
+      <p class="sheet-note" style="text-align:left">운영자 권한은 서버의 admins 테이블이 판정해요. 앱에서는 만들 수도, 없앨 수도 없습니다.</p>
+      <button class="sheet-opt" id="admin-copy-uid">이용자 번호 복사</button>`);
+    const b = document.querySelector(".sheet #admin-copy-uid");
+    if (b) b.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(String(Sync.uid || "")); toast("복사했어요."); }
+      catch { toast("복사에 실패했어요."); }
+    });
   }
 
   async function loadAdminStats(force) {
@@ -1579,12 +1848,15 @@
     if (state.adminStats && !force) return;
     const st = await Sync.adminStats();
     if (!st) {
-      $("#admin-area").innerHTML =
-        '<div class="empty-state">현황을 불러오지 못했어요.<br>supabase/chat-admin.sql 을 실행했는지 확인해주세요.</div>';
+      // 하위 관리 화면을 보는 중이라면 그 화면을 덮어쓰지 않아요.
+      if (!state.adminSub && state.adminTab === "dash") {
+        $("#admin-area").innerHTML =
+          '<div class="empty-state">현황을 불러오지 못했어요.<br>supabase/chat-admin.sql 을 실행했는지 확인해주세요.</div>';
+      }
       return;
     }
     state.adminStats = st;
-    if (state.view === "admin" && state.adminTab === "dash") renderAdminDash();
+    if (state.view === "admin" && !state.adminSub && state.adminTab === "dash") renderAdminDash();
   }
 
   async function openAdminLogSheet() {
@@ -1612,14 +1884,24 @@
   }
   const TYPE_LABEL = { post: "게시글", spirit: "도감", comment: "댓글", meet: "모임", user: "사용자" };
 
+  const REPORT_FILTERS = ["전체", "접수", "완료", "기각"];
   function renderAdminReports() {
-    const list = state.serverReports || [];
+    const f = state.adminReportFilter || "전체";
+    const all = state.serverReports || [];
+    const list = all.filter((r) => f === "전체" || r.status === f);
     $("#admin-area").innerHTML = `
-      <p class="sheet-note" style="margin:0 0 12px">서버에 접수된 실제 신고예요. 처리하면 모든 사용자에게 즉시 반영됩니다.</p>
+      <p class="sheet-note" style="margin:12px 16px 8px;text-align:left">서버에 접수된 실제 신고예요. 처리하면 모든 사용자에게 즉시 반영됩니다.</p>
+      <div class="sort-row">
+        ${REPORT_FILTERS.map((x) => {
+          const n = x === "전체" ? all.length : all.filter((r) => r.status === x).length;
+          return `<button class="chip ${x === f ? "active" : ""}" data-rf="${x}">${x}${n ? ` ${n}` : ""}</button>`;
+        }).join("")}
+      </div>
       ${list.length ? list.map((r) => {
         const target = r.type === "post"
           ? state.posts.find((p) => p.id === r.targetId)
-          : r.type === "spirit" ? state.spirits.find((s) => s.id === r.targetId) : null;
+          : r.type === "spirit" ? state.spirits.find((s) => s.id === r.targetId)
+          : r.type === "meet" ? state.meets.find((m) => m.id === r.targetId) : null;
         const gone = r.targetId !== null && !target;
         return `
         <div class="order-item">
@@ -1630,14 +1912,35 @@
           </div>
           <div class="order-title">${esc(r.title || "(제목 없음)")}</div>
           <div class="market-meta">사유: ${esc(r.reason)}${gone ? " · <b>이미 삭제됨</b>" : ""}${r.targetUser ? ` · 작성자 ${esc(r.targetUser.slice(0, 6))}` : ""}</div>
+          <div class="report-acts">
+            ${target ? `<button class="chip" data-open="${r.type}:${r.targetId}">📄 원본 보기</button>` : ""}
+            ${ADMIN_SECTIONS[r.type] ? `<button class="chip" data-go="${r.type}" data-filter="신고됨">${ADMIN_SECTIONS[r.type].ic} ${esc(ADMIN_SECTIONS[r.type].title)}</button>` : ""}
+            ${r.targetUser ? `<button class="chip" data-ruser="${esc(r.targetUser)}">👤 작성자 조치</button>` : ""}
+          </div>
           ${r.status === "접수" ? `
             <div style="display:flex;gap:8px;margin-top:10px">
               ${gone ? "" : `<button class="host-chat-btn" data-proc="${r.id}" style="flex:1">조치하기</button>`}
               <button class="host-chat-btn outline" data-dismiss="${r.id}" style="flex:1">기각</button>
             </div>` : ""}
         </div>`;
-      }).join("") : '<div class="empty-state">접수된 신고가 없어요.</div>'}
+      }).join("") : `<div class="empty-state">${f === "전체" ? "접수된 신고가 없어요." : `'${esc(f)}' 상태인 신고가 없어요.`}</div>`}
       <div style="height:24px"></div>`;
+    $$("#admin-area [data-rf]").forEach((ch) =>
+      ch.addEventListener("click", () => { state.adminReportFilter = ch.dataset.rf; renderAdminReports(); }));
+    bindAdminGo($("#admin-area"));
+    $$("#admin-area [data-open]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const [kind, id] = b.dataset.open.split(":");
+        if (kind === "post") openPost(+id);
+        else if (kind === "spirit") openSpirit(+id);
+        else if (kind === "meet") openMeet(+id);
+      }));
+    $$("#admin-area [data-ruser]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const uid = b.dataset.ruser;
+        const m = (state.adminUserList || []).find((x) => x.id === uid);
+        openUserActions(uid, m ? m.nick : "신고된 회원", !!(m && m.bannedUntil > Date.now()));
+      }));
     $$("#admin-area [data-proc]").forEach((b) =>
       b.addEventListener("click", () => processReport(+b.dataset.proc)));
     $$("#admin-area [data-dismiss]").forEach((b) =>
@@ -1733,23 +2036,307 @@
       <div class="sheet-row"><span>가입</span><span class="r">${fmtDate(m.joined)}</span></div>
       <div class="sheet-row"><span>상태</span><span class="r">${banned ? "정지 중" : "정상"}</span></div>
       <div class="sheet-row"><span>이용자 번호</span><span class="r" style="font-family:monospace;font-size:11.5px">${esc(m.id)}</span></div>
+      <p class="sheet-note" style="text-align:left;margin:10px 0 6px">이 회원이 올린 것만 모아 보기</p>
+      <div class="sort-row" style="padding:0 0 10px;flex-wrap:wrap">
+        ${[["post", "📝 글"], ["comment", "💬 댓글"], ["spirit", "🥃 도감"], ["meet", "🍻 모임"], ["review", "⭐ 리뷰"]]
+          .map(([k, l]) => `<button class="chip" data-mine="${k}">${l}</button>`).join("")}
+      </div>
       ${uid === Sync.uid ? '<p class="sheet-note">본인 계정이에요.</p>' :
         opts.map((o) => `<button class="sheet-opt" data-ban="${o}">${o}</button>`).join("")}`);
 
-    document.querySelectorAll(".sheet [data-ban]").forEach((b) =>
-      b.addEventListener("click", async () => {
-        const label = b.dataset.ban;
-        const days = label.includes("해제") ? 0 : label.includes("영구") ? -1 : parseInt(label, 10);
-        const reason = prompt("사유를 남겨주세요 (기록에 저장됩니다)", "커뮤니티 규칙 위반");
-        if (reason === null) return;
+    document.querySelectorAll(".sheet [data-mine]").forEach((b) =>
+      b.addEventListener("click", () => {
         const bd = document.querySelector(".sheet-backdrop");
         if (bd) bd.remove();
-        toast("처리 중이에요…");
-        const res = await Sync.adminBan(uid, days, reason);
-        toast(res.ok ? `🛡️ ${res.label} 처리했어요.` : "실패: " + res.error);
-        if (res.ok) { state.adminUserList = null; loadAdminUsers(); }
+        adminGo(b.dataset.mine, { author: uid, authorNick: m.nick });
+      }));
+    document.querySelectorAll(".sheet [data-ban]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        const bd = document.querySelector(".sheet-backdrop");
+        if (bd) bd.remove();
+        await applyBan(uid, b.dataset.ban);
       }));
   }
+
+  // 회원 목록 밖(글·댓글 관리 화면 등)에서도 같은 조치를 쓸 수 있게 분리했어요.
+  function openUserActions(uid, nick, banned) {
+    if (!uid) { toast("작성자를 알 수 없는 항목이에요."); return; }
+    if (uid === Sync.uid) { toast("본인 계정이에요."); return; }
+    const opts = banned
+      ? ["정지 해제", "영구 정지로 변경"]
+      : ["3일 정지", "7일 정지", "30일 정지", "영구 정지"];
+    openSheet(`👤 ${esc(nick || "회원")} 조치`, opts, null, (label) => applyBan(uid, label));
+  }
+
+  async function applyBan(uid, label) {
+    const days = label.includes("해제") ? 0 : label.includes("영구") ? -1 : parseInt(label, 10);
+    const reason = await btPrompt("사유를 남겨주세요\n(기록에 저장됩니다)", "커뮤니티 규칙 위반", { title: "🛡️ 관리자 조치" });
+    if (reason === null) return;
+    toast("처리 중이에요…");
+    const res = await Sync.adminBan(uid, days, reason);
+    toast(res.ok ? `🛡️ ${res.label} 처리했어요.` : "실패: " + res.error);
+    if (!res.ok) return;
+    state.adminUserList = null;
+    state.adminStats = null;
+    state.adminLogRows = null;
+    loadAdminUsers();
+    loadAdminStats(true);
+    loadAdminRecent();
+    // 관리 화면에 머물러 있으면 "정지 중" 표시가 바로 바뀌도록 다시 받아와요.
+    if (state.adminSub) { state.adminSub.rows = null; renderAdminSection(); }
+  }
+  /* ---------- 콘텐츠 관리 화면 ----------
+   * 대시보드 숫자를 누르면 여기로 옵니다. 목록은 서버를 직접 읽어요.
+   * (내 기기에 받아둔 캐시가 아니라 "지금 서버에 실제로 있는 것")
+   */
+  function renderAdminSection() {
+    const sub = state.adminSub;
+    if (!sub) return;
+    if (sub.kind === "conv") { renderAdminConv(); return; }
+
+    const sec = ADMIN_SECTIONS[sub.kind];
+    const filters = SECTION_FILTERS[sub.kind] || ["전체"];
+    const list = filterSectionRows(sub.kind, sub.rows || [], sub.filter);
+
+    $("#admin-area").innerHTML = `
+      ${sub.author ? `
+        <button class="admin-alert soft" id="admin-sec-clear">
+          <span>👤 <b>${esc(sub.authorNick || "이 회원")}</b> 이(가) 쓴 것만 보는 중</span>
+          <span class="admin-h3-go">전체 보기 ✕</span>
+        </button>` : ""}
+      <div class="search-box" style="margin:14px 16px 8px">
+        <svg viewBox="0 0 24 24" class="search-ic"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input type="text" id="admin-sec-q" placeholder="${esc(sec.title)} 안에서 검색" value="${esc(sub.q || "")}">
+      </div>
+      <div class="sort-row" style="flex-wrap:wrap">
+        ${filters.map((x) => `<button class="chip ${x === sub.filter ? "active" : ""}" data-f="${esc(x)}">${esc(x)}</button>`).join("")}
+        <span style="margin-left:auto;font-size:12.5px;color:var(--text-sub);align-self:center">${fmtNum(list.length)}개</span>
+      </div>
+      ${sub.loading ? '<div class="empty-state">불러오는 중이에요…</div>' : ""}
+      ${!sub.loading && !list.length ? `<div class="empty-state">${esc(sub.q ? "검색 결과가 없어요." : sec.empty)}</div>` : ""}
+      ${list.map((it, i) => adminRowHTML(it, i)).join("")}
+      ${list.length ? `
+        <div class="sp-body" style="padding-top:6px">
+          <button class="mkd-chat-btn outline" id="admin-sec-csv">📄 이 목록 CSV로 내보내기</button>
+        </div>` : ""}
+      <div style="height:24px"></div>`;
+
+    const clr = $("#admin-sec-clear");
+    if (clr) clr.addEventListener("click", () => {
+      state.adminSub.author = null;
+      state.adminSub.authorNick = "";
+      state.adminSub.rows = null;
+      renderAdminSection();
+    });
+
+    const qInput = $("#admin-sec-q");
+    qInput.addEventListener("input", () => {
+      state.adminSub.q = qInput.value.trim();
+      clearTimeout(state.adminSecTimer);
+      state.adminSecTimer = setTimeout(() => loadAdminSection(), 320);
+      const pos = qInput.selectionStart;
+      renderAdminSection();
+      const nq = $("#admin-sec-q");
+      nq.focus();
+      nq.setSelectionRange(pos, pos);
+    });
+    $$("#admin-area .sort-row .chip").forEach((ch) =>
+      ch.addEventListener("click", () => { state.adminSub.filter = ch.dataset.f; renderAdminSection(); }));
+    $$("#admin-area .admin-row").forEach((el) =>
+      el.addEventListener("click", () => openAdminItemSheet(list[+el.dataset.i])));
+    const csv = $("#admin-sec-csv");
+    if (csv) csv.addEventListener("click", () => exportCSV(`바텐톡-${sec.title}`, [
+      ["번호", "제목", "작성자", "이용자 번호", "작성 시각"],
+      ...list.map((it) => [it.id, secTitleOf(it), it.authorNick, it.authorId || "", new Date(it.at).toLocaleString("ko-KR")]),
+    ]));
+
+    if (!sub.rows && !sub.loading) loadAdminSection();
+  }
+
+  async function loadAdminSection() {
+    const sub = state.adminSub;
+    if (!sub || !isAdmin()) return;
+    const kind = sub.kind, q = sub.q || "", author = sub.author || null;
+    sub.loading = true;
+    renderAdminSection();
+    const rows = await Sync.adminList(kind, { q, author, limit: 300 });
+    // 불러오는 사이에 다른 화면으로 옮겼다면 버립니다.
+    if (!state.adminSub || state.adminSub.kind !== kind ||
+        (state.adminSub.q || "") !== q || (state.adminSub.author || null) !== author) return;
+    state.adminSub.rows = rows;
+    state.adminSub.loading = false;
+    if (state.view === "admin") renderAdminSection();
+  }
+
+  const reportsFor = (kind, id) =>
+    (state.serverReports || []).filter((r) => r.type === kind && r.targetId === id);
+
+  function filterSectionRows(kind, rows, f) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const t0 = today.getTime();
+    return rows.filter((it) => {
+      if (f === "전체" || !f) return true;
+      if (f === "오늘") return it.at >= t0;
+      if (f === "신고됨") return reportsFor(kind, it.id).length > 0;
+      if (f === "인기") return (it.row.like_count || 0) + (it.row.comment_count || 0) >= 5;
+      if (f === "술") return it.row.kind === "spirit";
+      if (f === "칵테일") return it.row.kind === "cocktail";
+      if (f === "예정") return new Date(it.row.meet_at).getTime() > Date.now();
+      if (f === "지난") return new Date(it.row.meet_at).getTime() <= Date.now();
+      if (f === "별점 낮음") return (it.row.stars || 0) <= 2;
+      return true;
+    });
+  }
+
+  // 종류별로 "무엇이 제목이고 무엇이 부가정보인지"만 정하면 나머지는 공용이에요.
+  function secTitleOf(it) {
+    const r = it.row;
+    if (it.kind === "post") return r.title || "(제목 없음)";
+    if (it.kind === "comment") return r.text || "";
+    if (it.kind === "spirit") return `${r.emoji || "🥃"} ${r.name || ""}`;
+    if (it.kind === "meet") return r.title || "(제목 없음)";
+    if (it.kind === "review") return `${"★".repeat(r.stars || 0)}${"☆".repeat(5 - (r.stars || 0))} ${r.text || "(글 없는 별점)"}`;
+    return "";
+  }
+  function secMetaOf(it) {
+    const r = it.row;
+    if (it.kind === "post")
+      return `${CAT_LABEL[r.cat] || "자유"} · 공감 ${r.like_count || 0} · 댓글 ${r.comment_count || 0} · 조회 ${r.views || 0}`;
+    if (it.kind === "comment")
+      return `${r.parent_id ? "답글" : "댓글"} · 원글: ${it.postTitle || "(삭제된 글)"}`;
+    if (it.kind === "spirit")
+      return `${r.kind === "cocktail" ? "칵테일" : "술"} · ${r.abv || 0}% ${r.cat || r.base || ""}`;
+    if (it.kind === "meet")
+      return `${r.region || ""} · ${fmtDate(new Date(r.meet_at).getTime())} · 정원 ${r.max_people}명`;
+    if (it.kind === "review") {
+      const sp = state.spirits.find((s) => s.id === Number(r.spirit_id));
+      return `대상: ${sp ? sp.name : "도감 #" + r.spirit_id}`;
+    }
+    return "";
+  }
+  function secBodyOf(it) {
+    const r = it.row;
+    if (it.kind === "post") return r.body || "";
+    if (it.kind === "spirit") return r.note || r.ings || "";
+    if (it.kind === "meet") return r.descr || "";
+    return "";
+  }
+
+  function adminRowHTML(it, i) {
+    const reps = reportsFor(it.kind, it.id);
+    const banned = it.authorBanned && it.authorBanned > Date.now();
+    const body = secBodyOf(it);
+    return `
+      <div class="admin-row" data-i="${i}">
+        <div class="order-head">
+          <span class="avatar" style="background:${COLORS[it.authorColor] || COLORS[0]}"></span>
+          <span class="order-no">${esc(it.authorNick)}</span>
+          ${banned ? '<span class="mk-state sold">정지 중</span>' : ""}
+          ${reps.length ? `<span class="mk-state">신고 ${reps.length}</span>` : ""}
+          <span class="order-date">${fmtRel(it.at)}</span>
+        </div>
+        <div class="order-title">${esc(secTitleOf(it).slice(0, 70))}</div>
+        <div class="market-meta">${esc(secMetaOf(it))}</div>
+        ${body ? `<div class="admin-row-body">${esc(body.slice(0, 90))}${body.length > 90 ? "…" : ""}</div>` : ""}
+      </div>`;
+  }
+
+  // 목록의 한 줄을 눌렀을 때 — 보기 / 삭제·정지 / 작성자 조치
+  function openAdminItemSheet(it) {
+    if (!it) return;
+    const reps = reportsFor(it.kind, it.id);
+    const local = it.kind === "post" ? state.posts.find((p) => p.id === it.id)
+      : it.kind === "spirit" ? state.spirits.find((s) => s.id === it.id)
+      : it.kind === "meet" ? state.meets.find((m) => m.id === it.id)
+      : it.kind === "comment" ? state.posts.find((p) => p.id === Number(it.row.post_id))
+      : it.kind === "review" ? state.spirits.find((s) => s.id === Number(it.row.spirit_id))
+      : null;
+
+    const opts = [];
+    if (local) opts.push("📄 원래 화면에서 보기");
+    if (reps.length) opts.push(`🚩 신고 내용 보기 (${reps.length}건)`);
+    opts.push("🛡️ 삭제 · 작성자 정지");
+    if (it.authorId && it.authorId !== Sync.uid) opts.push("👤 작성자만 조치하기");
+    if (it.authorId) opts.push("🔎 이 작성자가 쓴 것 모아보기");
+    opts.push("📋 이용자 번호 복사");
+
+    const title = secTitleOf(it) || "(내용 없음)";
+    openSheet(`${ADMIN_SECTIONS[it.kind].ic} ${esc(title.slice(0, 16))}${title.length > 16 ? "…" : ""}`,
+      opts, null, async (picked) => {
+        if (picked.startsWith("📄")) {
+          if (it.kind === "post" || it.kind === "comment") openPost(local.id);
+          else if (it.kind === "spirit" || it.kind === "review") openSpirit(local.id);
+          else if (it.kind === "meet") openMeet(local.id);
+          return;
+        }
+        if (picked.startsWith("🚩")) {
+          openSheetHTML(`
+            <h3>🚩 접수된 신고</h3>
+            ${reps.map((r) => `
+              <div class="sheet-row"><span>${esc(r.reason)}</span><span class="r">${esc(r.status)} · ${fmtRel(r.time)}</span></div>`).join("")}`);
+          return;
+        }
+        if (picked.startsWith("🛡️")) {
+          openAdminSheet(it.kind, it.id, title, it.authorId, () => {
+            state.adminStats = null;
+            loadAdminStats(true);
+            if (!state.adminSub) return;
+            state.adminSub.rows = null;
+            if (state.view === "admin") renderAdminSection();
+          });
+          return;
+        }
+        if (picked.startsWith("👤")) {
+          openUserActions(it.authorId, it.authorNick, it.authorBanned > Date.now());
+          return;
+        }
+        if (picked.startsWith("🔎")) {
+          adminGo(it.kind, { author: it.authorId, authorNick: it.authorNick });
+          return;
+        }
+        try { await navigator.clipboard.writeText(String(it.authorId || "")); toast("복사했어요."); }
+        catch { toast("복사에 실패했어요."); }
+      });
+  }
+
+  // 1:1 대화는 설계상 운영자도 내용을 볼 수 없어요 (RLS 가 당사자만 허용).
+  // 그래서 여기는 "목록" 대신 왜 못 보는지와 정식 절차를 안내합니다.
+  function renderAdminConv() {
+    const st = state.adminStats || {};
+    $("#admin-area").innerHTML = `
+      <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
+        <h3>1:1 대화</h3>
+        <div class="stat-row" style="padding:6px 0 0">
+          <div class="stat"><b>${fmtNum(st.conversations || 0)}</b><span>전체 대화방</span></div>
+          <div class="stat"><b>🔒</b><span>내용 열람 불가</span></div>
+        </div>
+      </div>
+      <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
+        <h3>왜 목록이 없나요?</h3>
+        <p class="sheet-note" style="text-align:left;margin:0">
+          이 앱은 <b>운영자도 남의 1:1 대화는 볼 수 없게</b> 서버에서 막아뒀어요.
+          대화방과 메시지는 당사자 두 사람에게만 열립니다. 관리자 계정으로 조회해도
+          서버가 거절해서, 앱에서는 개수만 보여드려요.
+        </p>
+      </div>
+      <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
+        <h3>대화가 문제라면</h3>
+        <div class="admin-links">
+          <button class="row-link" data-go="reports" data-filter="접수">
+            <span class="row-label">🚩 신고로 접수된 건 처리하기</span><span class="flex-1"></span>
+            <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+          <button class="row-link" data-go="users" data-filter="신고 누적">
+            <span class="row-label">👥 신고 누적 회원 보기</span><span class="flex-1"></span>
+            <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+        <p class="sheet-note" style="text-align:left">수사 협조처럼 내용 확인이 꼭 필요한 상황에서는 Supabase 대시보드에서 service_role 로 직접 조회하세요. 앱에는 그 통로를 두지 않았습니다.</p>
+      </div>
+      <div style="height:24px"></div>`;
+    bindAdminGo($("#admin-area"));
+  }
+
   // 서버에 실제로 반영되는 신고 처리. 실패하면 실패했다고 알려줘요.
   function processReport(rid) {
     const r = (state.serverReports || []).find((x) => x.id === rid);
@@ -1783,7 +2370,6 @@
     timerInt = null;
   }
   function toggleTimer() {
-    sfx(timerInt ? "tap" : "shake");
     if (timerInt) { stopTimer(); renderTimer(); return; }
     if (timerLeft <= 0) timerLeft = timerSel;
     timerInt = setInterval(() => {
@@ -2898,8 +3484,8 @@
     $("#cellar-tried").addEventListener("click", () => { toggleCellar("tried", sp.id); renderSpiritDetail(); });
     $("#cellar-wish").addEventListener("click", () => { toggleCellar("wish", sp.id); renderSpiritDetail(); });
     $$("#spirit-detail .cmt-del").forEach((b) =>
-      b.addEventListener("click", () => {
-        if (!confirm("리뷰를 삭제할까요?")) return;
+      b.addEventListener("click", async () => {
+        if (!await btConfirm("리뷰를 삭제할까요?", { yes: "삭제" })) return;
         sp.reviews.splice(+b.dataset.vi, 1);
         saveSpirits();
         renderSpiritDetail();
@@ -2985,7 +3571,7 @@
     $("#sw-submit").disabled = !ok;
     $("#sw-submit").classList.toggle("ready", !!ok);
   }
-  function submitSpirit() {
+  async function submitSpirit() {
     if ($("#sw-submit").disabled) return;
     const newName = $("#sw-name").value.trim();
     // 장난 등록 방지: 정지·금칙어·도수 범위·이름 길이·하루 등록 제한
@@ -2995,7 +3581,7 @@
     const abvVal = +$("#sw-abv").value;
     if (isNaN(abvVal) || abvVal < 0 || abvVal > 99) { toast("도수는 0~99% 사이로 입력해주세요."); return; }
     if (state.spirits.some((s) => s.name === newName) &&
-      !confirm(`'${newName}'은(는) 이미 도감에 있어요. 그래도 등록할까요?`)) return;
+      !await btConfirm(`'${newName}'은(는) 이미 도감에 있어요.\n그래도 등록할까요?`, { yes: "등록", face: "huh" })) return;
     if (overDailyLimit("spirit", 5, "도감 등록")) return;
     const id = newId();
     const item = {
@@ -3114,8 +3700,8 @@
     $$("#meet-detail .cmt-img").forEach((im) =>
       im.addEventListener("click", () => openLightbox(im.src)));
     $$("#meet-detail .cmt-del").forEach((b) =>
-      b.addEventListener("click", () => {
-        if (!confirm("댓글을 삭제할까요?")) return;
+      b.addEventListener("click", async () => {
+        if (!await btConfirm("댓글을 삭제할까요?", { yes: "삭제" })) return;
         m.comments.splice(+b.dataset.mi, 1);
         saveMeets();
         renderMeetDetail();
@@ -3140,8 +3726,8 @@
     if (chatBtn) chatBtn.addEventListener("click", () =>
       openChatWith(m.hostColor, `meet:${m.id}`, `모임 '${m.title}' 주최자`, m.authorId));
     const delMeet = $("#meet-delete");
-    if (delMeet) delMeet.addEventListener("click", () => {
-      if (!confirm("모임을 삭제할까요? 참여자들에게는 취소로 표시돼요.")) return;
+    if (delMeet) delMeet.addEventListener("click", async () => {
+      if (!await btConfirm("모임을 삭제할까요?\n참여자들에게는 취소로 표시돼요.", { yes: "삭제" })) return;
       state.meets = state.meets.filter((x) => x.id !== m.id);
       saveMeets();
       show("meet");
@@ -3296,14 +3882,24 @@
     renderPostDetail();
     show("post");
   }
+  // 어느 댓글에 답글을 다는 중인지 표시합니다. ci 가 null 이면 그냥 댓글이에요.
+  function setReplyTo(ci) {
+    state.replyTo = ci;
+    $$("#post-detail .reply-btn").forEach((x) => {
+      const on = ci !== null && +x.dataset.ci === ci;
+      x.classList.toggle("on", on);
+      x.textContent = on ? "답글 취소" : "답글";
+    });
+    const inp = $("#comment-input");
+    if (inp) inp.placeholder = ci === null ? "댓글을 작성해 주세요." : "답글을 작성해 주세요.";
+  }
   function renderPostDetail() {
     const p = state.posts.find((x) => x.id === state.curPost);
     if (!p) return;
     $("#post-delete").hidden = !p.mine;
     $("#post-edit").hidden = !p.mine;
     $("#post-chat").hidden = !!p.mine;
-    state.replyTo = null;
-    $("#reply-bar").hidden = true;
+    setReplyTo(null);
     $("#post-detail").innerHTML = `
       <div class="detail-wrap">
         <div class="detail-head">
@@ -3347,9 +3943,9 @@
         </div>`).join("")}
       <div style="height:24px"></div>`;
     const boostBtn = $("#boost-btn");
-    if (boostBtn) boostBtn.addEventListener("click", () => {
+    if (boostBtn) boostBtn.addEventListener("click", async () => {
       if (state.user.points < 300) { toast(`포인트가 부족해요. (보유 ${fmtNum(state.user.points)}P / 필요 300P)`); return; }
-      if (!confirm("300P로 이 홍보 글을 24시간 상단에 고정할까요?")) return;
+      if (!await btConfirm("300P로 이 홍보 글을\n24시간 상단에 고정할까요?", { yes: "고정하기", face: "good" })) return;
       state.user.points -= 300;
       state.user.pointLog.unshift({ amt: -300, reason: "홍보 글 상단 고정", time: Date.now() });
       p.boostUntil = Date.now() + 24 * H;
@@ -3360,15 +3956,17 @@
     });
     const bizLink = $("#biz-link");
     if (bizLink) bizLink.addEventListener("click", (e) => { e.stopPropagation(); openBizSheet(p.nick); });
+    // 입력바 위에 '답글 작성 중' 줄을 띄우는 대신, 누른 버튼이 켜지고
+    // 입력창 안내문이 바뀝니다. 같은 버튼을 한 번 더 누르면 취소돼요.
     $$("#post-detail .reply-btn").forEach((b) =>
       b.addEventListener("click", () => {
-        state.replyTo = +b.dataset.ci;
-        $("#reply-bar").hidden = false;
-        $("#comment-input").focus();
+        const ci = +b.dataset.ci;
+        setReplyTo(state.replyTo === ci ? null : ci);
+        if (state.replyTo !== null) $("#comment-input").focus();
       }));
     $$("#post-detail .cmt-del").forEach((b) =>
-      b.addEventListener("click", () => {
-        if (!confirm("댓글을 삭제할까요?")) return;
+      b.addEventListener("click", async () => {
+        if (!await btConfirm("댓글을 삭제할까요?", { yes: "삭제" })) return;
         const ci = +b.dataset.ci;
         if (b.dataset.ri !== undefined) p.comments[ci].replies.splice(+b.dataset.ri, 1);
         else p.comments.splice(ci, 1);
@@ -3385,7 +3983,6 @@
     $("#detail-like").addEventListener("click", () => {
       p.likedByMe = !p.likedByMe;
       p.likes += p.likedByMe ? 1 : -1;
-      sfx(p.likedByMe ? "like" : "unlike");
       savePosts();
       Sync.toggleLike(p.id, p.likedByMe);
       renderPostDetail();
@@ -3409,8 +4006,7 @@
     } else {
       p.comments.push(c);
     }
-    state.replyTo = null;
-    $("#reply-bar").hidden = true;
+    setReplyTo(null);
     state.user.myComments++;
     savePosts(); saveUser();
     Sync.saveComment(p.id, c, parentCid);
@@ -3419,11 +4015,10 @@
     renderPostDetail();
     checkBadges();
   }
-  function deletePost() {
+  async function deletePost() {
     const p = state.posts.find((x) => x.id === state.curPost);
     if (!p || !p.mine) return;
-    if (!confirm("이 글을 삭제할까요?")) return;
-    sfx("trash");
+    if (!await btConfirm("이 글을 삭제할까요?", { yes: "삭제" })) return;
     state.posts = state.posts.filter((x) => x.id !== p.id);
     state.user.myPostIds = state.user.myPostIds.filter((i) => i !== p.id);
     savePosts(); saveUser();
@@ -3469,14 +4064,15 @@
     img.onerror = () => { URL.revokeObjectURL(url); toast("이미지를 불러올 수 없어요."); };
     img.src = url;
   }
-  function submitPost() {
+  async function submitPost() {
     const title = $("#write-title").value.trim();
     const body = $("#write-body").value.trim();
     if (!title || !body) return;
     if (isBanned() || !isClean(title, body)) return;
     // 홍보 글은 비즈니스 프로필 필수 (익명 홍보 금지)
     if (state.writeCat === "promo" && !state.user.bizProfile) {
-      if (confirm("홍보 글은 익명이 아닌 비즈니스 프로필(상호명)로만 쓸 수 있어요.\n지금 등록하러 갈까요?")) show("settings");
+      if (await btConfirm("홍보 글은 익명이 아닌 비즈니스 프로필(상호명)로만 쓸 수 있어요.\n지금 등록하러 갈까요?",
+        { yes: "등록하러 가기", face: "think" })) show("settings");
       return;
     }
     const contact = state.writeCat === "promo" ? $("#write-contact").value.trim() : "";
@@ -3744,8 +4340,7 @@
     const bd = document.createElement("div");
     bd.className = "sheet-backdrop";
     bd.innerHTML = `<div class="sheet">${html}</div>`;
-    sfx("open");
-    bd.addEventListener("click", (e) => { if (e.target === bd) { sfx("close"); bd.remove(); } });
+    bd.addEventListener("click", (e) => { if (e.target === bd) bd.remove(); });
     $("#app").appendChild(bd);
     if (onOpen) onOpen(bd);
     return bd;
@@ -4178,11 +4773,11 @@
   }
   function importData(file) {
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const parsed = JSON.parse(reader.result);
         if (parsed.app !== "bartalk" || !parsed.data) throw new Error("bad");
-        if (!confirm("백업 데이터로 복원할까요? 현재 데이터는 백업 내용으로 바뀌어요.")) return;
+        if (!await btConfirm("백업 데이터로 복원할까요?\n현재 데이터는 백업 내용으로 바뀌어요.", { yes: "복원" })) return;
         Object.entries(parsed.data).forEach(([k, v]) => {
           if (k.startsWith("bartalk_")) localStorage.setItem(k, v);
         });
@@ -4416,7 +5011,11 @@
   /* ---------- 이벤트 바인딩 ---------- */
   $$(".nav-btn").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
   $$("[data-go]").forEach((b) => b.addEventListener("click", () => show(b.dataset.go)));
-  $$(".back-btn").forEach((b) => b.addEventListener("click", () => show(b.dataset.back)));
+  // 관리자 화면은 하위 관리 화면이 있어서, 뒤로가기가 먼저 그걸 닫아요.
+  $$(".back-btn").forEach((b) => b.addEventListener("click", () => {
+    if (b.id === "admin-back" && adminBack()) return;
+    show(b.dataset.back);
+  }));
   $("#btn-alerts").addEventListener("click", () => show("alerts"));
 
   // 온보딩
@@ -4537,10 +5136,10 @@
   $("#review-send").addEventListener("click", addReview);
   $("#review-input").addEventListener("keydown", (e) => { if (e.key === "Enter") addReview(); });
   $("#spirit-share").addEventListener("click", shareSpirit);
-  $("#spirit-delete").addEventListener("click", () => {
+  $("#spirit-delete").addEventListener("click", async () => {
     const sp = state.spirits.find((x) => x.id === state.curSpirit);
     if (!sp || !sp.mine) return;
-    if (!confirm(`'${sp.name}'을(를) 도감에서 삭제할까요?`)) return;
+    if (!await btConfirm(`'${sp.name}'을(를)\n도감에서 삭제할까요?`, { yes: "삭제" })) return;
     state.spirits = state.spirits.filter((x) => x.id !== sp.id);
     state.user.cellar.tried = state.user.cellar.tried.filter((i) => i !== sp.id);
     state.user.cellar.wish = state.user.cellar.wish.filter((i) => i !== sp.id);
@@ -4647,10 +5246,11 @@
   $("#btn-admin").addEventListener("click", () => {
     if (!isAdmin()) { adminEnter(); return; }   // 권한 안내 시트를 띄워줘요
     state.adminMode = true;
+    state.adminSub = null;                      // 들어올 때는 항상 대시보드부터
     show("admin");
   });
   $$("#admin-tabs .seg-btn").forEach((b) =>
-    b.addEventListener("click", () => { state.adminTab = b.dataset.atab; renderAdmin(); }));
+    b.addEventListener("click", () => { state.adminSub = null; state.adminTab = b.dataset.atab; renderAdmin(); }));
   $("#fab-write").addEventListener("click", () => {
     state.editPost = null;
     $("#view-write .topbar-title").textContent = "글쓰기";
@@ -4761,10 +5361,6 @@
   $("#btn-cellar").addEventListener("click", () => show("cellar"));
   $$("#cellar-seg .seg-btn").forEach((b) =>
     b.addEventListener("click", () => { state.cellarTab = b.dataset.cellar; renderCellar(); }));
-  $("#reply-cancel").addEventListener("click", () => {
-    state.replyTo = null;
-    $("#reply-bar").hidden = true;
-  });
   $("#post-edit").addEventListener("click", () => {
     const p = state.posts.find((x) => x.id === state.curPost);
     if (!p || !p.mine) return;
@@ -4802,7 +5398,7 @@
   $("#btn-opensource").addEventListener("click", () => openDoc("opensource"));
   $("#btn-deletion-doc").addEventListener("click", () => openDoc("deletion"));
   $("#btn-logout").addEventListener("click", async () => {
-    if (!confirm("로그아웃할까요? 다시 로그인하면 내 글과 기록이 그대로 돌아와요.")) return;
+    if (!await btConfirm("로그아웃할까요?\n다시 로그인하면 내 글과 기록이 그대로 돌아와요.", { yes: "로그아웃" })) return;
     if (Sync.enabled) {
       await Sync.signOut();
       show("login");
@@ -4859,8 +5455,8 @@
     renderBizProfile();
     toast(`'${name}' 비즈니스 프로필이 등록됐어요. 📢 홍보 글은 이 이름으로 게시돼요.`);
   });
-  $("#btn-biz-remove").addEventListener("click", () => {
-    if (!confirm("비즈니스 프로필을 해제할까요? 홍보 글을 더 이상 쓸 수 없어요.")) return;
+  $("#btn-biz-remove").addEventListener("click", async () => {
+    if (!await btConfirm("비즈니스 프로필을 해제할까요?\n홍보 글을 더 이상 쓸 수 없어요.", { yes: "해제" })) return;
     state.user.bizProfile = null;
     saveUser();
     Sync.saveProfile(state.user);
@@ -4883,14 +5479,14 @@
   });
   $("#btn-withdraw").addEventListener("click", async () => {
     if (!state.agreeWithdraw) return;
-    if (!confirm("정말 탈퇴하시겠어요? 이 기기의 모든 데이터가 삭제돼요.")) return;
+    if (!await btConfirm("정말 탈퇴하시겠어요?\n이 기기의 모든 데이터가 삭제돼요.", { yes: "탈퇴" })) return;
     // 서버에 올린 글은 본인이 개별 삭제하거나 고객센터로 요청해야 해요.
     // 그 안내를 한 번 더 확인받습니다.
     if (Sync.enabled && Sync.signedIn) {
-      const ok = confirm(
+      const ok = await btConfirm(
         "커뮤니티에 올린 글·댓글은 탈퇴만으로는 삭제되지 않아요.\n" +
         "전체 삭제를 원하시면 탈퇴 전에 고객센터로 요청해주세요.\n\n" +
-        "그래도 지금 탈퇴할까요?");
+        "그래도 지금 탈퇴할까요?", { yes: "탈퇴" });
       if (!ok) return;
       await Sync.signOut();
     }
@@ -5259,7 +5855,6 @@
   }
 
   function enterApp() {
-    sfx("welcome");
     const ALLOWED_ENTRY = ["community", "dogam", "meet", "jobs", "market", "mypage"];
     let entry = "home";
     try {
@@ -5297,20 +5892,6 @@
       location.reload();
     });
   }
-
-  /* ---------- 효과음: 버튼 전반 ---------- */
-  // 개별 핸들러마다 넣지 않고 한곳에서 처리해요.
-  // 이미 고유한 소리를 내는 버튼은 중복되지 않도록 제외합니다.
-  const NO_TAP = new Set(["detail-like", "comment-send", "meet-comment-send", "chat-send",
-    "write-submit", "sw-submit", "mw-submit", "review-send", "post-delete", "timer-toggle"]);
-  document.addEventListener("pointerdown", (e) => {
-    const t = e.target;
-    if (!t || typeof t.closest !== "function") return;   // 문서·텍스트노드 등은 건너뜀
-    const el = t.closest("button, .nav-btn, .chip, .tab, .seg-btn, .quick-item, .tool-item, .post-item, .home-mini, .sheet-opt");
-    if (!el || el.disabled) return;
-    if (el.id && NO_TAP.has(el.id)) return;
-    sfx("tap");
-  }, { passive: true });
 
   /* ---------- 초기화 ---------- */
   applyTheme();
@@ -5384,20 +5965,28 @@
       $$("#bt-picker .bt-tab").forEach((t) =>
         t.addEventListener("click", () => { tab = t.dataset.tab; draw(); }));
       $$("#bt-picker .bt-pick-item").forEach((it) =>
-        it.addEventListener("click", () => insert(B.token(it.dataset.k))));
+        it.addEventListener("click", () => send(it.dataset.k)));
     }
 
-    // 커서 위치에 끼워 넣습니다. 앞 글자와 붙지 않게 공백을 챙겨요.
-    function insert(tok) {
+    // 입력창별 전송 버튼
+    const SEND_OF = {
+      "review-input": "review-send",
+      "meet-comment-input": "meet-comment-send",
+      "comment-input": "comment-send",
+    };
+
+    // 고르는 즉시 보냅니다.
+    // 예전에는 `:bt_shy:` 토큰을 입력창에 끼워 넣기만 해서, 전송을 한 번 더
+    // 눌러야 했고 그 사이에는 영문 토큰이 그대로 보였어요.
+    // 쓰던 글이 있으면 뒤에 붙여서 같이 보냅니다.
+    function send(key) {
       if (!target) return;
-      const s = target.selectionStart != null ? target.selectionStart : target.value.length;
-      const e = target.selectionEnd != null ? target.selectionEnd : s;
-      const before = target.value.slice(0, s), after = target.value.slice(e);
-      const pad = before && !/\s$/.test(before) ? " " : "";
-      target.value = before + pad + tok + " " + after;
-      const pos = (before + pad + tok + " ").length;
-      target.focus();
-      try { target.setSelectionRange(pos, pos); } catch {}
+      const tok = B.token(key);
+      const cur = target.value.trim();
+      target.value = cur ? cur + " " + tok : tok;
+      const btn = $("#" + (SEND_OF[target.id] || ""));
+      close();
+      if (btn) btn.click();
     }
 
     function close() {

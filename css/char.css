@@ -85,3 +85,56 @@
   .bt-grid { grid-template-columns: repeat(4, 1fr); }
   .bt-pick-item svg { width: 42px; height: 42px; }
 }
+
+/* ---- 캐릭터 알림창 ---- */
+/* 브라우저 기본 confirm/prompt 은 'barapp.kr 내용:' 같은 머리말이 붙고
+   글꼴·색·버튼을 하나도 못 바꿉니다. 그래서 같은 역할을 하는 창을 직접 만들고
+   마스코트를 카드 위로 올려 세웠어요. 판정은 js/app.js 의 btModal() 이 합니다. */
+.bt-modal-back {
+  position: absolute; inset: 0; z-index: 130;
+  background: rgba(0, 0, 0, .45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 26px 22px;
+  animation: bt-fade-in .14s ease;
+}
+.bt-modal-back.out { animation: bt-fade-out .12s ease forwards; }
+.bt-modal {
+  width: 100%; max-width: 320px;
+  background: var(--bg-card);
+  border-radius: 22px;
+  padding: 0 20px 16px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .3);
+  text-align: center;
+  animation: bt-pop .2s cubic-bezier(.2, 1.25, .45, 1);
+}
+/* 캐릭터는 카드 위로 살짝 튀어나옵니다 */
+.bt-modal-char { margin-top: -30px; line-height: 0; }
+.bt-modal-char svg { width: 112px; height: 112px; display: block; margin: 0 auto; }
+.bt-modal-title { font-size: 17px; font-weight: 800; color: var(--text); margin: -8px 0 7px; }
+.bt-modal-msg {
+  font-size: 14.5px; line-height: 1.6; color: var(--text-sub);
+  margin: -4px 0 0; word-break: keep-all;
+}
+.bt-modal-title + .bt-modal-msg { margin-top: 0; }
+.bt-modal-input {
+  width: 100%; margin-top: 14px; padding: 12px 14px;
+  border: 1px solid var(--line-strong); border-radius: 12px;
+  background: var(--bg); color: var(--text);
+  font-family: inherit; font-size: 15px; text-align: center;
+}
+.bt-modal-input:focus { outline: none; border-color: var(--text); }
+.bt-modal-btns { display: flex; gap: 8px; margin-top: 17px; }
+.bt-modal-btn {
+  flex: 1; padding: 13px 0; border: 0; border-radius: 14px;
+  font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+}
+.bt-modal-btn.ghost { background: var(--chip-bg); color: var(--text-sub); }
+.bt-modal-btn.go { background: var(--text); color: var(--bg); }
+.bt-modal-btn.go.danger { background: var(--accent); color: #fff; }
+.bt-modal-btn:active { opacity: .75; }
+
+@keyframes bt-fade-in { from { opacity: 0; } }
+@keyframes bt-fade-out { to { opacity: 0; } }
+@keyframes bt-pop {
+  from { opacity: 0; transform: translateY(14px) scale(.94); }
+}

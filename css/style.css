@@ -851,6 +851,46 @@ textarea.input { height: auto; }
 .badge-name { font-size: 10.5px; color: var(--text-sub); font-weight: 600; text-align: center; }
 
 /* ---------- 관리자 ---------- */
+/* 현황 숫자는 전부 눌러서 해당 관리 화면으로 들어갑니다. */
+.astat {
+  border: none; background: none; color: inherit; font: inherit;
+  cursor: pointer; padding: 8px 2px; border-radius: 12px;
+}
+.astat:active { background: var(--bg-gray); }
+.astat span { text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+
+.admin-h3 {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  border: none; background: none; color: inherit; cursor: pointer;
+  padding: 0; margin-bottom: 2px; text-align: left;
+}
+.admin-h3-go { margin-left: auto; font-size: 12.5px; font-weight: 600; color: var(--accent); }
+
+.admin-alert {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  border: none; cursor: pointer; text-align: left;
+  padding: 14px 20px; background: var(--accent-soft); color: var(--accent);
+  font-size: 14.5px; font-weight: 600;
+}
+.admin-alert.soft { background: var(--bg-gray); color: var(--text-sub); }
+.admin-alert .chev-r { margin-left: auto; width: 20px; height: 20px; }
+
+.admin-links .row-link { padding: 15px 0; border-bottom: 1px solid var(--line); }
+.admin-links .row-link:last-child { border-bottom: none; }
+.admin-links .row-link:active { background: var(--bg-gray); }
+
+.admin-row {
+  padding: 14px 20px; border-bottom: 1px solid var(--line); cursor: pointer;
+}
+.admin-row:active { background: var(--bg-gray); }
+.admin-row .order-head { margin-bottom: 7px; }
+.admin-row-body {
+  margin-top: 5px; font-size: 13px; line-height: 1.55; color: var(--text-sub);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.report-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.report-acts .chip { padding: 6px 11px; font-size: 12.5px; }
+
 .member-row {
   display: flex; align-items: center; gap: 12px;
   padding: 13px 16px; border-bottom: 1px solid var(--line); cursor: pointer;
@@ -907,16 +947,9 @@ textarea.input { height: auto; }
   background: var(--bg-gray); border-radius: 12px;
 }
 .reply-item .avatar { width: 20px; height: 20px; }
-.reply-bar {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 16px; background: var(--bg-banner);
-  font-size: 13.5px; font-weight: 700; color: var(--text);
-  flex-shrink: 0;
-}
-.reply-bar button {
-  margin-left: auto; border: none; background: none; color: var(--text-sub);
-  font-size: 13px; cursor: pointer; padding: 4px 8px;
-}
+/* 답글을 달고 있는 댓글 — 입력바 위에 안내줄을 띄우는 대신
+   누른 '답글' 버튼 자체가 켜져서 어디에 쓰는 중인지 알려줍니다. */
+.reply-btn.on { color: var(--accent); }
 
 /* ---------- 칵테일 배수 ---------- */
 .mult-seg { float: right; display: inline-flex; gap: 4px; }
@@ -932,7 +965,8 @@ textarea.input { height: auto; }
   border-radius: 12px; margin-top: 8px; cursor: zoom-in;
   border: 1px solid var(--line);
 }
-.cmt-img-btn { font-size: 20px; width: 40px; flex-shrink: 0; }
+.cmt-img-btn { width: 40px; flex-shrink: 0; color: var(--text-sub); }
+.cmt-img-btn svg { width: 23px; height: 23px; }
 .cmt-attach { position: relative; width: 44px; height: 44px; flex-shrink: 0; }
 .cmt-attach img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
 .cmt-attach-rm {
@@ -1241,4 +1275,41 @@ textarea.input { height: auto; }
   .job-sub { font-size: 13px; }
   .topbar-title { font-size: 16.5px; }
   .tab { font-size: 15px; }
+}
+
+/* ---------- 익명 물방울 ----------
+ * 동그라미를 물방울로 바꿨어요. 기존 광택 하이라이트는 그대로 살리고
+ * 위치만 물방울의 배(아래쪽 둥근 부분)로 옮겼습니다.
+ * 형태는 SVG 마스크라 어떤 크기에서도 매끈하게 나옵니다.
+ */
+:root {
+  --drop-shape: url('data:image/svg+xml;utf8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"%3E%3Cpath d="M256 40C256 40 476 242 476 292A220 220 0 0 1 36 292C36 242 256 40 256 40Z"/%3E%3C/svg%3E');
+}
+
+.avatar {
+  border-radius: 0;
+  overflow: visible;
+  -webkit-mask: var(--drop-shape) center / contain no-repeat;
+  mask: var(--drop-shape) center / contain no-repeat;
+}
+.avatar::after {
+  left: 27%; top: 46%; width: 25%; height: 25%;
+}
+
+/* 색상 고르기도 같은 물방울로 */
+.color-dot {
+  border-radius: 0;
+  -webkit-mask: var(--drop-shape) center / contain no-repeat;
+  mask: var(--drop-shape) center / contain no-repeat;
+}
+.color-dot::after {
+  left: 27%; top: 46%; width: 25%; height: 25%;
+}
+/* 선택 표시가 마스크 밖으로 나가면 잘리므로 물방울 안쪽에 그려요 */
+.color-dot.selected::before {
+  right: auto; top: auto;
+  left: 50%; bottom: 10%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, .5);
+  box-shadow: none;
 }

@@ -1132,6 +1132,99 @@
       });
     },
 
+    /* ---------- 관리자 콘텐츠 목록 ----------
+     * 대시보드 숫자를 눌렀을 때 여는 관리 화면의 원본이에요.
+     * 로컬 캐시가 아니라 서버를 직접 읽습니다. 운영자는 "내 기기에 받아둔 것"이
+     * 아니라 "지금 서버에 실제로 있는 것"을 봐야 하니까요.
+     */
+    async adminList(kind, opts) {
+      if (!ready() || !S.isAdmin) return [];
+      opts = opts || {};
+      var lim = Math.min(opts.limit || 200, 500);
+      // 이 값은 PostgREST 필터 문자열에 그대로 들어갑니다.
+      // 쉼표·괄호가 섞이면 필터가 통째로 깨지므로 구분자를 미리 지워요.
+      var q = String(opts.q || "").replace(/[,()%*\\"']/g, " ").trim();
+
+      var SPECS = {
+        post: {
+          table: "posts", author: "author_id", order: "created_at", search: ["title", "body"],
+          cols: "id,title,body,cat,nick,color,author_id,created_at,like_count,comment_count,views",
+        },
+        comment: {
+          table: "comments", author: "author_id", order: "created_at", search: ["text"],
+          cols: "id,text,color,post_id,parent_id,author_id,created_at",
+        },
+        spirit: {
+          table: "spirits", author: "author_id", order: "created_at", search: ["name", "note"],
+          cols: "id,name,kind,emoji,abv,cat,base,price,ings,note,author_id,created_at",
+        },
+        meet: {
+          table: "meets", author: "host_id", order: "meet_at", asc: true, search: ["title", "place"],
+          cols: "id,title,descr,region,place,meet_at,max_people,host_color,host_id,created_at",
+        },
+        review: {
+          table: "reviews", author: "author_id", order: "created_at", search: ["text"],
+          cols: "id,spirit_id,stars,text,color,author_id,created_at",
+        },
+      };
+      var s = SPECS[kind];
+      if (!s) return [];
+
+      try {
+        var sel = sb.from(s.table).select(s.cols);
+        if (opts.author) sel = sel.eq(s.author, opts.author);
+        if (q) {
+          sel = sel.or(s.search.map(function (c) { return c + ".ilike.%" + q + "%"; }).join(","));
+        }
+        var res = await sel.order(s.order, { ascending: !!s.asc }).limit(lim);
+        if (res.error) return [];
+        var rows = res.data || [];
+        if (!rows.length) return [];
+
+        // 작성자 닉네임·정지 여부는 profiles 에만 있어서 한 번 더 받아옵니다.
+        var ids = [];
+        rows.forEach(function (r) {
+          var a = r[s.author];
+          if (a && ids.indexOf(a) < 0) ids.push(a);
+        });
+        var profs = {};
+        if (ids.length) {
+          var pRes = await sb.from("profiles").select("id,nick,color,banned_until").in("id", ids);
+          (pRes.data || []).forEach(function (p) { profs[p.id] = p; });
+        }
+
+        // 댓글은 "어느 글에 달린 댓글인지"가 없으면 판단이 안 돼요.
+        var postTitles = {};
+        if (kind === "comment") {
+          var pids = [];
+          rows.forEach(function (r) { if (pids.indexOf(r.post_id) < 0) pids.push(r.post_id); });
+          if (pids.length) {
+            var tRes = await sb.from("posts").select("id,title").in("id", pids);
+            (tRes.data || []).forEach(function (p) { postTitles[p.id] = p.title; });
+          }
+        }
+
+        return rows.map(function (r) {
+          var a = r[s.author] || null;
+          var prof = profs[a] || {};
+          return {
+            kind: kind,
+            id: Number(r.id),
+            authorId: a,
+            authorNick: prof.nick || "알 수 없음",
+            authorColor: typeof prof.color === "number" ? prof.color
+              : typeof r.color === "number" ? r.color : 2,
+            authorBanned: prof.banned_until ? t(prof.banned_until) : 0,
+            at: t(r.created_at),
+            postTitle: kind === "comment" ? (postTitles[r.post_id] || "") : "",
+            row: r,
+          };
+        });
+      } catch (e) {
+        return [];
+      }
+    },
+
     /* ---------- 관리자 조치 ----------
      * 일반 쓰기와 달리 큐에 넣지 않고 즉시 실행하고 결과를 돌려줘요.
      * 권한이 없으면 서버가 거부하는데, 그걸 조용히 재시도 큐에 쌓으면
