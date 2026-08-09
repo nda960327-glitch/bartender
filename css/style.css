@@ -1463,3 +1463,29 @@ textarea.input { height: auto; }
 .push-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .push-text b { font-size: 15px; font-weight: 700; }
 .push-text span { font-size: 12.5px; line-height: 1.45; color: var(--text-sub); }
+
+/* ---------- 댓글 하트 · 글쓴이 이름 ---------- */
+.comment-acts { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+
+.cmt-like {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 8px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--text-muted);
+  font-size: 12.5px; font-weight: 600; cursor: pointer;
+  /* 손가락으로 누르는 곳이라 글자보다 넉넉해야 합니다 */
+  min-height: 30px;
+}
+.cmt-like svg {
+  width: 15px; height: 15px;
+  fill: none; stroke: currentColor; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.cmt-like:hover { background: var(--bg-input); }
+.cmt-like.liked { color: var(--accent); }
+.cmt-like.liked svg { fill: currentColor; }
+
+/* 글쓴이는 번호 대신 이름으로 부릅니다 — 한눈에 구분되게 */
+.op-name { color: var(--accent); font-weight: 700; }
+
+/* 답글쓰기는 하트 옆에 나란히 */
+.comment-acts .reply-btn { margin: 0; }

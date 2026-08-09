@@ -148,7 +148,7 @@
   /* ---------- 형식 변환: DB → 앱 ---------- */
   var t = function (iso) { return iso ? Date.parse(iso) : Date.now(); };
 
-  function toAppComment(row) {
+  function toAppComment(row, likedIds) {
     var c = {
       id: Number(row.id),
       cid: Number(row.id),
@@ -160,6 +160,8 @@
       mine: row.author_id === S.uid,
       remote: true,
       replies: [],
+      likes: row.like_count || 0,
+      likedByMe: !!(likedIds && likedIds.has(Number(row.id))),
     };
     // 공식(운영) 계정 댓글만 이름이 보입니다. 나머지는 계속 익명이에요.
     // 이 값들은 서버 트리거가 찍기 때문에 앱에서 위조할 수 없습니다.
@@ -327,6 +329,12 @@
     var ids = rows.map(function (r) { return r.id; });
     var cRes = await sb.from("comments").select("*").in("post_id", ids).order("created_at");
     var lRes = await sb.from("likes").select("post_id").eq("user_id", S.uid);
+    // 내가 하트를 누른 댓글. 댓글이 없으면 물어보지 않아요.
+    var cids = (cRes.data || []).map(function (r) { return r.id; });
+    var clRes = cids.length
+      ? await sb.from("comment_likes").select("comment_id").eq("user_id", S.uid).in("comment_id", cids)
+      : { data: [] };
+    var likedComments = new Set((clRes.data || []).map(function (r) { return Number(r.comment_id); }));
 
     var byPost = {};
     (cRes.data || []).forEach(function (row) {
@@ -338,7 +346,7 @@
       var flat = byPost[r.id] || [];
       var tops = [], byId = {};
       flat.forEach(function (row) {
-        var c = toAppComment(row);
+        var c = toAppComment(row, likedComments);
         byId[c.id] = c;
         if (!row.parent_id) tops.push(c);
       });
@@ -576,7 +584,7 @@
   var TABLE_KIND = {
     posts: "post", comments: "comment", likes: "like",
     meets: "meet", meet_participants: "meetJoin", meet_comments: "meetComment",
-    spirits: "spirit", reviews: "review",
+    spirits: "spirit", reviews: "review", comment_likes: "commentLike",
     conversations: "conversation", messages: "message",
     content_overrides: "override",
   };
@@ -599,6 +607,8 @@
       var delId = old && old.id;
       if (table === "likes" && old) {
         emitPatch("like", "delete", { postId: Number(old.post_id), userId: old.user_id });
+      } else if (table === "comment_likes") {
+        emitPatch("commentLike", "delete", { commentId: Number(old.comment_id), userId: old.user_id });
       } else if (table === "meet_participants" && old) {
         emitPatch("meetJoin", "delete", { meetId: Number(old.meet_id), userId: old.user_id });
       } else if (delId != null) {
@@ -621,6 +631,9 @@
         break;
       case "likes":
         emitPatch("like", "upsert", { postId: Number(row.post_id), userId: row.user_id });
+        break;
+      case "comment_likes":
+        emitPatch("commentLike", "upsert", { commentId: Number(row.comment_id), userId: row.user_id });
         break;
       case "meets":
         emitPatch("meet", "upsert", toAppMeet(row, [], null));
@@ -1181,6 +1194,12 @@
     async removePushSub(endpoint) {
       if (!ready() || !endpoint) return;
       try { await sb.from("push_subscriptions").delete().eq("endpoint", endpoint); } catch (e) {}
+    },
+
+    toggleCommentLike(commentId, on) {
+      if (!ready()) return;
+      if (on) enqueue({ table: "comment_likes", op: "upsert", row: { comment_id: commentId, user_id: S.uid } });
+      else enqueue({ table: "comment_likes", op: "delete", match: { comment_id: commentId, user_id: S.uid } });
     },
 
     // 내가 쓴 것만 지울 수 있어요 (서버 정책이 한 번 더 막습니다).

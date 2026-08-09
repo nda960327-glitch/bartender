@@ -1534,27 +1534,63 @@
    * 앱에서 만들어 보낼 수 없으니 이 뱃지는 위조되지 않아요. */
   const officialTag = (x) =>
     x && x.official ? ` <span class="official-tag">${esc(x.officialLabel || "공식")}</span>` : "";
-  // 글 목록·상세에 쓸 작성자 이름. 공식 계정만 실제 이름이 나오고 나머지는 익명 유지.
+  /* 글 목록에 쓸 작성자 이름.
+     익명 글은 이름을 아예 적지 않습니다. 전부 '술방울'이라 적어봐야
+     한 줄이 같은 글자로 채워질 뿐, 구분에 아무 도움이 안 돼요.
+     누구인지는 물방울 색으로 봅니다. 공식·홍보 계정만 이름이 나옵니다. */
   const posterName = (p) =>
     p.official ? esc(p.nick)
       : p.cat === "promo" ? "📢 " + esc(p.nick)
-      : esc(dropName(p.color));
+      : "";
+
+  /* 같은 사람을 같은 번호로 부르기 위한 열쇠.
+     서버에 붙어 있으면 계정으로, 아니면 이 기기의 내 글인지로 구분해요. */
+  const speakerKey = (x) =>
+    x.authorId ? "u:" + x.authorId : (x.mine ? "me" : "c:" + x.color + ":" + (x.id || 0));
+
+  /* 이 글에서 몇 번째로 말한 사람인지 — 술방울1, 술방울2 …
+     한 사람이 여러 번 달아도 번호는 하나로 유지됩니다.
+     글쓴이는 번호 대신 '글쓴이'로 부르므로 세지 않아요. */
+  function commenterNumbers(post) {
+    const map = new Map();
+    let seq = 0;
+    const visit = (c) => {
+      if (!c || c.official || isOP(c, post)) return;
+      const k = speakerKey(c);
+      if (!map.has(k)) map.set(k, ++seq);
+    };
+    (post.comments || []).forEach((c) => { visit(c); (c.replies || []).forEach(visit); });
+    return map;
+  }
 
   // 댓글 작성자가 글쓴이 본인인지. 서버에 붙어 있으면 계정으로 정확히 판별해요.
   const isOP = (c, post) =>
     !!(c && post && ((c.authorId && post.authorId && c.authorId === post.authorId) || (c.mine && post.mine)));
 
-  // 이름 + 꼬리표 (글쓴이 / 나)
-  const speakerHTML = (who, post) => {
-    const name = who.official
-      ? `<span class="official">${esc(who.officialNick || "운영")}</span>`
-      : esc(dropName(who.color));
+  /* 댓글 작성자 이름 + 꼬리표.
+     글쓴이는 '글쓴이', 나머지는 술방울1·술방울2… 로 부릅니다.
+     번호가 있어야 "3번이 한 말"처럼 서로를 가리킬 수 있어요. */
+  const speakerHTML = (who, post, nums) => {
     const tags = [];
-    if (who.official) tags.push(`<span class="official-tag">${esc(who.officialLabel || "공식")}</span>`);
-    if (isOP(who, post)) tags.push('<span class="op-tag">글쓴이</span>');
+    let name;
+    if (who.official) {
+      name = `<span class="official">${esc(who.officialNick || "운영")}</span>`;
+      tags.push(`<span class="official-tag">${esc(who.officialLabel || "공식")}</span>`);
+    } else if (isOP(who, post)) {
+      name = '<span class="op-name">글쓴이</span>';
+    } else {
+      const no = nums && nums.get(speakerKey(who));
+      name = esc(ANON_NAME) + (no || "");
+    }
     if (who.mine) tags.push('<span class="me-tag">나</span>');
     return name + (tags.length ? " " + tags.join(" ") : "");
   };
+
+  /* 댓글 하트. 개수가 0이면 숫자를 감춰 줄이 지저분해지지 않게 합니다. */
+  const heartHTML = (c, ci, ri) =>
+    `<button class="cmt-like ${c.likedByMe ? "liked" : ""}" data-lci="${ci}"${ri === undefined ? "" : ` data-lri="${ri}"`} aria-label="공감">
+       <svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.5-9 9-9 9z"/></svg>${c.likes ? `<span>${c.likes}</span>` : ""}
+     </button>`;
 
   /* ---------- 내장 도감 수정 (운영자) ---------- */
   const SP_FIELDS = [
@@ -4187,6 +4223,7 @@
     show("meet-detail");
   }
   function renderMeetDetail() {
+    const meetNums = commenterNumbers(state.meets.find((x) => x.id === state.curMeet) || { comments: [] });
     const m = state.meets.find((x) => x.id === state.curMeet);
     if (!m) return;
     const full = m.joined >= m.max && !m.isJoined;
@@ -4218,7 +4255,7 @@
         <div class="comment-item">
           ${avatarHTML(c.color)}
           <div class="comment-body">
-            <div class="comment-head"><span class="comment-nick">${speakerHTML(c, m)}</span><span class="comment-time">${fmtTime(c.time)}</span>${c.mine ? `<button class="cmt-del" data-mi="${mi}">삭제</button>` : ""}</div>
+            <div class="comment-head"><span class="comment-nick">${speakerHTML(c, m, meetNums)}</span><span class="comment-time">${fmtTime(c.time)}</span>${c.mine ? `<button class="cmt-del" data-mi="${mi}">삭제</button>` : ""}</div>
             ${c.text ? `<div class="comment-text">${escMsg(c.text)}</div>` : ""}
             ${c.img ? `<img class="cmt-img" src="${c.img}" alt="댓글 사진">` : ""}
           </div>
@@ -4347,8 +4384,8 @@
           <div class="post-head">
             ${avatarHTML(p.color)}
             ${p.boostUntil && p.boostUntil > Date.now() ? '<span class="boost-tag">📌 AD</span>' : ""}
-            <span class="post-nick${p.official ? " official" : ""}">${posterName(p)}</span>${officialTag(p)}
-            <span class="post-time">· ${fmtTime(p.time)}</span>
+            ${posterName(p) ? `<span class="post-nick${p.official ? " official" : ""}">${posterName(p)}</span>` : ""}${officialTag(p)}
+            <span class="post-time">${posterName(p) ? "· " : ""}${fmtTime(p.time)}</span>
             ${p.mine ? '<span class="my-tag">내 글</span>' : ""}
           </div>
           <div class="post-title">${esc(p.title)}</div>
@@ -4422,6 +4459,8 @@
     if (inp) inp.placeholder = ci === null ? "댓글을 작성해 주세요." : "답글을 작성해 주세요.";
   }
   function renderPostDetail() {
+    // 누가 몇 번인지는 글 하나마다 정해집니다. 그릴 때 한 번만 계산해요.
+    const nums = commenterNumbers(state.posts.find((x) => x.id === state.curPost) || { comments: [] });
     const p = state.posts.find((x) => x.id === state.curPost);
     if (!p) return;
     $("#post-delete").hidden = !p.mine;
@@ -4432,7 +4471,7 @@
       <div class="detail-wrap">
         <div class="detail-head">
           ${avatarHTML(p.color, "md")}
-          <div><div class="detail-nick">${p.official ? `<span class="official">${esc(p.nick)}</span>` : p.cat === "promo" ? `<span class="biz-link" id="biz-link">${esc(p.nick)}</span>` : esc(dropName(p.color))}${officialTag(p)}${p.cat === "promo" ? ` <span class="biz-tag">📢 ${esc(p.biz || "비즈니스")}</span>` : ""}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""} · 조회 ${p.views || 0}</div></div>
+          <div><div class="detail-nick">${p.official ? `<span class="official">${esc(p.nick)}</span>` : p.cat === "promo" ? `<span class="biz-link" id="biz-link">${esc(p.nick)}</span>` : `<span class="op-name">글쓴이</span>`}${officialTag(p)}${p.cat === "promo" ? ` <span class="biz-tag">📢 ${esc(p.biz || "비즈니스")}</span>` : ""}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""} · 조회 ${p.views || 0}</div></div>
           <span class="cat-tag detail-cat">${CAT_LABEL[p.cat] || "자유"}</span>
         </div>
         <div class="detail-title">${esc(p.title)}</div>
@@ -4454,17 +4493,19 @@
         <div class="comment-item">
           ${avatarHTML(c.color)}
           <div class="comment-body">
-            <div class="comment-head"><span class="comment-nick">${speakerHTML(c, p)}</span><span class="comment-time">${fmtTime(c.time)}</span>
-              <button class="reply-btn" data-ci="${ci}">답글</button>${c.mine ? `<button class="cmt-del" data-ci="${ci}">삭제</button>` : ""}</div>
+            <div class="comment-head"><span class="comment-nick">${speakerHTML(c, p, nums)}</span><span class="comment-time">${fmtTime(c.time)}</span>
+              ${c.mine ? `<button class="cmt-del" data-ci="${ci}">삭제</button>` : ""}</div>
             ${c.text ? `<div class="comment-text">${escMsg(c.text)}</div>` : ""}
             ${c.img ? `<img class="cmt-img" src="${c.img}" alt="댓글 사진">` : ""}
+            <div class="comment-acts">${heartHTML(c, ci)}<button class="reply-btn" data-ci="${ci}">답글쓰기</button></div>
             ${(c.replies || []).map((rp, ri) => `
               <div class="reply-item">
                 ${avatarHTML(rp.color)}
                 <div class="comment-body">
-                  <div class="comment-head"><span class="comment-nick">${speakerHTML(rp, p)}</span><span class="comment-time">${fmtTime(rp.time)}</span>${rp.mine ? `<button class="cmt-del" data-ci="${ci}" data-ri="${ri}">삭제</button>` : ""}</div>
+                  <div class="comment-head"><span class="comment-nick">${speakerHTML(rp, p, nums)}</span><span class="comment-time">${fmtTime(rp.time)}</span>${rp.mine ? `<button class="cmt-del" data-ci="${ci}" data-ri="${ri}">삭제</button>` : ""}</div>
                   ${rp.text ? `<div class="comment-text">${escMsg(rp.text)}</div>` : ""}
                   ${rp.img ? `<img class="cmt-img" src="${rp.img}" alt="댓글 사진">` : ""}
+                  <div class="comment-acts">${heartHTML(rp, ci, ri)}</div>
                 </div>
               </div>`).join("")}
           </div>
@@ -4517,6 +4558,23 @@
       Sync.toggleLike(p.id, p.likedByMe);
       renderPostDetail();
     });
+
+    /* 댓글 하트.
+       화면 먼저 바꾸고 서버에 알립니다. 서버 응답을 기다렸다 바꾸면
+       하트 한 번 누르는 데 눈에 띄게 굼떠요. */
+    $$("#post-detail .cmt-like").forEach((b) => b.addEventListener("click", () => {
+      const ci = +b.dataset.lci;
+      const c = b.dataset.lri === undefined
+        ? p.comments[ci]
+        : (p.comments[ci].replies || [])[+b.dataset.lri];
+      if (!c) return;
+      c.likedByMe = !c.likedByMe;
+      c.likes = Math.max(0, (c.likes || 0) + (c.likedByMe ? 1 : -1));
+      if (c.likedByMe) { sfx("success"); vibrate(8); }
+      savePosts();
+      if (c.id) Sync.toggleCommentLike(c.id, c.likedByMe);
+      renderPostDetail();
+    }));
   }
   function addComment() {
     const text = $("#comment-input").value.trim();
@@ -6093,7 +6151,7 @@
     savePushSub: async () => false, removePushSub: NOOP,
     uploadPhoto: async () => null,
     saveProfile: NOOP, savePost: NOOP, deletePost: NOOP, bumpViews: NOOP, saveComment: NOOP,
-    toggleLike: NOOP, saveMeet: NOOP, joinMeet: NOOP, saveMeetComment: NOOP,
+    toggleLike: NOOP, toggleCommentLike: NOOP, saveMeet: NOOP, joinMeet: NOOP, saveMeetComment: NOOP,
     saveSpirit: NOOP, saveReview: NOOP, saveReport: NOOP, setBlock: NOOP,
   };
 
@@ -6265,6 +6323,23 @@
       else if (i >= 0) sp.reviews[i] = p.item;
       else sp.reviews.push(p.item);
       saveSpirits();
+
+    } else if (p.kind === "commentLike") {
+      // 개수는 서버가 셉니다. 여기서는 내 화면의 숫자만 맞춰요.
+      for (const post of state.posts) {
+        let hit = null;
+        for (const c of post.comments || []) {
+          if (c.id === p.commentId) { hit = c; break; }
+          const r = (c.replies || []).find((x) => x.id === p.commentId);
+          if (r) { hit = r; break; }
+        }
+        if (!hit) continue;
+        const add = p.op === "delete" ? -1 : 1;
+        if (p.userId === Sync.uid) hit.likedByMe = p.op !== "delete";
+        else hit.likes = Math.max(0, (hit.likes || 0) + add);
+        savePosts();
+        break;
+      }
 
     } else if (p.kind === "conversation") {
       const i = byId(state.chats, p.item.id);
