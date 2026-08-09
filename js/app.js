@@ -2232,6 +2232,10 @@
       openSheet("가격대 필터", ["전체", "5만원 이하", "5~10만원", "10~20만원", "20만원 이상"], state.dogamPrice, (v) => { state.dogamPrice = v; renderDogam(); }));
 
     // 위스키 지역 필터 — 실제로 술이 있는 지역만 개수와 함께 보여줍니다.
+    // 지역 판정에 심층 데이터가 필요하므로, 없으면 받아온 뒤 다시 그려요.
+    if (isWhisky && !DeepData.settled) {
+      DeepData.load().then(() => { if (state.view === "dogam") renderDogam(); });
+    }
     $("#dogam-region").hidden = !isWhisky;
     if (isWhisky) {
       const rCount = {};
@@ -2305,6 +2309,35 @@
     });
     wireImgFallback("#spirit-list");
   }
+
+  /* ---------- 심층 도감 데이터 지연 로딩 ---------- */
+  // 두 데이터 파일을 합치면 500KB 가 넘습니다. 첫 화면에서 이걸 붙들고 있으면
+  // 모바일에서 앱이 뜨는 게 늦어져서, 도감에 들어갈 때 불러오도록 분리했어요.
+  // 앱이 뜬 뒤 한가할 때 미리 받아두기 때문에 실제로 기다리는 일은 거의 없습니다.
+  const DeepData = (() => {
+    let promise = null, settled = false;
+    const inject = (src) => new Promise((done) => {
+      const s = document.createElement("script");
+      s.src = src;
+      s.async = true;
+      // 못 받아도 앱은 그대로 동작해야 하므로 성공/실패 모두 통과시켜요.
+      s.onload = s.onerror = () => done();
+      document.head.appendChild(s);
+    });
+    return {
+      // 데이터가 실제로 올라왔는지
+      get ready() { return !!(window.WHISKY_DEEP && window.COCKTAIL_DEEP); },
+      // 시도가 끝났는지 (실패로 끝나도 true — 무한 재시도를 막습니다)
+      get settled() { return settled; },
+      load() {
+        if (!promise) {
+          promise = Promise.all([inject("js/cocktail-deep.js"), inject("js/whisky-deep.js")])
+            .then(() => { settled = true; });
+        }
+        return promise;
+      },
+    };
+  })();
 
   /* ---------- 심층 도감 렌더링 ---------- */
   // 칵테일/위스키 심층 데이터는 별도 파일(cocktail-deep.js / whisky-deep.js)에 있어요.
@@ -2534,6 +2567,11 @@
     renderSpiritDetail();
     renderStarPick();
     show("spirit");
+    // 심층 데이터가 아직 안 왔으면 받은 뒤 한 번 더 그립니다.
+    // (그 사이에 다른 술로 넘어갔으면 다시 그리지 않아요)
+    if (!DeepData.settled) {
+      DeepData.load().then(() => { if (state.curSpirit === id) renderSpiritDetail(); });
+    }
   }
   function renderSpiritDetail() {
     const sp = state.spirits.find((x) => x.id === state.curSpirit);
@@ -4633,4 +4671,9 @@
     renderOnboard();
     show("onboard", true);
   }
+
+  // 첫 화면이 뜬 뒤 한가할 때 심층 도감 데이터를 미리 받아둡니다.
+  // 도감에 들어갔을 때 기다리는 일이 없도록 하는 용도라, 실패해도 그냥 넘어가요.
+  if ("requestIdleCallback" in window) requestIdleCallback(() => DeepData.load(), { timeout: 4000 });
+  else setTimeout(() => DeepData.load(), 1500);
 })();
