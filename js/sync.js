@@ -33,6 +33,7 @@
   var onData = function () {};
   var onStatus = function () {};
   var onAuth = function () {};
+  var onPatch = function () {};
   var queue = [];
   var flushing = false;
   var pullTimer = null;
@@ -244,6 +245,64 @@
     };
   }
 
+  /* ---------- 1:1 채팅 ---------- */
+  // 두 사람당 대화방 하나. 누가 먼저 말을 걸어도 같은 방을 씁니다.
+  function pairOf(peerId) {
+    return S.uid < peerId ? [S.uid, peerId] : [peerId, S.uid];
+  }
+
+  function toAppConversation(row) {
+    var iAmA = row.user_a === S.uid;
+    return {
+      id: Number(row.id),
+      peerId: iAmA ? row.user_b : row.user_a,
+      color: iAmA ? row.b_color : row.a_color,
+      ctx: row.ctx || "1:1 대화",
+      time: t(row.last_at),
+      msgs: [],
+      remote: true,
+    };
+  }
+
+  function toAppMessage(row) {
+    return {
+      id: Number(row.id),
+      me: row.sender === S.uid,
+      text: row.text,
+      time: t(row.created_at),
+      remote: true,
+    };
+  }
+
+  async function pullChats() {
+    var res = await sb.from("conversations").select("*")
+      .or("user_a.eq." + S.uid + ",user_b.eq." + S.uid)
+      .order("last_at", { ascending: false }).limit(100);
+    if (res.error) throw res.error;
+    var rows = res.data || [];
+    if (!rows.length) return [];
+
+    var ids = rows.map(function (r) { return r.id; });
+    var mRes = await sb.from("messages").select("*")
+      .in("conversation_id", ids).order("created_at").limit(2000);
+    var rRes = await sb.from("conversation_reads").select("*").eq("user_id", S.uid);
+
+    var byConv = {};
+    (mRes.data || []).forEach(function (m) {
+      (byConv[m.conversation_id] = byConv[m.conversation_id] || []).push(toAppMessage(m));
+    });
+    var readAt = {};
+    (rRes.data || []).forEach(function (r) { readAt[r.conversation_id] = t(r.last_read_at); });
+
+    return rows.map(function (r) {
+      var c = toAppConversation(r);
+      c.msgs = byConv[r.id] || [];
+      var seen = readAt[r.id] || 0;
+      c.unread = c.msgs.filter(function (m) { return !m.me && m.time > seen; }).length;
+      return c;
+    });
+  }
+
   /* ---------- 서버에서 가져오기 ---------- */
   async function pullPosts() {
     var lim = CFG.LIMIT_POSTS || 300;
@@ -374,7 +433,7 @@
     try {
       S.isAdmin = await pullIsAdmin();
       var results = await Promise.allSettled([
-        pullPosts(), pullMeets(), pullSpirits(), pullProfile(), pullBlocks(), pullReports(),
+        pullPosts(), pullMeets(), pullSpirits(), pullProfile(), pullBlocks(), pullReports(), pullChats(),
       ]);
       var data = { isAdmin: S.isAdmin };
       if (results[0].status === "fulfilled") data.posts = results[0].value;
@@ -386,6 +445,7 @@
       if (results[3].status === "fulfilled" && results[3].value) data.profile = results[3].value;
       if (results[4].status === "fulfilled" && results[4].value) data.blocks = results[4].value;
       if (results[5].status === "fulfilled") data.reports = results[5].value;
+      if (results[6].status === "fulfilled") data.chats = results[6].value;
 
       var failed = results.filter(function (r) { return r.status === "rejected"; });
       if (failed.length === results.length) { setStatus("offline"); return; }
@@ -404,20 +464,109 @@
     pullTimer = setTimeout(function () { pullAll(reason); }, 500);
   }
 
-  /* ---------- 실시간 구독 ---------- */
+  /* ---------- 실시간 구독 (증분) ----------
+   * 예전에는 누가 글 하나만 써도 접속 중인 모두가 전체를 다시 받았어요.
+   * 동시 접속이 늘면 글 하나에 수백 번의 대량 조회가 터집니다.
+   * 이제는 바뀐 행만 받아서 그 부분만 고칩니다.
+   *
+   * 다만 실시간은 놓칠 수 있으므로(재접속·일시적 끊김),
+   * 화면 복귀·재연결 시에는 여전히 전체를 한 번 맞춰요.
+   */
+  var TABLE_KIND = {
+    posts: "post", comments: "comment", likes: "like",
+    meets: "meet", meet_participants: "meetJoin", meet_comments: "meetComment",
+    spirits: "spirit", reviews: "review",
+    conversations: "conversation", messages: "message",
+  };
+
+  function emitPatch(kind, op, item, extra) {
+    try { onPatch(Object.assign({ kind: kind, op: op, item: item }, extra || {})); }
+    catch (e) {}
+  }
+
+  function handleChange(table, payload) {
+    var kind = TABLE_KIND[table];
+    var ev = payload.eventType || payload.event;
+    var row = payload.new && Object.keys(payload.new).length ? payload.new : null;
+    var old = payload.old && Object.keys(payload.old).length ? payload.old : null;
+
+    // 신고는 목록을 통째로 다시 받는 편이 단순하고, 운영자에게만 옵니다.
+    if (table === "reports") { schedulePull("report"); return; }
+
+    if (ev === "DELETE") {
+      var delId = old && old.id;
+      if (table === "likes" && old) {
+        emitPatch("like", "delete", { postId: Number(old.post_id), userId: old.user_id });
+      } else if (table === "meet_participants" && old) {
+        emitPatch("meetJoin", "delete", { meetId: Number(old.meet_id), userId: old.user_id });
+      } else if (delId != null) {
+        emitPatch(kind, "delete", { id: Number(delId), postId: old.post_id ? Number(old.post_id) : undefined,
+          meetId: old.meet_id ? Number(old.meet_id) : undefined,
+          spiritId: old.spirit_id ? Number(old.spirit_id) : undefined,
+          conversationId: old.conversation_id ? Number(old.conversation_id) : undefined });
+      }
+      return;
+    }
+
+    if (!row) return;
+    switch (table) {
+      case "posts":
+        emitPatch("post", "upsert", toAppPost(row, null, new Set()));
+        break;
+      case "comments":
+        emitPatch("comment", "upsert", toAppComment(row),
+          { postId: Number(row.post_id), parentId: row.parent_id ? Number(row.parent_id) : null });
+        break;
+      case "likes":
+        emitPatch("like", "upsert", { postId: Number(row.post_id), userId: row.user_id });
+        break;
+      case "meets":
+        emitPatch("meet", "upsert", toAppMeet(row, [], null));
+        break;
+      case "meet_participants":
+        emitPatch("meetJoin", "upsert", { meetId: Number(row.meet_id), userId: row.user_id });
+        break;
+      case "meet_comments":
+        emitPatch("meetComment", "upsert", {
+          id: Number(row.id), color: row.color, text: row.text, time: t(row.created_at),
+          mine: row.author_id === S.uid, authorId: row.author_id, remote: true,
+        }, { meetId: Number(row.meet_id) });
+        break;
+      case "spirits":
+        emitPatch("spirit", "upsert", toAppSpirit(row, null));
+        break;
+      case "reviews":
+        emitPatch("review", "upsert", toAppReview(row), { spiritId: Number(row.spirit_id) });
+        break;
+      case "conversations":
+        emitPatch("conversation", "upsert", toAppConversation(row));
+        break;
+      case "messages":
+        emitPatch("message", "upsert", toAppMessage(row), { conversationId: Number(row.conversation_id) });
+        break;
+    }
+  }
+
   function subscribe() {
     var ch = sb.channel("bartalk-live");
-    ["posts", "comments", "likes", "meets", "meet_participants", "meet_comments", "spirits", "reviews", "reports"]
-      .forEach(function (table) {
-        ch.on("postgres_changes", { event: "*", schema: "public", table: table }, function () {
-          schedulePull("realtime");
-        });
+    Object.keys(TABLE_KIND).concat("reports").forEach(function (table) {
+      ch.on("postgres_changes", { event: "*", schema: "public", table: table }, function (payload) {
+        try { handleChange(table, payload); }
+        catch (e) { schedulePull("realtime-fallback"); }   // 못 알아들으면 전체 동기화로 대체
       });
+    });
     ch.subscribe(function (st) {
-      if (st === "SUBSCRIBED") setStatus("online");
-      else if (st === "CHANNEL_ERROR" || st === "TIMED_OUT") setStatus("offline");
+      if (st === "SUBSCRIBED") {
+        setStatus("online");
+        // 끊겨 있는 동안 놓친 변경을 한 번 맞춰요.
+        if (missedWhileOffline) { missedWhileOffline = false; schedulePull("resubscribe"); }
+      } else if (st === "CHANNEL_ERROR" || st === "TIMED_OUT" || st === "CLOSED") {
+        missedWhileOffline = true;
+        setStatus("offline");
+      }
     });
   }
+  var missedWhileOffline = false;
 
   /* ---------- 초기화 ---------- */
   /* ---------- 인증 ----------
@@ -523,6 +672,7 @@
     onData = (hooks && hooks.onData) || onData;
     onStatus = (hooks && hooks.onStatus) || onStatus;
     onAuth = (hooks && hooks.onAuth) || onAuth;
+    onPatch = (hooks && hooks.onPatch) || onPatch;
     loadQueue();
 
     if (!S.enabled) { setStatus("off"); return "off"; }
@@ -801,6 +951,81 @@
       if (typeof blockedId !== "string" || blockedId.indexOf("local:") === 0) return;
       if (on) enqueue({ table: "blocks", op: "upsert", row: { user_id: S.uid, blocked_id: blockedId } });
       else enqueue({ table: "blocks", op: "delete", match: { user_id: S.uid, blocked_id: blockedId } });
+    },
+
+    /* ---------- 1:1 채팅 ---------- */
+    // 상대와의 대화방을 찾거나 만들어요. 두 사람당 하나만 생깁니다.
+    async openConversation(peerId, ctx, myColor, peerColor) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      if (!peerId || peerId === S.uid) return { ok: false, error: "대화 상대를 찾을 수 없어요." };
+      var pair = pairOf(peerId);
+      var iAmA = pair[0] === S.uid;
+      try {
+        var found = await sb.from("conversations").select("*")
+          .eq("user_a", pair[0]).eq("user_b", pair[1]).maybeSingle();
+        if (found.data) return { ok: true, conversation: toAppConversation(found.data) };
+
+        var row = {
+          id: Date.now() * 1000 + Math.floor(Math.random() * 1000),
+          user_a: pair[0], user_b: pair[1], ctx: ctx || "1:1 대화",
+          a_color: iAmA ? (myColor || 2) : (peerColor || 2),
+          b_color: iAmA ? (peerColor || 2) : (myColor || 2),
+        };
+        var ins = await sb.from("conversations").insert(row).select("*").single();
+        if (ins.error) {
+          // 상대가 같은 순간에 먼저 만들었을 수 있어요.
+          var again = await sb.from("conversations").select("*")
+            .eq("user_a", pair[0]).eq("user_b", pair[1]).maybeSingle();
+          if (again.data) return { ok: true, conversation: toAppConversation(again.data) };
+          return { ok: false, error: ins.error.message };
+        }
+        return { ok: true, conversation: toAppConversation(ins.data) };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "대화를 시작하지 못했어요." };
+      }
+    },
+
+    sendMessage(conversationId, msg) {
+      if (!ready()) return;
+      enqueue({
+        table: "messages", op: "upsert",
+        row: {
+          id: msg.id, conversation_id: conversationId, sender: S.uid,
+          text: msg.text, created_at: new Date(msg.time).toISOString(),
+        },
+      });
+    },
+
+    markRead(conversationId) {
+      if (!ready()) return;
+      enqueue({
+        table: "conversation_reads", op: "upsert",
+        row: { conversation_id: conversationId, user_id: S.uid, last_read_at: new Date().toISOString() },
+      });
+    },
+
+    /* ---------- 관리자 통계 ---------- */
+    async adminStats() {
+      if (!ready() || !S.isAdmin) return null;
+      var res = await sb.rpc("admin_stats");
+      if (res.error || !res.data) return null;
+      return res.data;
+    },
+
+    async adminUsers(q, limit) {
+      if (!ready() || !S.isAdmin) return [];
+      var res = await sb.rpc("admin_users", { q: q || "", lim: limit || 100 });
+      if (res.error) return [];
+      return (res.data || []).map(function (r) {
+        return {
+          id: r.id, nick: r.nick || "익명", color: r.color,
+          bannedUntil: r.banned_until ? t(r.banned_until) : 0,
+          joined: t(r.created_at),
+          posts: Number(r.posts) || 0,
+          comments: Number(r.comments) || 0,
+          reported: Number(r.reported) || 0,
+        };
+      });
     },
 
     /* ---------- 관리자 조치 ----------

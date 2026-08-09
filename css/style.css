@@ -585,6 +585,12 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .chat-nick { font-size: 15.5px; font-weight: 700; }
 .chat-last { font-size: 14px; color: var(--text-sub); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chat-time { font-size: 12.5px; color: var(--text-muted); flex-shrink: 0; align-self: flex-start; margin-top: 4px; }
+.chat-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+.chat-unread {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  background: var(--accent); color: #fff;
+  font-size: 11.5px; font-weight: 700; line-height: 20px; text-align: center;
+}
 .chat-area { background: var(--bg-gray); padding: 16px 14px; display: flex; flex-direction: column; gap: 8px; }
 .chat-day { text-align: center; font-size: 12.5px; color: var(--text-muted); margin: 8px 0; }
 .bubble-row { display: flex; align-items: flex-end; gap: 6px; }

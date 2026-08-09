@@ -747,6 +747,10 @@
     adminLog: store.get("adminLog", []),
     adminMode: false,
     serverReports: [],
+    adminStats: null,
+    adminUserList: null,
+    adminUsersLoading: false,
+    adminUserTimer: null,
     adminTab: "dash",
     adminUserQ: "",
     adminUserFilter: "전체",
@@ -912,8 +916,9 @@
     saveNoti();
     updateBadge();
   }
+  const chatUnread = () => state.chats.reduce((a, c) => a + (c.unread || 0), 0);
   function updateBadge() {
-    const n = state.noti.filter((x) => !x.read).length;
+    const n = state.noti.filter((x) => !x.read).length + chatUnread();
     const b = $("#bell-badge");
     b.hidden = n === 0;
     b.textContent = n > 9 ? "9+" : n;
@@ -1402,31 +1407,12 @@
     state.members = [{ id: 1, nick: state.user.nick || "나", color: state.user.color, joined: now - 30 * D, posts: 0, comments: 0, reported: 0, sanctions: [], bannedUntil: 0, memo: "이 기기 사용자 (실계정)" }, ...genMembers()];
     saveMembers();
   }
-  function memberStatus(m) {
-    if (m.bannedUntil === -1) return { label: "영구 정지", cls: "sold" };
-    if (m.bannedUntil && m.bannedUntil > Date.now()) {
-      const d = Math.ceil((m.bannedUntil - Date.now()) / D);
-      return { label: `정지 ${d}일 남음`, cls: "reserved" };
-    }
-    return { label: "정상", cls: "" };
-  }
+  // 서버에 연결되지 않은 상태에서만 쓰는 가상 작성자 번호.
+  // 서버가 붙어 있으면 글마다 실제 계정(authorId)이 있어 이 값은 쓰이지 않아요.
   function authorMidOf(type, targetId, mine) {
     if (mine) return 1;
     return 2 + ((targetId * 7 + (type === "post" ? 3 : 5)) % (state.members.length - 1));
   }
-  function applySanction(m, label, days, reason) {
-    m.sanctions.unshift({ label, reason, at: Date.now(), until: days === -1 ? -1 : days === 0 ? 0 : Date.now() + days * D });
-    if (days === -1) m.bannedUntil = -1;
-    else if (days > 0) m.bannedUntil = Date.now() + days * D;
-    else if (days === -2) m.bannedUntil = 0; // 해제
-    if (m.id === 1) {
-      state.user.bannedUntil = m.bannedUntil || 0;
-      saveUser();
-    }
-    saveMembers();
-    logAdmin(`${m.nick} — ${label} (${reason})`);
-  }
-  const banCount = (m) => m.sanctions.filter((s) => s.until !== 0).length;
 
   /* ---------- 관리자 화면 ---------- */
   function renderAdmin() {
@@ -1436,91 +1422,67 @@
     if (state.adminTab === "dash") renderAdminDash();
     else if (state.adminTab === "reports") renderAdminReports();
     else renderAdminUsers();
+    if (state.adminTab === "dash") loadAdminStats();
 
-    // 현황·회원 탭은 아직 이 기기 안의 예시 데이터예요.
-    // 실제 조치가 되는 것처럼 보이면 안 되니 분명히 표시합니다.
-    if (state.adminTab !== "reports") {
-      const area = $("#admin-area");
-      const note = document.createElement("p");
-      note.className = "sheet-note";
-      note.style.cssText = "margin:0 0 12px;text-align:left";
-      note.innerHTML = "⚠️ 이 탭은 <b>이 기기 안의 예시 데이터</b>예요. 여기서 한 정지·제재는 서버에 반영되지 않습니다.<br>실제 조치는 <b>신고함</b> 탭 또는 각 게시글의 🚩 &gt; 관리자 조치를 이용하세요.";
-      area.insertBefore(note, area.firstChild);
-    }
   }
   function renderAdminDash() {
-    const pending = state.reports.filter((r) => r.status === "접수").length;
-    const bannedCnt = state.members.filter((m) => m.bannedUntil === -1 || (m.bannedUntil && m.bannedUntil > Date.now())).length;
-    // 최근 8주 신규 가입 차트
-    const weeks = Array.from({ length: 8 }, (_, i) => {
-      const start = Date.now() - (8 - i) * 7 * D;
-      const end = start + 7 * D;
-      return state.members.filter((m) => m.joined >= start && m.joined < end).length;
-    });
-    const maxW = Math.max(1, ...weeks);
+    const st = state.adminStats;
+    if (!st) {
+      $("#admin-area").innerHTML = '<div class="empty-state">현황을 불러오는 중이에요…</div>';
+      loadAdminStats();
+      return;
+    }
+    const card = (rows) => `
+      <div class="stat-row" style="padding:6px 0 0">
+        ${rows.map(([v, l, c]) => `<div class="stat"><b${c ? ` style="color:${c}"` : ""}>${fmtNum(v)}</b><span>${l}</span></div>`).join("")}
+      </div>`;
     $("#admin-area").innerHTML = `
       <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
-        <h3>현황</h3>
-        <div class="stat-row" style="padding:10px 0 0">
-          <div class="stat"><b>${fmtNum(state.members.length)}</b><span>회원</span></div>
-          <div class="stat"><b style="color:var(--accent)">${pending}</b><span>미처리 신고</span></div>
-          <div class="stat"><b>${bannedCnt}</b><span>정지 중</span></div>
-        </div>
-        <div class="stat-row" style="padding:6px 0 0">
-          <div class="stat"><b>${fmtNum(state.posts.length)}</b><span>게시글</span></div>
-          <div class="stat"><b>${fmtNum(state.spirits.length)}</b><span>도감</span></div>
-          <div class="stat"><b>${fmtNum(state.orders.length)}</b><span>주문</span></div>
-        </div>
+        <h3>현황 <span style="font-size:12.5px;font-weight:500;color:var(--text-sub)">· 서버 실시간</span></h3>
+        ${card([[st.users, "회원"], [st.reports_pending, "미처리 신고", "var(--accent)"], [st.banned, "정지 중"]])}
+        ${card([[st.posts, "게시글"], [st.comments, "댓글"], [st.spirits, "등록 도감"]])}
+        ${card([[st.meets, "모임"], [st.reviews, "리뷰"], [st.conversations, "1:1 대화"]])}
       </div>
       <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
-        <h3>최근 8주 신규 가입</h3>
-        <div class="week-chart">
-          ${weeks.map((w, i) => `<div class="wc-col"><div class="wc-bar" style="height:${Math.max(6, Math.round(w / maxW * 60))}px"></div><span>${i === 7 ? "이번주" : (8 - i) + "주전"}</span><b>${w}</b></div>`).join("")}
-        </div>
+        <h3>오늘</h3>
+        ${card([[st.users_today, "신규 가입"], [st.posts_today, "새 글"], [st.meets_upcoming, "예정 모임"]])}
       </div>
       <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
         <h3>빠른 작업</h3>
-        <div class="pd-actions" style="margin-bottom:10px">
-          <button class="mkd-chat-btn" id="admin-notice">📢 전체 공지 보내기</button>
-        </div>
         <div class="pd-actions">
-          <button class="mkd-chat-btn outline" id="admin-csv-members">회원 CSV</button>
-          <button class="mkd-chat-btn outline" id="admin-csv-reports">신고 CSV</button>
+          <button class="mkd-chat-btn outline" id="admin-refresh">현황 새로고침</button>
+          <button class="mkd-chat-btn outline" id="admin-log">조치 기록 보기</button>
         </div>
-      </div>
-      <div class="sp-body" style="border-bottom:8px solid var(--bg-gray)">
-        <h3>제재 규정</h3>
-        <div class="calc-result show">
-          ${SANCTION_RULES.map(([a, b]) => `<div class="cr-row"><span>${a}</span><b style="font-size:13px">${b}</b></div>`).join("")}
-        </div>
-        <p class="sheet-note">신고 처리 시 작성자에게 자동 제재·이력 기록. 서버 연동 후 전체 사용자에게 실시간 적용됩니다.</p>
-      </div>
-      <div class="sp-body">
-        <h3>관리자 활동 로그</h3>
-        ${state.adminLog.length ? state.adminLog.slice(0, 12).map((l) => `
-          <div class="sheet-row"><span style="font-size:14px">${esc(l.action)}</span>
-          <b style="margin-left:auto;font-size:12px;color:var(--text-sub);flex-shrink:0">${fmtTime(l.at)}</b></div>`).join("")
-          : '<p class="sheet-note">아직 활동 기록이 없어요.</p>'}
       </div>
       <div style="height:24px"></div>`;
-    $("#admin-notice").addEventListener("click", () => {
-      const txt = prompt("공지 내용을 입력해주세요");
-      if (!txt || !txt.trim()) return;
-      addNoti("📢", `관리자 공지: ${txt.trim()}`);
-      logAdmin(`전체 공지 발송: "${txt.trim().slice(0, 30)}"`);
-      renderAdmin();
-      toast("공지를 발송했어요. (서버 연동 후 전체 사용자에게 전송)");
-    });
-    $("#admin-csv-members").addEventListener("click", () => {
-      exportCSV("bartalk-members", [["ID", "닉네임", "가입일", "글", "댓글", "신고당함", "상태"],
-        ...state.members.map((m) => [m.id, m.nick, new Date(m.joined).toLocaleDateString("ko-KR"), m.posts, m.comments, m.reported, memberStatus(m).label])]);
-      logAdmin("회원 명단 CSV 내보내기");
-    });
-    $("#admin-csv-reports").addEventListener("click", () => {
-      exportCSV("bartalk-reports", [["ID", "유형", "제목", "사유", "상태", "처리", "일시"],
-        ...state.reports.map((r) => [r.id, r.type === "post" ? "게시글" : "도감", r.title, r.reason, r.status, r.action || "", new Date(r.time).toLocaleString("ko-KR")])]);
-      logAdmin("신고 내역 CSV 내보내기");
-    });
+    $("#admin-refresh").addEventListener("click", () => { state.adminStats = null; loadAdminStats(true); });
+    $("#admin-log").addEventListener("click", openAdminLogSheet);
+  }
+
+  async function loadAdminStats(force) {
+    if (!isAdmin()) return;
+    if (state.adminStats && !force) return;
+    const st = await Sync.adminStats();
+    if (!st) {
+      $("#admin-area").innerHTML =
+        '<div class="empty-state">현황을 불러오지 못했어요.<br>supabase/chat-admin.sql 을 실행했는지 확인해주세요.</div>';
+      return;
+    }
+    state.adminStats = st;
+    if (state.view === "admin" && state.adminTab === "dash") renderAdminDash();
+  }
+
+  async function openAdminLogSheet() {
+    const rows = await Sync.adminLog(50);
+    openSheetHTML(`
+      <h3>관리자 조치 기록</h3>
+      ${rows.length ? rows.map((r) => `
+        <div class="sheet-row">
+          <span>${esc(r.action)} · ${esc(TYPE_LABEL[r.type] || r.type || "")}</span>
+          <span class="r">${fmtRel(r.at)}</span>
+        </div>
+        ${r.title ? `<div class="market-meta" style="margin:-4px 0 8px">${esc(r.title)}${r.reason ? " — " + esc(r.reason) : ""}</div>` : ""}`).join("")
+        : '<p class="sheet-note">아직 조치 기록이 없어요.</p>'}`);
   }
   function exportCSV(name, rows) {
     const csv = "﻿" + rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -1573,12 +1535,13 @@
   function renderAdminUsers() {
     const q = state.adminUserQ || "";
     const f = state.adminUserFilter || "전체";
-    let list = state.members.filter((m) =>
-      (!q || has(m.nick, q)) &&
-      (f === "전체" ? true :
-        f === "정지 중" ? (m.bannedUntil === -1 || (m.bannedUntil && m.bannedUntil > Date.now())) :
-        m.reported > 0));
+    const all = state.adminUserList || [];
+    let list = all.filter((m) =>
+      f === "전체" ? true :
+      f === "정지 중" ? (m.bannedUntil && m.bannedUntil > Date.now()) :
+      m.reported > 0);
     list = [...list].sort((a, b) => b.reported - a.reported || b.joined - a.joined);
+
     $("#admin-area").innerHTML = `
       <div class="search-box" style="margin:14px 16px 8px">
         <svg viewBox="0 0 24 24" class="search-ic"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
@@ -1589,23 +1552,30 @@
           `<button class="chip ${x === f ? "active" : ""}" data-f="${x}">${x}</button>`).join("")}
         <span style="margin-left:auto;font-size:12.5px;color:var(--text-sub);align-self:center">${fmtNum(list.length)}명</span>
       </div>
-      ${list.slice(0, 50).map((m) => {
-        const st = memberStatus(m);
+      ${state.adminUsersLoading ? '<div class="empty-state">불러오는 중이에요…</div>' : ""}
+      ${!state.adminUsersLoading && !list.length ? '<div class="empty-state">해당하는 회원이 없어요.</div>' : ""}
+      ${list.map((m) => {
+        const banned = m.bannedUntil && m.bannedUntil > Date.now();
+        const days = banned ? Math.ceil((m.bannedUntil - Date.now()) / 86400000) : 0;
+        const label = banned ? (days > 3650 ? "영구 정지" : `정지 ${days}일 남음`) : "정상";
+        const me = m.id === Sync.uid;
         return `
-        <div class="member-row" data-mid="${m.id}">
-          <span class="avatar md" style="background:${COLORS[m.color]}"></span>
+        <div class="member-row" data-uid="${esc(m.id)}">
+          <span class="avatar md" style="background:${COLORS[m.color] || COLORS[0]}"></span>
           <div class="member-info">
-            <div class="member-nick">${esc(m.nick)}${m.id === 1 ? ' <span class="my-tag">이 기기</span>' : ""}</div>
-            <div class="market-meta">글 ${m.posts} · 댓글 ${m.comments} · 신고당함 ${m.reported}회 · 가입 ${new Date(m.joined).getMonth() + 1}/${new Date(m.joined).getDate()}</div>
+            <div class="member-nick">${esc(m.nick)}${me ? ' <span class="my-tag">나</span>' : ""}</div>
+            <div class="market-meta">글 ${m.posts} · 댓글 ${m.comments} · 신고당함 ${m.reported}회 · 가입 ${fmtDate(m.joined)}</div>
           </div>
-          <span class="mk-state ${st.cls}">${st.label}</span>
+          <span class="mk-state ${banned ? "sold" : ""}">${label}</span>
         </div>`;
       }).join("")}
-      ${list.length > 50 ? `<p class="sheet-note" style="text-align:center">상위 50명만 표시 중 · 검색으로 좁혀보세요</p>` : ""}
       <div style="height:24px"></div>`;
+
     const qInput = $("#admin-user-q");
     qInput.addEventListener("input", () => {
       state.adminUserQ = qInput.value.trim();
+      clearTimeout(state.adminUserTimer);
+      state.adminUserTimer = setTimeout(() => loadAdminUsers(), 300);
       const pos = qInput.selectionStart;
       renderAdminUsers();
       const nq = $("#admin-user-q");
@@ -1615,45 +1585,54 @@
     $$("#admin-area .sort-row .chip").forEach((ch) =>
       ch.addEventListener("click", () => { state.adminUserFilter = ch.dataset.f; renderAdminUsers(); }));
     $$("#admin-area .member-row").forEach((el) =>
-      el.addEventListener("click", () => openMemberSheet(+el.dataset.mid)));
+      el.addEventListener("click", () => openUserSheet(el.dataset.uid)));
+
+    if (!state.adminUserList) loadAdminUsers();
   }
-  function openMemberSheet(mid) {
-    const m = state.members.find((x) => x.id === mid);
+
+  async function loadAdminUsers() {
+    if (!isAdmin()) return;
+    state.adminUsersLoading = true;
+    const rows = await Sync.adminUsers(state.adminUserQ || "", 200);
+    state.adminUserList = rows;
+    state.adminUsersLoading = false;
+    if (state.view === "admin" && state.adminTab === "users") renderAdminUsers();
+  }
+
+  // 회원 상세 — 실제로 서버에 정지/해제가 반영됩니다.
+  function openUserSheet(uid) {
+    const m = (state.adminUserList || []).find((x) => x.id === uid);
     if (!m) return;
-    const st = memberStatus(m);
-    const bc = banCount(m);
+    const banned = m.bannedUntil && m.bannedUntil > Date.now();
+    const opts = banned
+      ? ["정지 해제", "영구 정지로 변경"]
+      : ["3일 정지", "7일 정지", "30일 정지", "영구 정지"];
     openSheetHTML(`
-      <div class="detail-head" style="margin-bottom:12px">
-        <span class="avatar md" style="background:${COLORS[m.color]}"></span>
-        <div><div class="detail-nick">${esc(m.nick)}</div>
-        <div class="detail-time">가입 ${fmtDate(m.joined)} · 글 ${m.posts} · 댓글 ${m.comments}</div></div>
-        <span class="mk-state ${st.cls}" style="margin-left:auto">${st.label}</span>
+      <div class="detail-head" style="margin-bottom:10px">
+        <span class="avatar md" style="background:${COLORS[m.color] || COLORS[0]}"></span>
+        <div>
+          <div class="detail-nick">${esc(m.nick)}</div>
+          <div class="detail-time">글 ${m.posts} · 댓글 ${m.comments} · 신고당함 ${m.reported}회</div>
+        </div>
       </div>
-      ${bc >= 3 && m.bannedUntil !== -1 ? '<p class="sheet-note" style="color:var(--accent)">⚠️ 제재 누적 3회 — 규정상 영구 정지 대상입니다.</p>' : ""}
-      <h3 style="margin:10px 0 8px">제재 이력 ${m.sanctions.length}건 · 신고당함 ${m.reported}회</h3>
-      ${m.sanctions.length ? m.sanctions.map((s) => `
-        <div class="sheet-row"><span>${esc(s.label)} <small style="color:var(--text-sub)">(${esc(s.reason)})</small></span>
-        <b style="margin-left:auto;font-size:12.5px;color:var(--text-sub)">${fmtDate(s.at)}</b></div>`).join("")
-        : '<p class="sheet-note">제재 이력이 없어요.</p>'}
-      <h3 style="margin:16px 0 8px">관리 조치</h3>
-      <div class="member-actions">
-        <button class="chip" data-act="warn">경고</button>
-        <button class="chip" data-act="3">3일 정지</button>
-        <button class="chip" data-act="7">7일 정지</button>
-        <button class="chip" data-act="30">30일 정지</button>
-        <button class="chip" data-act="perm" style="color:var(--accent)">영구 정지</button>
-        <button class="chip" data-act="unban">정지 해제</button>
-      </div>`);
-    $$(".sheet .member-actions .chip").forEach((b) =>
-      b.addEventListener("click", () => {
-        const act = b.dataset.act;
-        const map = { warn: ["경고", 0], "3": ["3일 정지", 3], "7": ["7일 정지", 7], "30": ["30일 정지", 30], perm: ["영구 정지", -1], unban: ["정지 해제", -2] };
-        const [label, days] = map[act];
-        if (!confirm(`${m.nick}님에게 '${label}' 조치를 적용할까요?`)) return;
-        applySanction(m, label, days, "관리자 직권");
-        document.querySelector(".sheet-backdrop") && document.querySelector(".sheet-backdrop").remove();
-        renderAdmin();
-        toast(`${m.nick}님에게 '${label}'을 적용했어요.`);
+      <div class="sheet-row"><span>가입</span><span class="r">${fmtDate(m.joined)}</span></div>
+      <div class="sheet-row"><span>상태</span><span class="r">${banned ? "정지 중" : "정상"}</span></div>
+      <div class="sheet-row"><span>이용자 번호</span><span class="r" style="font-family:monospace;font-size:11.5px">${esc(m.id)}</span></div>
+      ${uid === Sync.uid ? '<p class="sheet-note">본인 계정이에요.</p>' :
+        opts.map((o) => `<button class="sheet-opt" data-ban="${o}">${o}</button>`).join("")}`);
+
+    document.querySelectorAll(".sheet [data-ban]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        const label = b.dataset.ban;
+        const days = label.includes("해제") ? 0 : label.includes("영구") ? -1 : parseInt(label, 10);
+        const reason = prompt("사유를 남겨주세요 (기록에 저장됩니다)", "커뮤니티 규칙 위반");
+        if (reason === null) return;
+        const bd = document.querySelector(".sheet-backdrop");
+        if (bd) bd.remove();
+        toast("처리 중이에요…");
+        const res = await Sync.adminBan(uid, days, reason);
+        toast(res.ok ? `🛡️ ${res.label} 처리했어요.` : "실패: " + res.error);
+        if (res.ok) { state.adminUserList = null; loadAdminUsers(); }
       }));
   }
   // 서버에 실제로 반영되는 신고 처리. 실패하면 실패했다고 알려줘요.
@@ -3041,7 +3020,7 @@
     });
     const chatBtn = $("#meet-host-chat");
     if (chatBtn) chatBtn.addEventListener("click", () =>
-      openChatWith(m.hostColor, `meet:${m.id}`, `모임 '${m.title}' 주최자`));
+      openChatWith(m.hostColor, `meet:${m.id}`, `모임 '${m.title}' 주최자`, m.authorId));
     const delMeet = $("#meet-delete");
     if (delMeet) delMeet.addEventListener("click", () => {
       if (!confirm("모임을 삭제할까요? 참여자들에게는 취소로 표시돼요.")) return;
@@ -3186,7 +3165,7 @@
     if (chatB) chatB.addEventListener("click", () => {
       const bd = document.querySelector(".sheet-backdrop");
       if (bd) bd.remove();
-      openChatWith(color, "biz:" + nick, `${nick} 문의`);
+      openChatWith(color, "biz:" + nick, `${nick} 문의`, (posts.find((x) => x.authorId) || {}).authorId);
     });
   }
   function openPost(id) {
@@ -3474,25 +3453,48 @@
             <div class="chat-nick">익명 <span style="font-weight:500;color:var(--text-sub);font-size:13px">· ${esc(c.ctx)}</span></div>
             <div class="chat-last">${last ? esc(last.text) : "대화를 시작해보세요."}</div>
           </div>
-          <span class="chat-time">${fmtRel(c.time)}</span>
+          <div class="chat-right">
+            <span class="chat-time">${fmtRel(c.time)}</span>
+            ${c.unread ? `<span class="chat-unread">${c.unread > 99 ? "99+" : c.unread}</span>` : ""}
+          </div>
         </div>`;
       }).join("")
       : '<div class="empty-state">채팅이 없어요.<br>게시글이나 모임에서 1:1 채팅을 시작해보세요.</div>';
     $$("#chat-list .chat-item").forEach((el) =>
       el.addEventListener("click", () => openChat(+el.dataset.id)));
   }
-  function openChatWith(color, key, ctx) {
+  async function openChatWith(color, key, ctx, peerId) {
+    // 상대 계정을 아는 경우엔 서버 대화방을 씁니다 (상대에게 실제로 전달돼요).
+    if (peerId && Sync.ready()) {
+      const exist = state.chats.find((x) => x.peerId === peerId);
+      if (exist) { openChat(exist.id); return; }
+      toast("대화방을 여는 중이에요…");
+      const res = await Sync.openConversation(peerId, ctx, state.user.color, color);
+      if (!res.ok) { toast("대화를 시작하지 못했어요: " + res.error); return; }
+      let c = state.chats.find((x) => x.id === res.conversation.id);
+      if (!c) { c = res.conversation; state.chats.push(c); saveChats(); }
+      openChat(c.id);
+      return;
+    }
+    // 상대를 특정할 수 없는 문의(스토어 등)는 이 기기에만 남습니다.
     let c = state.chats.find((x) => x.key === key);
     if (!c) {
       const id = newId();
-      c = { id, key, color, ctx, msgs: [], time: Date.now() };
+      c = { id, key, color, ctx, msgs: [], time: Date.now(), local: true };
       state.chats.push(c);
       saveChats();
     }
     openChat(c.id);
   }
+  function markChatRead(c) {
+    if (!c || !c.unread) return;
+    c.unread = 0;
+    saveChats();
+    if (c.remote) Sync.markRead(c.id);
+  }
   function openChat(id) {
     state.curChat = id;
+    markChatRead(state.chats.find((x) => x.id === id));
     renderChatMsgs();
     show("chat");
   }
@@ -3502,7 +3504,9 @@
     $("#chat-avatar").style.background = COLORS[c.color];
     $("#chat-title").textContent = "익명 · " + c.ctx;
     $("#chat-msgs").innerHTML = `
-      <div class="chat-hint">상대방도 익명으로 표시돼요.<br>상대방이 접속하면 메시지를 확인할 수 있어요.</div>
+      <div class="chat-hint">${c.remote
+        ? "상대방도 익명으로 표시돼요.<br>메시지는 두 사람만 볼 수 있어요. 운영자도 볼 수 없습니다."
+        : "이 문의는 이 기기에만 저장돼요."}</div>
       ${c.msgs.map((m) => `
         <div class="bubble-row ${m.me ? "me" : ""}">
           ${m.me ? `<span class="bubble-time">${fmtTime(m.time)}</span>` : ""}
@@ -3517,9 +3521,11 @@
     if (!text) return;
     const c = state.chats.find((x) => x.id === state.curChat);
     if (!c) return;
-    c.msgs.push({ me: true, text, time: Date.now() });
-    c.time = Date.now();
+    const msg = { id: newId(), me: true, text, time: Date.now() };
+    c.msgs.push(msg);
+    c.time = msg.time;
     saveChats();
+    if (c.remote) Sync.sendMessage(c.id, msg);
     $("#chat-input").value = "";
     renderChatMsgs();
   }
@@ -4627,7 +4633,7 @@
   $("#post-chat").addEventListener("click", () => {
     const p = state.posts.find((x) => x.id === state.curPost);
     if (!p || p.mine) return;
-    openChatWith(p.color, `post:${p.id}`, `글 '${p.title.slice(0, 12)}${p.title.length > 12 ? "…" : ""}'`);
+    openChatWith(p.color, `post:${p.id}`, `글 '${p.title.slice(0, 12)}${p.title.length > 12 ? "…" : ""}'`, p.authorId);
   });
 
   // 마이페이지
@@ -4772,6 +4778,12 @@
       saveUser();
     }
     if (data.reports) state.serverReports = data.reports;
+    if (data.chats) {
+      // 서버 대화 + 이 기기에만 있는 문의(스토어 등)를 합쳐요.
+      const localOnly = state.chats.filter((c) => c.local);
+      state.chats = data.chats.concat(localOnly);
+      saveChats();
+    }
     if (data.blocks) {
       // 서버 차단 목록 + 이 기기에만 있는 항목(local:) 을 합쳐요.
       const localOnly = blockedKeys().filter((k) => String(k).indexOf("local:") === 0);
@@ -4803,6 +4815,141 @@
     }
     rerenderCurrentView();
     updateSyncBadge();
+  }
+
+  /* ---------- 증분 반영 ----------
+   * 실시간으로 받은 "바뀐 것 하나"만 고쳐요.
+   * 예전처럼 전체를 다시 받으면, 동시 접속이 늘었을 때 글 하나에
+   * 접속자 수만큼의 대량 조회가 한꺼번에 터집니다.
+   */
+  let patchRenderTimer = null;
+  function schedulePatchRender() {
+    clearTimeout(patchRenderTimer);
+    patchRenderTimer = setTimeout(() => { rerenderCurrentView(); updateBadge(); }, 180);
+  }
+
+  function applyPatch(p) {
+    const byId = (arr, id) => arr.findIndex((x) => x.id === id);
+
+    if (p.kind === "post") {
+      const i = byId(state.posts, p.item.id);
+      if (p.op === "delete") { if (i >= 0) state.posts.splice(i, 1); }
+      else if (i >= 0) {
+        // 댓글·공감 여부는 지금 화면 것이 더 정확하니 지키고 나머지만 갱신
+        const keep = state.posts[i];
+        state.posts[i] = Object.assign({}, keep, p.item, {
+          comments: keep.comments || [], likedByMe: keep.likedByMe,
+        });
+      } else state.posts.push(p.item);
+      savePosts();
+
+    } else if (p.kind === "comment") {
+      const post = state.posts.find((x) => x.id === p.postId);
+      if (!post) return;
+      post.comments = post.comments || [];
+      const findIn = (list) => list.findIndex((c) => c.id === p.item.id);
+      if (p.op === "delete") {
+        const i = findIn(post.comments);
+        if (i >= 0) post.comments.splice(i, 1);
+        else post.comments.forEach((c) => {
+          const ri = (c.replies || []).findIndex((r) => r.id === p.item.id);
+          if (ri >= 0) c.replies.splice(ri, 1);
+        });
+      } else if (p.parentId) {
+        const parent = post.comments.find((c) => c.id === p.parentId);
+        if (parent) {
+          parent.replies = parent.replies || [];
+          if (findIn(parent.replies) < 0) parent.replies.push(p.item);
+        }
+      } else if (findIn(post.comments) < 0) {
+        post.comments.push(p.item);
+      }
+      savePosts();
+
+    } else if (p.kind === "like") {
+      // 공감 수는 서버가 posts 를 갱신해 따로 오므로, 여기선 내 표시만 맞춰요.
+      if (p.item.userId !== Sync.uid) return;
+      const post = state.posts.find((x) => x.id === p.item.postId);
+      if (post) { post.likedByMe = p.op !== "delete"; savePosts(); }
+
+    } else if (p.kind === "meet") {
+      const i = byId(state.meets, p.item.id);
+      if (p.op === "delete") { if (i >= 0) state.meets.splice(i, 1); }
+      else if (i >= 0) {
+        const keep = state.meets[i];
+        state.meets[i] = Object.assign({}, keep, p.item, {
+          comments: keep.comments || [], joined: keep.joined, isJoined: keep.isJoined,
+        });
+      } else state.meets.push(p.item);
+      saveMeets();
+
+    } else if (p.kind === "meetJoin") {
+      const m = state.meets.find((x) => x.id === p.item.meetId);
+      if (!m) return;
+      const on = p.op !== "delete";
+      m.joined = Math.max(0, (m.joined || 0) + (on ? 1 : -1));
+      if (p.item.userId === Sync.uid) m.isJoined = on;
+      saveMeets();
+
+    } else if (p.kind === "meetComment") {
+      const m = state.meets.find((x) => x.id === p.meetId);
+      if (!m) return;
+      m.comments = m.comments || [];
+      const i = m.comments.findIndex((c) => c.id === p.item.id);
+      if (p.op === "delete") { if (i >= 0) m.comments.splice(i, 1); }
+      else if (i < 0) m.comments.push(p.item);
+      saveMeets();
+
+    } else if (p.kind === "spirit") {
+      const i = byId(state.spirits, p.item.id);
+      if (p.op === "delete") { if (i >= 0) state.spirits.splice(i, 1); }
+      else if (i >= 0) {
+        const keep = state.spirits[i];
+        state.spirits[i] = Object.assign({}, keep, p.item, { reviews: keep.reviews || [] });
+      } else state.spirits.push(p.item);
+      saveSpirits();
+
+    } else if (p.kind === "review") {
+      const sp = state.spirits.find((x) => x.id === p.spiritId);
+      if (!sp) return;
+      sp.reviews = sp.reviews || [];
+      const i = sp.reviews.findIndex((r) => r.id === p.item.id);
+      if (p.op === "delete") { if (i >= 0) sp.reviews.splice(i, 1); }
+      else if (i >= 0) sp.reviews[i] = p.item;
+      else sp.reviews.push(p.item);
+      saveSpirits();
+
+    } else if (p.kind === "conversation") {
+      const i = byId(state.chats, p.item.id);
+      if (p.op === "delete") { if (i >= 0) state.chats.splice(i, 1); }
+      else if (i >= 0) state.chats[i] = Object.assign({}, state.chats[i], p.item, { msgs: state.chats[i].msgs || [] });
+      else state.chats.push(p.item);
+      saveChats();
+
+    } else if (p.kind === "message") {
+      const c = state.chats.find((x) => x.id === p.conversationId);
+      if (!c) { Sync.refresh("new-chat"); return; }   // 처음 걸려온 대화면 목록부터 받아요
+      c.msgs = c.msgs || [];
+      const i = c.msgs.findIndex((m) => m.id === p.item.id);
+      if (p.op === "delete") { if (i >= 0) c.msgs.splice(i, 1); }
+      else if (i < 0) {
+        c.msgs.push(p.item);
+        c.time = p.item.time;
+        // 그 대화를 보고 있지 않으면 안 읽음으로 표시.
+        // 알림 목록에는 따로 넣지 않아요 — 안읽음 수가 이미 종 배지에 반영돼
+        // 메시지 하나에 배지가 둘씩 올라가게 됩니다.
+        if (!p.item.me && !(state.view === "chat" && state.curChat === c.id)) {
+          c.unread = (c.unread || 0) + 1;
+        }
+      }
+      saveChats();
+      if (state.view === "chat" && state.curChat === c.id) {
+        renderChatMsgs();
+        markChatRead(c);
+      }
+    }
+
+    schedulePatchRender();
   }
 
   // 지금 보고 있는 화면만 다시 그려요 (스크롤 위치가 튀지 않도록 상세 화면은 제외)
@@ -4872,7 +5019,7 @@
 
   // 로컬 개발 중에만 동기화 병합 로직을 콘솔에서 확인할 수 있게 열어둬요.
   if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-    window.__bartalk = { state, applyRemote, rerenderCurrentView, newId, backfillLocal };
+    window.__bartalk = { state, applyRemote, applyPatch, rerenderCurrentView, newId, backfillLocal };
   }
 
   let syncStarted = false;
@@ -4883,6 +5030,7 @@
     updateSyncBadge();
     const result = await Sync.init({
       onData: (data) => applyRemote(data),
+      onPatch: (patch) => applyPatch(patch),
       onStatus: () => updateSyncBadge(),
       onAuth: (identity) => onAuthChanged(identity),
     });
