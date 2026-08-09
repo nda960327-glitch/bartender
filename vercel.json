@@ -4,7 +4,6 @@
   "trailingSlash": false,
   "headers": [
     {
-      "comment": "TWA 도메인 검증 파일 — 반드시 application/json 으로 내려가야 안드로이드가 인식해요.",
       "source": "/.well-known/assetlinks.json",
       "headers": [
         { "key": "Content-Type", "value": "application/json" },
@@ -12,7 +11,6 @@
       ]
     },
     {
-      "comment": "서비스워커는 절대 캐시하면 안 돼요. 캐시되면 앱 업데이트가 사용자에게 영원히 안 갑니다.",
       "source": "/sw.js",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
@@ -24,7 +22,6 @@
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600" }]
     },
     {
-      "comment": "index.html 도 캐시 금지 — 새 배포가 바로 반영되도록",
       "source": "/index.html",
       "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
     },
@@ -33,7 +30,6 @@
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     },
     {
-      "comment": "기본 보안 헤더",
       "source": "/(.*)",
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
