@@ -777,6 +777,7 @@
     wlOffset: 0,
     dogamSort: "new",
     dogamRegion: "전체",
+    dogamTag: "",          // 심층 도감 태그로 좁혀보기 (예: 피트, 셰리, 하이볼)
     dogamAbv: "전체",
     dogamPrice: "전체",
     cellarTab: "tried",
@@ -1696,18 +1697,32 @@
   /* ---------- 통합 검색 ---------- */
   function renderSearch() {
     const q = $("#global-search").value.trim();
+    // 테이스팅 노트·태그까지 검색하려면 심층 데이터가 필요합니다.
+    if (q && !DeepData.settled) {
+      DeepData.load().then(() => { if (state.view === "search") renderSearch(); });
+    }
     if (q.length < 1) {
       $("#search-results").innerHTML = '<div class="empty-state">술, 칵테일, 게시글, 채용, 모임, 상품을<br>한 번에 검색해보세요.</div>';
       return;
     }
     const sec = (title, items) => items.length
       ? `<div class="comment-sec-title">${title} ${items.length}</div>${items.join("")}` : "";
-    const spirits = state.spirits.filter((s) => !hiddenSp().includes(s.id) && has(s.name, q)).slice(0, 5).map((sp) => `
+    // 이름이 먼저 걸린 것을 위로 올리고, 그다음 테이스팅 노트·태그에서 걸린 것을 붙입니다.
+    const spAll = state.spirits.filter((s) => !hiddenSp().includes(s.id));
+    const byName = spAll.filter((s) => has(s.name, q));
+    const byDeep = spAll.filter((s) => !has(s.name, q) && has(searchText(s), q));
+    const spHits = byName.concat(byDeep);
+    const spirits = spHits.slice(0, 8).map((sp) => {
+      // 이름 말고 어디서 걸렸는지 알려주면 "왜 이게 나왔지" 하는 혼란이 없어요.
+      const tag = tagsOf(sp).find((t) => has(t, q));
+      const why = has(sp.name, q) ? "" : tag ? ` · #${esc(tag)}` : " · 테이스팅 노트";
+      return `
       <div class="home-mini" data-go-spirit="${sp.id}">
         <span class="hm-emoji">${sp.kind === "cocktail" ? "🍸" : "🥃"}</span>
         <div class="hm-body"><div class="hm-title">${esc(sp.name)}</div>
-        <div class="hm-sub">${sp.kind === "cocktail" ? esc(sp.base) + " 베이스" : esc(sp.cat)} · ★ ${avgStars(sp) ? avgStars(sp).toFixed(1) : "-"}</div></div>
-      </div>`);
+        <div class="hm-sub">${sp.kind === "cocktail" ? esc(sp.base) + " 베이스" : esc(sp.cat)} · ★ ${avgStars(sp) ? avgStars(sp).toFixed(1) : "-"}${why}</div></div>
+      </div>`;
+    });
     const posts = state.posts.filter((p) => !(state.user.hiddenPosts || []).includes(p.id) && !isBlockedPost(p) && (has(p.title, q) || has(p.body, q))).slice(0, 5).map((p) => `
       <div class="home-mini" data-go-post="${p.id}">
         <span class="hm-emoji">💬</span>
@@ -2231,9 +2246,19 @@
     if (priceBtn) priceBtn.addEventListener("click", () =>
       openSheet("가격대 필터", ["전체", "5만원 이하", "5~10만원", "10~20만원", "20만원 이상"], state.dogamPrice, (v) => { state.dogamPrice = v; renderDogam(); }));
 
+    // 태그로 좁혀본 상태면 맨 위에 지울 수 있는 칩을 띄웁니다.
+    const tagBar = $("#dogam-tag");
+    if (tagBar) {
+      tagBar.hidden = !state.dogamTag;
+      if (state.dogamTag) {
+        tagBar.innerHTML = `<button class="chip active" id="dogam-tag-clear">#${esc(state.dogamTag)} ✕</button>`;
+        $("#dogam-tag-clear").addEventListener("click", () => { state.dogamTag = ""; renderDogam(); });
+      }
+    }
+
     // 위스키 지역 필터 — 실제로 술이 있는 지역만 개수와 함께 보여줍니다.
     // 지역 판정에 심층 데이터가 필요하므로, 없으면 받아온 뒤 다시 그려요.
-    if (isWhisky && !DeepData.settled) {
+    if ((isWhisky || state.dogamTag) && !DeepData.settled) {
       DeepData.load().then(() => { if (state.view === "dogam") renderDogam(); });
     }
     $("#dogam-region").hidden = !isWhisky;
@@ -2271,14 +2296,21 @@
       (state.dogamCat === "전체" || (sp.kind === "spirit" ? sp.cat : sp.base) === state.dogamCat) &&
       (!isWhisky || state.dogamRegion === "전체" || regionOfWhisky(sp) === state.dogamRegion) &&
       (state.dogamKind !== "spirit" || (abvOk(sp) && priceOk(sp))) &&
-      (!q || has(sp.name, q))
-    ).sort((a, b) =>
-      state.dogamSort === "stars" ? avgStars(b) - avgStars(a) :
-      state.dogamSort === "reviews" ? b.reviews.length - a.reviews.length :
-      b.time - a.time);
+      (!state.dogamTag || tagsOf(sp).includes(state.dogamTag)) &&
+      (!q || has(searchText(sp), q))
+    ).sort((a, b) => {
+      // 검색 중이면 적합도(이름 > 태그 > 본문)를 먼저 봅니다.
+      if (q) {
+        const r = matchRank(a, q) - matchRank(b, q);
+        if (r) return r;
+      }
+      return state.dogamSort === "stars" ? avgStars(b) - avgStars(a) :
+        state.dogamSort === "reviews" ? b.reviews.length - a.reviews.length :
+        b.time - a.time;
+    });
 
     // 점진 렌더: 필터가 바뀌면 100개부터 다시
-    const sig = [state.dogamKind, state.dogamCat, state.dogamRegion, state.dogamAbv, state.dogamPrice, state.dogamSort, q].join("|");
+    const sig = [state.dogamKind, state.dogamCat, state.dogamRegion, state.dogamAbv, state.dogamPrice, state.dogamSort, state.dogamTag, q].join("|");
     if (sig !== state._dogamSig) { state._dogamSig = sig; state.dogamLimit = 100; }
     const full = list.length;
     if (full > state.dogamLimit) list.length = state.dogamLimit;
@@ -2347,6 +2379,41 @@
     return (src && src[sp.id]) || null;
   };
   const hasDeep = (sp) => !!deepOf(sp);
+  // 심층 도감의 태그 목록 (없으면 빈 배열)
+  const tagsOf = (sp) => { const d = deepOf(sp); return (d && d.tags) || []; };
+
+  // 검색용 텍스트.
+  // 이름만 훑으면 "피트" "셰리" "하이볼" 같은 말로는 아무것도 못 찾습니다.
+  // 심층 도감의 태그·테이스팅 노트까지 합쳐서 검색되게 해요.
+  // 항목이 300개가 넘으므로 한 번 만든 문자열은 재사용합니다.
+  const _searchTextCache = new Map();
+  function searchText(sp) {
+    const c = _searchTextCache.get(sp.id);
+    // 심층 데이터가 뒤늦게 도착하면 그때 한 번 다시 만듭니다.
+    if (c && c.deep === DeepData.ready) return c.text;
+    const d = deepOf(sp);
+    const parts = [sp.name, sp.cat || "", sp.base || "", sp.note || "", sp.ings || ""];
+    if (d) parts.push(
+      d.type || "", d.region || "", d.family || "",
+      d.nose || "", d.palate || "", d.finish || "", d.flavor || "",
+      d.pairing || "", d.best || "", d.cocktail || "",
+      (d.tags || []).join(" ")
+      // tagline/story/serve 는 일부러 뺐습니다. "얼굴" 이 "굴" 로 걸리는 식의
+      // 오탐이 많아서, 술의 성질을 설명하는 필드만 검색 대상으로 둡니다.
+    );
+    const text = parts.join(" ").toLowerCase();
+    _searchTextCache.set(sp.id, { deep: DeepData.ready, text });
+    return text;
+  }
+
+  // 검색 적합도: 이름에 있으면 0, 태그에 있으면 1, 본문이면 2.
+  // 300개가 넘는 목록에서 본문 매칭이 최신순으로 섞여 나오면 엉뚱해 보여서,
+  // 검색어가 있을 때는 이 순서를 먼저 적용합니다.
+  function matchRank(sp, q) {
+    if (has(sp.name, q)) return 0;
+    if (tagsOf(sp).some((t) => has(t, q))) return 1;
+    return 2;
+  }
 
   // 섹션 껍데기
   const dpSec = (id, ic, title, sub, inner) => `
@@ -2424,7 +2491,9 @@
         <div class="dp-var-d">${esc(v.d)}</div></div>`).join("")}
     </div>`;
 
-  const dpTags = (arr) => `<div class="dp-tags">${arr.map((t) => `<span class="dp-tag">#${esc(t)}</span>`).join("")}</div>`;
+  // 태그를 누르면 같은 태그가 붙은 술만 도감에서 모아 보여줍니다.
+  const dpTags = (arr) => `<div class="dp-tags">${arr.map((t) =>
+    `<button class="dp-tag" data-tag="${esc(t)}">#${esc(t)}</button>`).join("")}</div>`;
 
   // 상단 점프 목차
   const dpToc = (items) =>
@@ -2555,6 +2624,19 @@
       b.addEventListener("click", () => {
         const el = document.getElementById(b.dataset.jump);
         if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }));
+    // 태그 → 같은 태그를 가진 술 목록으로
+    $$(root + " .dp-tag[data-tag]").forEach((b) =>
+      b.addEventListener("click", () => {
+        state.dogamTag = b.dataset.tag;
+        state.dogamKind = "spirit";
+        state.dogamCat = "전체";
+        state.dogamRegion = "전체";
+        state.dogamAbv = "전체";
+        state.dogamPrice = "전체";
+        $("#spirit-search").value = "";
+        renderDogam();
+        show("dogam");
       }));
   }
 
