@@ -747,6 +747,7 @@
     adminLog: store.get("adminLog", []),
     adminMode: false,
     serverReports: [],
+    overrides: store.get("overrides", {}),
     adminStats: null,
     adminUserList: null,
     adminUsersLoading: false,
@@ -901,6 +902,8 @@
 
   let toastTimer;
   function toast(msg) {
+    // 안내 문구에 따라 성공/실패 소리를 구분해요
+    if (/실패|없어요|안 돼|않아요|부족|초과|오류|취소됐|불가/.test(String(msg))) sfx("error");
     const el = $("#toast");
     if (!el) return;
     el.textContent = msg;
@@ -911,6 +914,7 @@
 
   /* ---------- 알림/포인트 ---------- */
   function addNoti(ic, text) {
+    sfx("notify");
     state.noti.unshift({ ic, text, time: Date.now(), read: false });
     if (state.noti.length > 50) state.noti.length = 50;
     saveNoti();
@@ -924,6 +928,7 @@
     b.textContent = n > 9 ? "9+" : n;
   }
   function addPoints(amt, reason) {
+    if (amt > 0) sfx("coin");
     vibrate(12);
     state.user.points += amt;
     state.user.pointLog.unshift({ amt, reason, time: Date.now() });
@@ -956,8 +961,9 @@
     if (!fromPop && view !== state.view && view !== "onboard" && view !== "login") {
       try { history.pushState({ view }, "", "#" + view); } catch {}
     }
+    if (view !== state.view) sfx(fromPop ? "back" : "nav");
     state.view = view;
-    $$(".view").forEach((v) => { v.hidden = v.id !== "view-" + view; });
+    $(".view").forEach((v) => { v.hidden = v.id !== "view-" + view; });
     const hideNav = view === "onboard" || view === "login" ||
       (view === "doc" && (state.docFrom === "onboard" || state.docFrom === "login"));
     $("#bottom-nav").style.display = hideNav ? "none" : "";
@@ -1170,6 +1176,9 @@
   /* ---------- 햅틱 ---------- */
   const vibrate = (ms) => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch {} };
 
+  // 효과음. js/sfx.js 가 없어도 앱은 그대로 동작해요.
+  const sfx = (name) => { try { if (window.BTSfx) window.BTSfx.play(name); } catch {} };
+
   /* ---------- 신고/숨기기 ---------- */
   const saveReports = () => store.set("reports", state.reports);
   const saveMembers = () => store.set("members", state.members);
@@ -1264,6 +1273,112 @@
     });
   }
   const hiddenSp = () => state.user.hiddenSpirits || [];
+
+  /* ---------- 내장 도감 수정 (운영자) ---------- */
+  const SP_FIELDS = [
+    ["name", "이름", "text"],
+    ["abv", "도수(%)", "number"],
+    ["cat", "분류", "text"],
+    ["price", "가격대", "text"],
+    ["note", "설명", "textarea"],
+    ["img", "사진 주소", "text"],
+  ];
+  const CT_FIELDS = [
+    ["name", "이름", "text"],
+    ["abv", "도수(%)", "number"],
+    ["base", "베이스", "text"],
+    ["ings", "재료", "textarea"],
+    ["recipe", "만드는 법", "textarea"],
+    ["note", "설명", "textarea"],
+    ["img", "사진 주소", "text"],
+  ];
+
+  function openSpiritEditSheet(sp) {
+    const fields = sp.kind === "cocktail" ? CT_FIELDS : SP_FIELDS;
+    openSheetHTML(`
+      <h3>✏️ 도감 수정 <span style="font-size:12.5px;font-weight:500;color:var(--text-sub)">· 모든 사용자에게 반영</span></h3>
+      <p class="sheet-note" style="text-align:left;margin:0 0 12px">바꾼 항목만 서버에 저장돼요. 언제든 원래 내용으로 되돌릴 수 있어요.</p>
+      ${fields.map(([k, label, type]) => `
+        <label class="form-label">${label}</label>
+        ${type === "textarea"
+          ? `<textarea class="input textarea" data-f="${k}" rows="3">${esc(sp[k] == null ? "" : String(sp[k]))}</textarea>`
+          : `<input type="${type}" class="input" data-f="${k}" value="${esc(sp[k] == null ? "" : String(sp[k]))}">`}`).join("")}
+      <button class="big-btn accent ready" id="sp-ov-save" style="margin-top:14px">저장하기</button>`);
+
+    const bd = document.querySelector(".sheet-backdrop");
+    bd.querySelector("#sp-ov-save").addEventListener("click", async () => {
+      const base = PRISTINE.get(sp.id) || {};
+      const patch = {};
+      bd.querySelectorAll("[data-f]").forEach((el) => {
+        const k = el.dataset.f;
+        let v = el.value.trim();
+        if (k === "abv") v = v === "" ? 0 : Number(v);
+        const orig = base[k] == null ? "" : base[k];
+        // 원본과 같은 값은 저장하지 않아요 (되돌리기가 깔끔해지도록)
+        if (String(v) !== String(orig)) patch[k] = v;
+      });
+      if (!Object.keys(patch).length) { toast("바뀐 내용이 없어요."); return; }
+      toast("저장 중이에요…");
+      const res = await Sync.saveOverride("spirit", sp.id, patch, ovHidden("spirit", sp.id));
+      bd.remove();
+      if (!res.ok) { toast("저장 실패: " + res.error); return; }
+      toast("수정했어요. 모든 사용자에게 반영됩니다. ✏️");
+      await Sync.refresh("override");
+    });
+  }
+
+  async function toggleSpiritHidden(sp) {
+    const now = !ovHidden("spirit", sp.id);
+    const cur = ovOf("spirit", sp.id);
+    toast("처리 중이에요…");
+    const res = await Sync.saveOverride("spirit", sp.id, (cur && cur.patch) || {}, now);
+    if (!res.ok) { toast("실패: " + res.error); return; }
+    toast(now ? "목록에서 감췄어요. 🙈" : "다시 보이게 했어요. 👁️");
+    await Sync.refresh("override");
+    if (now) show("dogam");
+  }
+
+  async function revertSpirit(sp) {
+    if (!confirm("이 항목의 수정을 취소하고 원래 내용으로 되돌릴까요?")) return;
+    toast("되돌리는 중이에요…");
+    const res = await Sync.clearOverride("spirit", sp.id);
+    if (!res.ok) { toast("실패: " + res.error); return; }
+    toast("원래 내용으로 되돌렸어요. ↩️");
+    await Sync.refresh("override");
+  }
+
+  /* ---------- 내장 도감 덮어쓰기 ----------
+   * 569종 기본 도감은 앱 파일에 있어서 서버에서 못 고칩니다.
+   * 대신 "고칠 부분"만 서버에서 받아 원본 위에 얹어요.
+   * 원본을 그대로 두기 때문에 덮어쓰기를 지우면 즉시 원래대로 돌아옵니다.
+   */
+  const PRISTINE = new Map(SEED_SPIRITS.map((s) => [s.id, s]));
+  const saveOverrides = () => store.set("overrides", state.overrides);
+  const ovKey = (kind, id) => kind + ":" + id;
+  const ovOf = (kind, id) => (state.overrides || {})[ovKey(kind, id)] || null;
+  const isBuiltinSpirit = (sp) => PRISTINE.has(sp.id);
+  const ovHidden = (kind, id) => {
+    const o = ovOf(kind, id);
+    return !!(o && o.hidden);
+  };
+
+  // 서버에서 받은 덮어쓰기를 내장 도감에 반영합니다.
+  function applyOverrides() {
+    const ov = state.overrides || {};
+    state.spirits.forEach((sp) => {
+      const base = PRISTINE.get(sp.id);
+      if (!base) return;                       // 사용자 등록분은 대상 아님
+      const o = ov[ovKey("spirit", sp.id)];
+      // 원본으로 되돌린 뒤 덮어쓸 항목만 다시 적용 (되돌리기가 가능해야 하니까)
+      Object.keys(base).forEach((k) => {
+        if (k === "reviews") return;           // 리뷰는 서버 것이 따로 있어요
+        sp[k] = base[k];
+      });
+      if (o && o.patch) Object.assign(sp, o.patch);
+      sp.edited = !!o;
+    });
+    saveSpirits();
+  }
 
   /* ---------- 장난/도배 방지 ---------- */
   const PROFANITY = /시발|씨발|씨빨|병신|븅신|개새끼|좆|지랄|니미|썅|염병|ㅅㅂ|ㅂㅅ|fuck|shit|bitch/i;
@@ -1668,6 +1783,7 @@
     timerInt = null;
   }
   function toggleTimer() {
+    sfx(timerInt ? "tap" : "shake");
     if (timerInt) { stopTimer(); renderTimer(); return; }
     if (timerLeft <= 0) timerLeft = timerSel;
     timerInt = setInterval(() => {
@@ -1768,7 +1884,7 @@
     const sec = (title, items) => items.length
       ? `<div class="comment-sec-title">${title} ${items.length}</div>${items.join("")}` : "";
     // 이름이 먼저 걸린 것을 위로 올리고, 그다음 테이스팅 노트·태그에서 걸린 것을 붙입니다.
-    const spAll = state.spirits.filter((s) => !hiddenSp().includes(s.id));
+    const spAll = state.spirits.filter((s) => !hiddenSp().includes(s.id) && !ovHidden("spirit", s.id));
     const byName = spAll.filter((s) => has(s.name, q));
     const byDeep = spAll.filter((s) => !has(s.name, q) && has(searchText(s), q));
     const spHits = byName.concat(byDeep);
@@ -2325,7 +2441,7 @@
     if (isWhisky) {
       const rCount = {};
       state.spirits.forEach((s) => {
-        if (s.kind !== "spirit" || s.cat !== "위스키" || hiddenSp().includes(s.id)) return;
+        if (s.kind !== "spirit" || s.cat !== "위스키" || hiddenSp().includes(s.id) || ovHidden("spirit", s.id)) return;
         const r = regionOfWhisky(s);
         rCount[r] = (rCount[r] || 0) + 1;
       });
@@ -2351,7 +2467,7 @@
     };
     const q = $("#spirit-search").value.trim();
     const list = state.spirits.filter((sp) =>
-      !hiddenSp().includes(sp.id) &&
+      !hiddenSp().includes(sp.id) && !ovHidden("spirit", sp.id) &&
       sp.kind === state.dogamKind &&
       (state.dogamCat === "전체" || (sp.kind === "spirit" ? sp.cat : sp.base) === state.dogamCat) &&
       (!isWhisky || state.dogamRegion === "전체" || regionOfWhisky(sp) === state.dogamRegion) &&
@@ -2821,6 +2937,7 @@
     if (!sp) return;
     const rv = { id: newId(), color: state.user.color, stars: state.reviewStars, text, time: Date.now(), mine: true };
     if (pendingImg.review) rv.img = pendingImg.review;
+    sfx("success");
     sp.reviews.push(rv);
     state.user.myReviews++;
     saveSpirits(); saveUser();
@@ -2897,6 +3014,7 @@
       item.ings = $("#sw-ings").value.trim();
       item.recipe = $("#sw-recipe").value.trim();
     }
+    sfx("success");
     state.spirits.push(item);
     state.user.mySpiritIds.push(id);
     saveSpirits(); saveUser();
@@ -3038,6 +3156,7 @@
     if (!m) return;
     const c = { id: newId(), color: state.user.color, text, time: Date.now(), mine: true };
     if (pendingImg.meet) c.img = pendingImg.meet;
+    sfx("send");
     m.comments.push(c);
     state.user.myComments++;
     saveMeets(); saveUser();
@@ -3075,6 +3194,7 @@
       max: +$("#mw-max").value, joined: 1, desc: $("#mw-desc").value.trim(),
       host: "익명(나)", hostColor: state.user.color, isJoined: true, mine: true, comments: [],
     };
+    sfx("success");
     state.meets.push(meet);
     saveMeets();
     Sync.saveMeet(meet);
@@ -3265,6 +3385,7 @@
     $("#detail-like").addEventListener("click", () => {
       p.likedByMe = !p.likedByMe;
       p.likes += p.likedByMe ? 1 : -1;
+      sfx(p.likedByMe ? "like" : "unlike");
       savePosts();
       Sync.toggleLike(p.id, p.likedByMe);
       renderPostDetail();
@@ -3278,6 +3399,7 @@
     if (!p) return;
     const c = { id: newId(), color: state.user.color, text, time: Date.now(), mine: true };
     if (pendingImg.post) c.img = pendingImg.post;
+    sfx("send");
     let parentCid = null;
     if (state.replyTo !== null && p.comments[state.replyTo]) {
       const parent = p.comments[state.replyTo];
@@ -3301,6 +3423,7 @@
     const p = state.posts.find((x) => x.id === state.curPost);
     if (!p || !p.mine) return;
     if (!confirm("이 글을 삭제할까요?")) return;
+    sfx("trash");
     state.posts = state.posts.filter((x) => x.id !== p.id);
     state.user.myPostIds = state.user.myPostIds.filter((i) => i !== p.id);
     savePosts(); saveUser();
@@ -3398,6 +3521,7 @@
       if (contact) post.contact = contact;
     }
     if (state.pendingImg) post.img = state.pendingImg;
+    sfx("success");
     state.posts.push(post);
     state.user.myPostIds.push(id);
     savePosts(); saveUser();
@@ -3521,6 +3645,7 @@
     if (!text) return;
     const c = state.chats.find((x) => x.id === state.curChat);
     if (!c) return;
+    sfx("send");
     const msg = { id: newId(), me: true, text, time: Date.now() };
     c.msgs.push(msg);
     c.time = msg.time;
@@ -3556,6 +3681,9 @@
     $("#admin-report-cnt").textContent = pendingR ? `신고 ${pendingR}건` : "";
     $("#toggle-push").classList.toggle("on", state.push);
     $("#toggle-push").setAttribute("aria-checked", state.push);
+    const sfxOn = !window.BTSfx || window.BTSfx.enabled;
+    $("#toggle-sfx").classList.toggle("on", sfxOn);
+    $("#toggle-sfx").setAttribute("aria-checked", sfxOn);
   }
 
   /* ---------- 계정설정 ---------- */
@@ -3616,7 +3744,8 @@
     const bd = document.createElement("div");
     bd.className = "sheet-backdrop";
     bd.innerHTML = `<div class="sheet">${html}</div>`;
-    bd.addEventListener("click", (e) => { if (e.target === bd) bd.remove(); });
+    sfx("open");
+    bd.addEventListener("click", (e) => { if (e.target === bd) { sfx("close"); bd.remove(); } });
     $("#app").appendChild(bd);
     if (onOpen) onOpen(bd);
     return bd;
@@ -3681,7 +3810,17 @@
       ${uid ? `
       <div class="sheet-row"><span>🆔 이용자 번호</span><span class="r" style="font-family:monospace;font-size:12.5px">${esc(uid)}</span></div>
       <button class="big-btn" id="copy-uid" style="margin-top:12px">이용자 번호 복사</button>` : ""}
+      <button class="big-btn" id="force-update" style="margin-top:12px">🔄 앱 최신 버전으로 새로고침</button>
       <p class="sheet-note">신고·건의사항은 이메일로 보내주시면 영업일 기준 3일 이내에 답변드려요. 커뮤니티 규칙 위반 게시물은 신고 접수 후 24시간 이내에 검토합니다.${uid ? " 게시글 전체 삭제를 요청하실 땐 위 이용자 번호를 함께 보내주세요." : ""}</p>`);
+    const upd = document.querySelector(".sheet #force-update");
+    if (upd) upd.addEventListener("click", async () => {
+      toast("최신 버전을 받아오는 중이에요…");
+      try {
+        for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+        for (const k of await caches.keys()) await caches.delete(k);
+      } catch {}
+      location.reload();
+    });
     const btn = document.querySelector(".sheet #copy-uid");
     if (btn) btn.addEventListener("click", async () => {
       try {
@@ -4371,13 +4510,27 @@
   $("#spirit-report").addEventListener("click", () => {
     const sp = state.spirits.find((x) => x.id === state.curSpirit);
     if (!sp) return;
-    if (isAdmin() && sp.remote) {
-      openSheet("이 도감 항목", ["🚩 신고하기", "🛡️ 관리자 조치 (삭제·정지)"], null, (v) => {
+
+    if (isAdmin()) {
+      const opts = [];
+      if (!sp.mine) opts.push("🚩 신고하기");
+      if (isBuiltinSpirit(sp)) {
+        // 앱에 내장된 항목 — 서버에 덮어쓰기를 저장해 모든 사용자에게 반영
+        opts.push("✏️ 내용 수정", ovHidden("spirit", sp.id) ? "👁️ 다시 보이기" : "🙈 목록에서 감추기");
+        if (ovOf("spirit", sp.id)) opts.push("↩️ 원래 내용으로 되돌리기");
+      } else if (sp.remote) {
+        opts.push("🛡️ 관리자 조치 (삭제·정지)");
+      }
+      openSheet("이 도감 항목", opts, null, (v) => {
         if (v.includes("신고")) reportSpirit(sp);
+        else if (v.includes("수정")) openSpiritEditSheet(sp);
+        else if (v.includes("감추기") || v.includes("보이기")) toggleSpiritHidden(sp);
+        else if (v.includes("되돌리기")) revertSpirit(sp);
         else openAdminSheet("spirit", sp.id, sp.name, sp.authorId, () => show("dogam"));
       });
       return;
     }
+
     if (sp.mine) { toast("내가 등록한 항목은 신고할 수 없어요."); return; }
     reportSpirit(sp);
   });
@@ -4670,6 +4823,12 @@
     store.set("dark", state.dark);
     applyTheme();
   });
+  $("#toggle-sfx").addEventListener("click", () => {
+    if (!window.BTSfx) { toast("효과음을 사용할 수 없어요."); return; }
+    window.BTSfx.enabled = !window.BTSfx.enabled;
+    renderMyPage();
+    toast(window.BTSfx.enabled ? "효과음을 켰어요. 🔊" : "효과음을 껐어요. 🔇");
+  });
   $("#toggle-push").addEventListener("click", () => {
     state.push = !state.push;
     store.set("push", state.push);
@@ -4776,6 +4935,11 @@
         state.user.onboarded = true;
       }
       saveUser();
+    }
+    if (data.overrides) {
+      state.overrides = data.overrides;
+      saveOverrides();
+      applyOverrides();
     }
     if (data.reports) state.serverReports = data.reports;
     if (data.chats) {
@@ -4939,6 +5103,7 @@
         // 알림 목록에는 따로 넣지 않아요 — 안읽음 수가 이미 종 배지에 반영돼
         // 메시지 하나에 배지가 둘씩 올라가게 됩니다.
         if (!p.item.me && !(state.view === "chat" && state.curChat === c.id)) {
+          sfx("receive");
           c.unread = (c.unread || 0) + 1;
         }
       }
@@ -4971,15 +5136,15 @@
     const el = $("#sync-badge");
     if (!el) return;
     if (!Sync.enabled) { el.hidden = true; return; }
+    // 문제가 있을 때만 알립니다. 잘 되고 있다는 사실은 알릴 필요가 없어요.
     const LABEL = {
-      connecting: ["⏳", "서버 연결 중…"],
-      online: ["🟢", "실시간 연결됨"],
       offline: ["🔌", "오프라인 · 연결되면 자동 전송돼요"],
       error: ["⚠️", "서버 연결 실패 · 이 기기에만 저장돼요"],
     };
     const [ic, txt] = LABEL[Sync.status] || ["", ""];
-    if (!ic) { el.hidden = true; return; }
-    el.hidden = Sync.status === "online";   // 정상일 땐 굳이 알리지 않아요
+    if (!ic) { el.hidden = true; el.style.display = "none"; return; }
+    el.hidden = false;
+    el.style.display = "";
     const n = Sync.queued;
     el.innerHTML = `<span class="sync-ic">${ic}</span><span>${txt}${n ? ` (대기 ${n}건)` : ""}</span>`;
   }
@@ -5094,6 +5259,7 @@
   }
 
   function enterApp() {
+    sfx("welcome");
     const ALLOWED_ENTRY = ["community", "dogam", "meet", "jobs", "market", "mypage"];
     let entry = "home";
     try {
@@ -5111,7 +5277,17 @@
   /* ---------- PWA ---------- */
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("sw.js").catch(() => {});
+      navigator.serviceWorker.register("sw.js").then((reg) => {
+        // 새 버전이 대기 중이면 기다리지 말고 바로 교체해요.
+        const takeOver = (w) => { if (w) w.postMessage("skip-waiting"); };
+        if (reg.waiting) takeOver(reg.waiting);
+        reg.addEventListener("updatefound", () => takeOver(reg.installing));
+        // 앱으로 돌아올 때마다 새 버전이 있는지 확인
+        document.addEventListener("visibilitychange", () => {
+          if (!document.hidden) reg.update().catch(() => {});
+        });
+        setInterval(() => reg.update().catch(() => {}), 5 * 60 * 1000);
+      }).catch(() => {});
     });
     // 새 버전이 배포되면 한 번만 새로고침해 최신 화면을 보여줘요.
     let swReloaded = false;
@@ -5121,6 +5297,20 @@
       location.reload();
     });
   }
+
+  /* ---------- 효과음: 버튼 전반 ---------- */
+  // 개별 핸들러마다 넣지 않고 한곳에서 처리해요.
+  // 이미 고유한 소리를 내는 버튼은 중복되지 않도록 제외합니다.
+  const NO_TAP = new Set(["detail-like", "comment-send", "meet-comment-send", "chat-send",
+    "write-submit", "sw-submit", "mw-submit", "review-send", "post-delete", "timer-toggle"]);
+  document.addEventListener("pointerdown", (e) => {
+    const t = e.target;
+    if (!t || typeof t.closest !== "function") return;   // 문서·텍스트노드 등은 건너뜀
+    const el = t.closest("button, .nav-btn, .chip, .tab, .seg-btn, .quick-item, .tool-item, .post-item, .home-mini, .sheet-opt");
+    if (!el || el.disabled) return;
+    if (el.id && NO_TAP.has(el.id)) return;
+    sfx("tap");
+  }, { passive: true });
 
   /* ---------- 초기화 ---------- */
   applyTheme();
@@ -5140,7 +5330,6 @@
 
     show("login", true);
     setLoginBusy(true);
-    setLoginStatus("로그인 상태를 확인하고 있어요…");
 
     const result = await startSync();
     setLoginBusy(false);

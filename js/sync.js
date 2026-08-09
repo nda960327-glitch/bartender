@@ -398,6 +398,22 @@
     return (res.data || []).map(function (r) { return r.blocked_id; });
   }
 
+  // 앱에 내장된 도감을 운영자가 고친 내용.
+  // 파일을 바꾸는 대신 "고친 부분"만 받아서 화면에 얹습니다.
+  async function pullOverrides() {
+    var res = await sb.from("content_overrides").select("*");
+    if (res.error) return null;   // 표가 아직 없으면 무시 (overrides.sql 미실행)
+    var map = {};
+    (res.data || []).forEach(function (r) {
+      map[r.kind + ":" + r.ref_id] = {
+        patch: r.patch || {},
+        hidden: !!r.hidden,
+        at: t(r.updated_at),
+      };
+    });
+    return map;
+  }
+
   // 내가 관리자인지 서버에 물어봐요. admins 테이블은 앱에서 쓰기가 아예 막혀 있어
   // 이 값을 조작해도 서버가 실제 삭제를 거부합니다 (화면만 잠깐 바뀔 뿐).
   async function pullIsAdmin() {
@@ -433,7 +449,7 @@
     try {
       S.isAdmin = await pullIsAdmin();
       var results = await Promise.allSettled([
-        pullPosts(), pullMeets(), pullSpirits(), pullProfile(), pullBlocks(), pullReports(), pullChats(),
+        pullPosts(), pullMeets(), pullSpirits(), pullProfile(), pullBlocks(), pullReports(), pullChats(), pullOverrides(),
       ]);
       var data = { isAdmin: S.isAdmin };
       if (results[0].status === "fulfilled") data.posts = results[0].value;
@@ -446,6 +462,7 @@
       if (results[4].status === "fulfilled" && results[4].value) data.blocks = results[4].value;
       if (results[5].status === "fulfilled") data.reports = results[5].value;
       if (results[6].status === "fulfilled") data.chats = results[6].value;
+      if (results[7].status === "fulfilled" && results[7].value) data.overrides = results[7].value;
 
       var failed = results.filter(function (r) { return r.status === "rejected"; });
       if (failed.length === results.length) { setStatus("offline"); return; }
@@ -477,6 +494,7 @@
     meets: "meet", meet_participants: "meetJoin", meet_comments: "meetComment",
     spirits: "spirit", reviews: "review",
     conversations: "conversation", messages: "message",
+    content_overrides: "override",
   };
 
   function emitPatch(kind, op, item, extra) {
@@ -491,7 +509,7 @@
     var old = payload.old && Object.keys(payload.old).length ? payload.old : null;
 
     // 신고는 목록을 통째로 다시 받는 편이 단순하고, 운영자에게만 옵니다.
-    if (table === "reports") { schedulePull("report"); return; }
+    if (table === "reports" || table === "content_overrides") { schedulePull(table); return; }
 
     if (ev === "DELETE") {
       var delId = old && old.id;
@@ -1057,6 +1075,37 @@
         table: "conversation_reads", op: "upsert",
         row: { conversation_id: conversationId, user_id: S.uid, last_read_at: new Date().toISOString() },
       });
+    },
+
+    /* ---------- 내장 콘텐츠 수정 (운영자) ---------- */
+    // patch 에 담은 항목만 덮어씁니다. 예: { abv: 43, note: "..." }
+    async saveOverride(kind, refId, patch, hidden) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      if (!S.isAdmin) return { ok: false, error: "운영자만 수정할 수 있어요." };
+      try {
+        var res = await sb.from("content_overrides").upsert({
+          kind: kind, ref_id: refId, patch: patch || {},
+          hidden: !!hidden, updated_by: S.uid, updated_at: new Date().toISOString(),
+        }).select("ref_id");
+        if (res.error) return { ok: false, error: res.error.message };
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "저장에 실패했어요." };
+      }
+    },
+
+    // 덮어쓰기를 지워 원래 내장 내용으로 되돌립니다.
+    async clearOverride(kind, refId) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      if (!S.isAdmin) return { ok: false, error: "운영자만 수정할 수 있어요." };
+      try {
+        var res = await sb.from("content_overrides").delete()
+          .eq("kind", kind).eq("ref_id", refId);
+        if (res.error) return { ok: false, error: res.error.message };
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "되돌리기에 실패했어요." };
+      }
     },
 
     /* ---------- 관리자 통계 ---------- */

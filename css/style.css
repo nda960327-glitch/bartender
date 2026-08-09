@@ -780,6 +780,7 @@ textarea.input { height: auto; }
   animation: toast-in .2s ease; pointer-events: none;
 }
 .sync-badge .sync-ic { font-size: 13px; }
+.sync-badge[hidden] { display: none !important; }
 
 /* ---------- 바텀시트 ---------- */
 .sheet-backdrop {
