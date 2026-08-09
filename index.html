@@ -105,10 +105,6 @@
     <header class="topbar home-bar">
       <h1 class="logo">바텐톡 <svg class="logo-ic" viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="ldg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5c35"/><stop offset="1" stop-color="#ff8ad4"/></linearGradient></defs><path d="M256 60 L352 240 A108 108 0 1 1 160 240 Z" fill="url(#ldg)"/></svg></h1>
       <span class="flex-1"></span>
-      <button class="icon-btn install-btn" id="btn-install" hidden aria-label="앱 설치">
-        <svg viewBox="0 0 24 24"><path d="M12 4v10M8 11l4 4 4-4"/><path d="M5 19h14"/></svg>
-        <span class="install-dot"></span>
-      </button>
       <button class="icon-btn bell" id="btn-alerts" aria-label="알림">
         <svg viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15L6 16z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
         <span class="bell-badge" id="bell-badge" hidden></span>
@@ -1028,6 +1024,9 @@
 
   <!-- 서버 연결 상태 (정상일 때는 숨김) -->
   <div id="sync-badge" class="sync-badge" hidden></div>
+
+  <!-- 채팅이 오면 위에서 내려오는 알림 -->
+  <div id="chat-pop" class="chat-pop" hidden></div>
 
   <!-- 토스트 -->
   <div id="toast" class="toast" hidden></div>

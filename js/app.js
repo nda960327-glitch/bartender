@@ -1018,6 +1018,45 @@
     b.hidden = n === 0;
     b.textContent = n > 9 ? "9+" : n;
   }
+  /* ---------- 채팅 알림 ----------
+   * 종 배지에 숫자가 오르는 것만으로는 메시지가 온 줄 모릅니다.
+   * 누가 뭐라고 했는지 위에서 한 장 내려오게 하고, 누르면 그 대화로 들어가요.
+   */
+  let chatPopTimer = null;
+  function hideChatPop() {
+    const el = $("#chat-pop");
+    if (!el || el.hidden) return;
+    clearTimeout(chatPopTimer);
+    el.classList.remove("show");
+    // 올라가는 동작이 끝난 뒤에 감춰야 툭 사라지지 않아요
+    setTimeout(() => { if (!el.classList.contains("show")) el.hidden = true; }, 220);
+  }
+
+  function popChatMsg(c, text) {
+    const el = $("#chat-pop");
+    if (!el) return;
+    el.dataset.cid = c.id;
+    el.innerHTML =
+      `<span class="avatar cp-av" style="background:${COLORS[c.color]}"></span>
+       <span class="cp-body">
+         <span class="cp-top"><b>${esc(dropName(c.color))}</b>${c.ctx ? `<span class="cp-ctx">${esc(c.ctx)}</span>` : ""}</span>
+         <span class="cp-msg">${esc(text || "")}</span>
+       </span>
+       <button class="cp-x" aria-label="알림 닫기">✕</button>`;
+    el.hidden = false;
+    requestAnimationFrame(() => el.classList.add("show"));
+    clearTimeout(chatPopTimer);
+    chatPopTimer = setTimeout(hideChatPop, 5000);
+  }
+
+  $("#chat-pop").addEventListener("click", (e) => {
+    const el = $("#chat-pop");
+    const id = +el.dataset.cid;
+    hideChatPop();
+    if (e.target.closest(".cp-x")) return;   // 닫기만 누른 경우
+    if (id) openChat(id);
+  });
+
   function addPoints(amt, reason) {
     vibrate(12);
     state.user.points += amt;
@@ -1089,6 +1128,10 @@
     if (view === "settings") renderSettings();
     if (view === "alerts") renderNoti();
     if (view === "blocked") renderBlocked();
+
+    /* 방금 그린 것은 이 기기에 있던 내용입니다.
+       서버에 새 글이 있으면 곧바로 받아 다시 그려요. */
+    Sync.refreshView(view);
   }
 
   /* ---------- 온보딩 ---------- */
@@ -5901,7 +5944,8 @@
   const NOOP = () => {};
   const Sync = window.BarTalkSync || {
     enabled: false, status: "off", uid: null, queued: 0,
-    ready: () => false, init: async () => false, refresh: NOOP, uploadPhoto: async () => null,
+    ready: () => false, init: async () => false, refresh: NOOP, refreshView: NOOP,
+    uploadPhoto: async () => null,
     saveProfile: NOOP, savePost: NOOP, deletePost: NOOP, bumpViews: NOOP, saveComment: NOOP,
     toggleLike: NOOP, saveMeet: NOOP, joinMeet: NOOP, saveMeetComment: NOOP,
     saveSpirit: NOOP, saveReview: NOOP, saveReport: NOOP, setBlock: NOOP,
@@ -6098,6 +6142,7 @@
         if (!p.item.me && !(state.view === "chat" && state.curChat === c.id)) {
           sfx("receive");
           c.unread = (c.unread || 0) + 1;
+          popChatMsg(c, p.item.text);
         }
       }
       saveChats();
@@ -6113,6 +6158,9 @@
   // 지금 보고 있는 화면만 다시 그려요 (스크롤 위치가 튀지 않도록 상세 화면은 제외)
   function rerenderCurrentView() {
     const v = state.view;
+    // 읽던 자리를 지킵니다. 새 글이 들어왔다고 목록 맨 위로 튀면 곤란해요.
+    const sa = $("#view-" + v + " .scroll-area");
+    const keepTop = sa ? sa.scrollTop : 0;
     if (v === "home") renderHome();
     else if (v === "community") renderPosts();
     else if (v === "myposts") renderMyPosts();
@@ -6123,6 +6171,7 @@
     else if (v === "post" && state.posts.some((p) => p.id === state.curPost)) renderPostDetail();
     else if (v === "meet-detail" && state.meets.some((m) => m.id === state.curMeet)) renderMeetDetail();
     else if (v === "spirit" && state.spirits.some((s) => s.id === state.curSpirit)) renderSpiritDetail();
+    if (sa && keepTop && sa.scrollTop !== keepTop) sa.scrollTop = keepTop;
   }
 
   function updateSyncBadge() {
@@ -6265,39 +6314,6 @@
     dailyAttend();
     checkMeetReminders();
   }
-
-  /* ---------- 앱 설치 ----------
-   * 브라우저가 "설치 가능" 신호를 줄 때만 버튼을 띄웁니다.
-   * 이미 설치해서 앱으로 열었거나 설치를 마치면 버튼은 사라져요. */
-  let installPrompt = null;
-  const alreadyInstalled = () =>
-    window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
-
-  function updateInstallBtn() {
-    const btn = $("#btn-install");
-    if (!btn) return;
-    btn.hidden = !installPrompt || alreadyInstalled();
-  }
-
-  window.addEventListener("beforeinstallprompt", (e) => {
-    e.preventDefault();          // 브라우저 기본 배너 대신 우리 버튼을 씁니다
-    installPrompt = e;
-    updateInstallBtn();
-  });
-
-  window.addEventListener("appinstalled", () => {
-    installPrompt = null;
-    updateInstallBtn();
-    toast("홈 화면에 추가됐어요! 🍸");
-  });
-
-  $("#btn-install").addEventListener("click", async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    try { await installPrompt.userChoice; } catch {}
-    installPrompt = null;        // 한 번 쓰면 재사용할 수 없어요
-    updateInstallBtn();
-  });
 
   /* ---------- PWA ---------- */
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {

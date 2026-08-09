@@ -454,6 +454,58 @@
     });
   }
 
+  /* ---------- 화면에 필요한 것만 새로고침 ----------
+   * 실시간은 끊길 수 있습니다. 재접속·화면 복귀 때 전체를 맞추긴 하지만,
+   * 그 사이 탭만 오가는 동안에는 예전 목록이 그대로 남아 있었어요.
+   *
+   * 그렇다고 탭마다 전체를 받으면 한 번 옮길 때마다 8번씩 조회하게 됩니다.
+   * 그래서 그 화면이 실제로 쓰는 것만 골라 한두 번만 조회해요.
+   */
+  var PULLERS = {
+    posts:   function () { return pullPosts().then(function (v) { return { posts: v }; }); },
+    meets:   function () { return pullMeets().then(function (v) { return { meets: v }; }); },
+    spirits: function () { return pullSpirits().then(function (v) {
+      return { spirits: v.spirits, reviewsBySpirit: v.reviewsBySpirit };
+    }); },
+    chats:   function () { return pullChats().then(function (v) { return { chats: v }; }); },
+    reports: function () { return pullReports().then(function (v) { return { reports: v }; }); },
+  };
+
+  var VIEW_NEEDS = {
+    home: ["posts"], community: ["posts"], myposts: ["posts"], post: ["posts"],
+    dogam: ["spirits"], spirit: ["spirits"],
+    meet: ["meets"], "meet-detail": ["meets"],
+    chat: ["chats"],
+    admin: ["posts", "reports"],
+  };
+
+  var lastPull = {};      // 무엇을 언제 받았는지
+  var inFlight = {};      // 같은 조회가 겹치지 않게
+  var MIN_GAP = 2500;     // 탭을 빠르게 오갈 때 조회가 쏟아지지 않도록
+
+  async function pullSome(keys, reason) {
+    if (!sb || !S.uid || !keys || !keys.length) return;
+    var now = Date.now();
+    var need = keys.filter(function (k) {
+      return PULLERS[k] && !inFlight[k] && now - (lastPull[k] || 0) > MIN_GAP;
+    });
+    if (!need.length) return;
+    need.forEach(function (k) { inFlight[k] = true; });
+
+    var res = await Promise.allSettled(need.map(function (k) { return PULLERS[k](); }));
+    var data = {};
+    res.forEach(function (r, i) {
+      inFlight[need[i]] = false;
+      // 실패하면 받은 시각을 남기지 않아요. 다음에 다시 받게 하려는 것입니다.
+      if (r.status !== "fulfilled") return;
+      lastPull[need[i]] = Date.now();
+      Object.keys(r.value).forEach(function (k) { data[k] = r.value[k]; });
+    });
+    if (!Object.keys(data).length) return;
+    setStatus("online");
+    onData(data, reason || "view");
+  }
+
   /* ---------- 전체 새로고침 ---------- */
   var pulling = false;
   async function pullAll(reason) {
@@ -481,6 +533,8 @@
       if (failed.length === results.length) { setStatus("offline"); return; }
 
       setStatus("online");
+      var at = Date.now();
+      Object.keys(PULLERS).forEach(function (k) { lastPull[k] = at; });
       onData(data, reason || "pull");
     } catch (e) {
       setStatus("offline", e && e.message);
@@ -901,6 +955,8 @@
 
     init: init,
     refresh: function (reason) { return pullAll(reason || "manual"); },
+    // 그 화면이 쓰는 것만 다시 받아요 (탭 전환 때 호출)
+    refreshView: function (view) { return pullSome(VIEW_NEEDS[view] || [], "view:" + view); },
     uploadPhoto: uploadPhoto,
 
     async saveProfile(user) {
