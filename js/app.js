@@ -1010,12 +1010,36 @@
   const btPrompt = (msg, value, o) => btModal(Object.assign({ kind: "prompt", msg, value: value || "" }, o));
 
   /* ---------- 알림/포인트 ---------- */
-  function addNoti(ic, text) {
+  /* 알림에 "어디로 가면 되는지"를 함께 담습니다.
+     글자만 남기면 무슨 일인지 알아도 찾아가려면 직접 뒤져야 해요.
+     to 는 { view: "post", id: 12 } 같은 모양입니다. */
+  function addNoti(ic, text, to) {
     sfx("notify");
-    state.noti.unshift({ ic, text, time: Date.now(), read: false });
+    state.noti.unshift({ ic, text, time: Date.now(), read: false, to: to || null });
     if (state.noti.length > 50) state.noti.length = 50;
     saveNoti();
     updateBadge();
+  }
+
+  /* 알림을 눌렀을 때 그 자리로 데려다줍니다.
+     그 사이에 지워졌으면 조용히 알려주고 넘어가요. */
+  function gotoNoti(to) {
+    if (!to || !to.view) return;
+    if (to.view === "post") {
+      if (!state.posts.some((p) => p.id === to.id)) { toast("삭제된 글이에요."); return; }
+      openPost(to.id);
+    } else if (to.view === "meet") {
+      if (!state.meets.some((m) => m.id === to.id)) { toast("삭제된 모임이에요."); return; }
+      openMeet(to.id);
+    } else if (to.view === "spirit") {
+      if (!state.spirits.some((s) => s.id === to.id)) { toast("삭제된 항목이에요."); return; }
+      openSpirit(to.id);
+    } else if (to.view === "chat") {
+      if (!state.chats.some((c) => c.id === to.id)) { toast("사라진 대화예요."); return; }
+      openChat(to.id);
+    } else {
+      show(to.view);
+    }
   }
   const chatUnread = () => state.chats.reduce((a, c) => a + (c.unread || 0), 0);
   function updateBadge() {
@@ -4752,16 +4776,37 @@
         <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
       </button>
       ${state.noti.length
-        ? state.noti.map((n) => `
-          <div class="noti-item">
-            <span class="noti-ic">${n.ic}</span>
+        ? state.noti.map((x, i) => `
+          <div class="noti-item${x.to ? " tappable" : ""}" data-go="${i}">
+            <span class="noti-ic">${x.ic}</span>
             <div class="noti-body">
-              <div class="noti-text">${esc(n.text)}</div>
-              <div class="noti-time">${fmtRel(n.time)}</div>
+              <div class="noti-text">${esc(x.text)}</div>
+              <div class="noti-time">${fmtRel(x.time)}</div>
             </div>
+            <button class="noti-del" data-i="${i}" aria-label="이 알림 지우기">✕</button>
           </div>`).join("")
+        + '<button class="text-btn muted" id="noti-clear" style="width:100%;padding:14px">알림 전체 지우기</button>'
         : '<div class="empty-state">알림이 없어요.</div>'}`;
     $("#kw-banner").addEventListener("click", openKeywordSheet);
+    $$("#noti-list .noti-item.tappable").forEach((el) => el.addEventListener("click", (e) => {
+      if (e.target.closest(".noti-del")) return;   // ✕ 는 지우기입니다
+      gotoNoti(state.noti[+el.dataset.go] && state.noti[+el.dataset.go].to);
+    }));
+    $$("#noti-list .noti-del").forEach((b) => b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      state.noti.splice(+b.dataset.i, 1);
+      saveNoti();
+      renderNoti();
+      updateBadge();
+    }));
+    const clearBtn = $("#noti-clear");
+    if (clearBtn) clearBtn.addEventListener("click", async () => {
+      if (!await btConfirm("알림을 전부 지울까요?", { yes: "삭제" })) return;
+      state.noti = [];
+      saveNoti();
+      renderNoti();
+      updateBadge();
+    });
     state.noti.forEach((n) => { n.read = true; });
     saveNoti();
     updateBadge();
@@ -6291,8 +6336,25 @@
         post.comments.push(p.item);
       }
       savePosts();
+      /* 앱을 보고 있는 동안에도 알려줍니다.
+         푸시는 앱이 꺼져 있을 때만 오므로, 켜둔 사람은 이쪽으로 받아요.
+         내가 단 댓글에는 울리지 않습니다. */
+      if (p.op !== "delete" && !p.item.mine) {
+        const forMe = post.mine
+          || (p.parentId && (post.comments.find((c) => c.id === p.parentId) || {}).mine);
+        if (forMe) {
+          addNoti("💬", p.parentId ? "내 댓글에 답글이 달렸어요." : "내 글에 댓글이 달렸어요.",
+            { view: "post", id: post.id });
+        }
+      }
 
     } else if (p.kind === "like") {
+      // 남이 내 글에 공감했을 때. 내가 누른 것에는 울리지 않아요.
+      if (p.op !== "delete" && p.item.userId !== Sync.uid) {
+        const mine = state.posts.find((x) => x.id === p.item.postId && x.mine);
+        if (mine) addNoti("❤️", `'${mine.title.slice(0, 14)}' 글에 공감이 눌렸어요.`,
+          { view: "post", id: mine.id });
+      }
       // 공감 수는 서버가 posts 를 갱신해 따로 오므로, 여기선 내 표시만 맞춰요.
       if (p.item.userId !== Sync.uid) return;
       const post = state.posts.find((x) => x.id === p.item.postId);
@@ -6310,6 +6372,11 @@
       saveMeets();
 
     } else if (p.kind === "meetJoin") {
+      if (p.op !== "delete" && p.item.userId !== Sync.uid) {
+        const m = state.meets.find((x) => x.id === p.item.meetId && x.mine);
+        if (m) addNoti("🙋", `'${(m.title || "내 모임").slice(0, 14)}' 모임에 참여 신청이 들어왔어요.`,
+          { view: "meet", id: m.id });
+      }
       const m = state.meets.find((x) => x.id === p.item.meetId);
       if (!m) return;
       const on = p.op !== "delete";
@@ -6318,6 +6385,11 @@
       saveMeets();
 
     } else if (p.kind === "meetComment") {
+      if (p.op !== "delete" && !(p.item && p.item.mine)) {
+        const m = state.meets.find((x) => x.id === p.meetId && x.mine);
+        if (m) addNoti("💬", `'${(m.title || "내 모임").slice(0, 14)}' 모임에 댓글이 달렸어요.`,
+          { view: "meet", id: m.id });
+      }
       const m = state.meets.find((x) => x.id === p.meetId);
       if (!m) return;
       m.comments = m.comments || [];
@@ -6336,6 +6408,11 @@
       saveSpirits();
 
     } else if (p.kind === "review") {
+      if (p.op !== "delete" && !(p.item && p.item.mine)) {
+        const sp = state.spirits.find((x) => x.id === p.spiritId && x.mine);
+        if (sp) addNoti("⭐", `'${(sp.name || "내 항목").slice(0, 14)}' 에 리뷰가 달렸어요.`,
+          { view: "spirit", id: sp.id });
+      }
       const sp = state.spirits.find((x) => x.id === p.spiritId);
       if (!sp) return;
       sp.reviews = sp.reviews || [];
@@ -6346,6 +6423,16 @@
       saveSpirits();
 
     } else if (p.kind === "commentLike") {
+      if (p.op !== "delete" && p.userId !== Sync.uid) {
+        outer: for (const post of state.posts) {
+          for (const c of post.comments || []) {
+            const hit = c.id === p.commentId ? c : (c.replies || []).find((r) => r.id === p.commentId);
+            if (!hit) continue;
+            if (hit.mine) addNoti("❤️", "내 댓글에 공감이 눌렸어요.", { view: "post", id: post.id });
+            break outer;
+          }
+        }
+      }
       // 개수는 서버가 셉니다. 여기서는 내 화면의 숫자만 맞춰요.
       for (const post of state.posts) {
         let hit = null;
@@ -6565,14 +6652,19 @@
     navigator.serviceWorker.addEventListener("message", (e) => {
       const d = e.data || {};
       if (d.type === "open-chat" && d.cid && state.chats.some((c) => c.id === d.cid)) openChat(d.cid);
+      else if (d.type === "open-post" && d.postId) gotoNoti({ view: "post", id: d.postId });
     });
   }
   {
-    const wanted = +new URLSearchParams(location.search).get("chat");
-    if (wanted) {
-      // 주소는 정리해둡니다. 새로고침할 때마다 그 대화로 튀면 곤란해요.
+    const q = new URLSearchParams(location.search);
+    const wantChat = +q.get("chat"), wantPost = +q.get("post");
+    if (wantChat || wantPost) {
+      // 주소는 정리해둡니다. 새로고침할 때마다 그리로 튀면 곤란해요.
       try { history.replaceState(null, "", location.pathname + location.hash); } catch (e) {}
-      setTimeout(() => { if (state.chats.some((c) => c.id === wanted)) openChat(wanted); }, 800);
+      setTimeout(() => {
+        if (wantChat && state.chats.some((c) => c.id === wantChat)) openChat(wantChat);
+        else if (wantPost) gotoNoti({ view: "post", id: wantPost });
+      }, 800);
     }
   }
 

@@ -1,18 +1,20 @@
 /* ============================================================
- *  1:1 채팅 푸시 발송 (Vercel 서버리스 함수)
+ *  알림 발송 (Vercel 서버리스 함수)
  *
  *  앱이 꺼져 있어도 알림이 가게 하는 부분입니다.
- *  메시지를 보낸 사람의 브라우저가 이 함수를 부르면,
- *  같은 대화의 상대에게만 알림을 보냅니다.
+ *    · 1:1 채팅 메시지  → 상대에게
+ *    · 내 글의 댓글     → 글쓴이에게
+ *    · 내 댓글의 답글   → 그 댓글을 쓴 사람에게
  *
  *  ⚠️ 부르는 쪽을 믿지 않습니다.
- *     - 로그인 토큰을 Supabase 에 물어 진짜인지 확인하고
- *     - 그 사람이 정말 그 대화의 참여자인지 서버에서 다시 확인합니다.
- *     그래서 남의 대화에 알림을 꽂아 넣을 수 없어요.
+ *     로그인 토큰을 Supabase 에 물어 진짜인지 확인하고,
+ *     "정말 그 대화의 참여자인지" · "정말 그 댓글을 쓴 사람인지"를
+ *     서버에서 다시 확인합니다. 그래서 남에게 알림을 꽂아 넣거나
+ *     쓰지도 않은 댓글로 알림을 쏠 수 없어요.
  *
- *  ⚠️ 메시지 내용은 알림에 넣지 않습니다.
- *     푸시 본문은 구글·애플의 푸시 서버를 지나갑니다. 종단간은 아니에요.
- *     "새 메시지가 왔어요" 까지만 보내고, 내용은 앱에서 확인하게 합니다.
+ *  ⚠️ 내용은 알림에 넣지 않습니다.
+ *     푸시 본문은 구글·애플의 푸시 서버를 지나갑니다. 종단간이 아니에요.
+ *     "무엇이 왔다"까지만 보내고, 내용은 앱에서 확인하게 합니다.
  *
  *  Vercel > Settings > Environment Variables
  *     SUPABASE_URL
@@ -68,11 +70,128 @@ async function dropDeadSub(endpoint) {
   } catch (e) { /* 정리 실패는 다음 발송 때 다시 시도됩니다 */ }
 }
 
+/* 한 사람의 모든 기기로 보냅니다. */
+async function sendTo(userId, payload) {
+  const subs = await db("push_subscriptions?user_id=eq." + userId + "&select=endpoint,p256dh,auth");
+  if (!subs.length) return 0;
+  let sent = 0;
+  const body = JSON.stringify(payload);
+  await Promise.all(subs.map(async (s) => {
+    try {
+      await webpush.sendNotification(
+        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+        body,
+        { TTL: 60 * 60 * 24 }   // 하루 안에 폰이 켜지면 그때 받습니다
+      );
+      sent++;
+    } catch (e) {
+      // 404·410 = 그 기기의 주소가 죽었습니다 (앱 삭제·알림 차단)
+      if (e && (e.statusCode === 404 || e.statusCode === 410)) await dropDeadSub(s.endpoint);
+    }
+  }));
+  return sent;
+}
+
 async function readJson(req) {
   if (req.body && typeof req.body === "object") return req.body;
   let raw = "";
   for await (const chunk of req) raw += chunk;
   try { return JSON.parse(raw || "{}"); } catch (e) { return {}; }
+}
+
+const digits = (v) => String(v == null ? "" : v).replace(/[^0-9]/g, "");
+
+/* 알림에 보여줄 한 줄. 줄바꿈을 없애고 짧게 자릅니다.
+   길면 안드로이드가 알아서 자르지만, 그 전에 우리가 자르는 편이 깔끔해요. */
+function oneLine(text, max) {
+  const t = String(text || "").replace(/\s+/g, " ").trim();
+  if (!t) return "";
+  return t.length > max ? t.slice(0, max - 1) + "…" : t;
+}
+
+/* ---------- 1:1 채팅 ---------- */
+async function planChat(me, body) {
+  const cid = digits(body.conversationId);
+  if (!cid) return { error: "대화를 찾을 수 없어요.", code: 400 };
+
+  const rows = await db("conversations?id=eq." + cid + "&select=id,user_a,user_b");
+  const conv = rows && rows[0];
+  if (!conv) return { error: "대화를 찾을 수 없어요.", code: 404 };
+
+  // 참여자가 아니면 여기서 끝납니다.
+  if (conv.user_a !== me && conv.user_b !== me) {
+    return { error: "이 대화의 참여자가 아니에요.", code: 403 };
+  }
+  const peer = conv.user_a === me ? conv.user_b : conv.user_a;
+
+  /* 알림에 첫마디를 보여줍니다. 연달아 보내면 알림창에서 뭐라고 했는지
+     보이지 않으면 결국 앱을 열어봐야 하니까요.
+     내용은 앱이 보낸 값이 아니라 서버가 원본에서 읽습니다 — 그래야
+     남의 대화에 아무 문장이나 띄우는 일이 불가능해요. */
+  let preview = "";
+  const mid = digits(body.messageId);
+  if (mid) {
+    const msgs = await db("messages?id=eq." + mid + "&select=text,sender,conversation_id");
+    const m = msgs && msgs[0];
+    if (m && m.sender === me && String(m.conversation_id) === cid) preview = oneLine(m.text, 60);
+  }
+
+  return {
+    targets: [{
+      user: peer,
+      payload: {
+        title: "술방울",
+        body: preview || "새 메시지가 도착했어요.",
+        tag: "chat-" + cid,
+        cid: Number(cid),
+      },
+    }],
+  };
+}
+
+/* ---------- 댓글 · 답글 ---------- */
+async function planComment(me, body) {
+  const commentId = digits(body.commentId);
+  if (!commentId) return { error: "댓글을 찾을 수 없어요.", code: 400 };
+
+  // 정말 그 사람이 쓴 댓글인지 확인합니다.
+  // 이걸 안 하면 아무나 "댓글 달았다"고 우겨서 알림을 쏠 수 있어요.
+  const rows = await db(
+    "comments?id=eq." + commentId + "&select=id,post_id,parent_id,author_id"
+  );
+  const c = rows && rows[0];
+  if (!c) return { error: "댓글을 찾을 수 없어요.", code: 404 };
+  if (c.author_id !== me) return { error: "본인이 쓴 댓글이 아니에요.", code: 403 };
+
+  const posts = await db("posts?id=eq." + c.post_id + "&select=id,author_id,title");
+  const post = posts && posts[0];
+  if (!post) return { error: "글을 찾을 수 없어요.", code: 404 };
+
+  const targets = [];
+  const seen = new Set([me]);   // 내가 쓴 글에 내가 댓글 달면 알림 없어요
+
+  // 답글이면 그 댓글을 쓴 사람에게 먼저
+  if (c.parent_id) {
+    const parents = await db("comments?id=eq." + c.parent_id + "&select=author_id");
+    const pa = parents && parents[0] && parents[0].author_id;
+    if (pa && !seen.has(pa)) {
+      seen.add(pa);
+      targets.push({
+        user: pa,
+        payload: { title: "바텐톡", body: "내 댓글에 답글이 달렸어요.", tag: "post-" + post.id, postId: Number(post.id) },
+      });
+    }
+  }
+
+  if (post.author_id && !seen.has(post.author_id)) {
+    seen.add(post.author_id);
+    targets.push({
+      user: post.author_id,
+      payload: { title: "바텐톡", body: "내 글에 댓글이 달렸어요.", tag: "post-" + post.id, postId: Number(post.id) },
+    });
+  }
+
+  return { targets: targets };
 }
 
 module.exports = async (req, res) => {
@@ -89,47 +208,19 @@ module.exports = async (req, res) => {
     if (!me) { res.status(401).json({ ok: false, error: "로그인을 확인할 수 없어요." }); return; }
 
     const body = await readJson(req);
-    const cid = String(body.conversationId || "").replace(/[^0-9]/g, "");
-    if (!cid) { res.status(400).json({ ok: false, error: "대화를 찾을 수 없어요." }); return; }
+    // type 이 없으면 예전 앱이 보낸 채팅 요청입니다.
+    const type = body.type || "chat";
 
-    const rows = await db("conversations?id=eq." + cid + "&select=id,user_a,user_b");
-    const conv = rows && rows[0];
-    if (!conv) { res.status(404).json({ ok: false, error: "대화를 찾을 수 없어요." }); return; }
+    let plan;
+    if (type === "chat") plan = await planChat(me, body);
+    else if (type === "comment") plan = await planComment(me, body);
+    else { res.status(400).json({ ok: false, error: "알 수 없는 알림 종류예요." }); return; }
 
-    // 참여자가 아니면 여기서 끝납니다. 남의 대화에 알림을 꽂을 수 없어요.
-    if (conv.user_a !== me && conv.user_b !== me) {
-      res.status(403).json({ ok: false, error: "이 대화의 참여자가 아니에요." });
-      return;
-    }
-    const peer = conv.user_a === me ? conv.user_b : conv.user_a;
+    if (plan.error) { res.status(plan.code || 400).json({ ok: false, error: plan.error }); return; }
+    if (!plan.targets.length) { res.status(200).json({ ok: true, sent: 0 }); return; }
 
-    const subs = await db("push_subscriptions?user_id=eq." + peer + "&select=endpoint,p256dh,auth");
-    if (!subs.length) { res.status(200).json({ ok: true, sent: 0, reason: "상대가 알림을 켜두지 않았어요." }); return; }
-
-    // 내용은 싣지 않습니다 (위 주석 참고).
-    const payload = JSON.stringify({
-      title: "바텐톡",
-      body: "새 메시지가 도착했어요.",
-      tag: "chat-" + cid,
-      cid: Number(cid),
-    });
-
-    let sent = 0;
-    await Promise.all(subs.map(async (s) => {
-      try {
-        await webpush.sendNotification(
-          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          payload,
-          { TTL: 60 * 60 * 24 }   // 하루 안에 폰이 켜지면 그때 받습니다
-        );
-        sent++;
-      } catch (e) {
-        // 404·410 = 그 기기의 주소가 죽었습니다 (앱 삭제·알림 차단)
-        if (e && (e.statusCode === 404 || e.statusCode === 410)) await dropDeadSub(s.endpoint);
-      }
-    }));
-
-    res.status(200).json({ ok: true, sent: sent });
+    const counts = await Promise.all(plan.targets.map((t) => sendTo(t.user, t.payload)));
+    res.status(200).json({ ok: true, sent: counts.reduce((a, b) => a + b, 0) });
   } catch (e) {
     res.status(200).json({ ok: false, error: (e && e.message) || "알림을 보내지 못했어요." });
   }

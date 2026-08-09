@@ -1489,3 +1489,16 @@ textarea.input { height: auto; }
 
 /* 답글쓰기는 하트 옆에 나란히 */
 .comment-acts .reply-btn { margin: 0; }
+
+/* ---------- 알림 지우기 ---------- */
+.noti-del {
+  flex: none; align-self: center;
+  width: 30px; height: 30px; border: 0; border-radius: 50%;
+  background: transparent; color: var(--text-muted);
+  font-size: 13px; cursor: pointer;
+}
+.noti-del:hover { background: var(--bg-input); color: var(--text); }
+
+/* 갈 곳이 있는 알림만 눌리는 티를 냅니다 */
+.noti-item.tappable { cursor: pointer; }
+.noti-item.tappable:hover { background: var(--bg-input); }

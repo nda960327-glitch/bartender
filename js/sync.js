@@ -73,6 +73,8 @@
         if (!ok) break;            // 네트워크 문제로 보고 다음 기회에 재시도
         queue.shift();
         saveQueue();
+        // 서버에 들어간 뒤에 부탁해야 서버가 원본을 보고 확인할 수 있어요.
+        if (job.notify) notifyServer(job.notify);
       }
       if (!queue.length) setStatus("online");
     } finally {
@@ -462,11 +464,13 @@
     });
   }
 
-  /* ---------- 상대에게 알림 보내기 ----------
+  /* ---------- 알림 보내달라고 부탁하기 ----------
    * 알림을 실제로 쏘는 것은 서버 함수입니다. 여기서는 부탁만 해요.
-   * 발송 서버는 이 토큰으로 "정말 그 대화의 참여자인지" 다시 확인합니다.
+   * 서버는 원본(메시지·댓글)을 직접 읽어 정말 내가 쓴 것인지 확인합니다.
+   * 그래서 쓰지도 않은 것으로 남에게 알림을 쏠 수 없어요.
    */
-  async function notifyPeer(conversationId) {
+  async function notifyServer(spec) {
+    if (!spec || !sb) return;
     try {
       var s = await sb.auth.getSession();
       var token = s && s.data && s.data.session && s.data.session.access_token;
@@ -474,9 +478,9 @@
       await fetch("/api/push-send", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-        body: JSON.stringify({ conversationId: conversationId }),
+        body: JSON.stringify(spec),
       });
-    } catch (e) { /* 알림이 안 가도 메시지는 갑니다 */ }
+    } catch (e) { /* 알림이 안 가도 내용은 이미 저장됐습니다 */ }
   }
 
   /* ---------- 화면에 필요한 것만 새로고침 ----------
@@ -1038,6 +1042,8 @@
           color: c.color, text: c.text, img: img,
           created_at: new Date(c.time).toISOString(),
         },
+        // 글쓴이(답글이면 그 댓글을 쓴 사람)에게 알려줍니다.
+        notify: { type: "comment", commentId: c.id },
       });
     },
 
@@ -1165,10 +1171,9 @@
           id: msg.id, conversation_id: conversationId, sender: S.uid,
           text: msg.text, created_at: new Date(msg.time).toISOString(),
         },
+        // 상대 폰이 꺼져 있어도 알림이 가도록. 내용은 서버가 원본에서 읽어요.
+        notify: { type: "chat", conversationId: conversationId, messageId: msg.id },
       });
-      // 상대 폰이 꺼져 있어도 알림이 가도록 발송을 부탁합니다.
-      // 실패해도 메시지 자체는 이미 전송 대기열에 들어가 있어요.
-      notifyPeer(conversationId);
     },
 
     /* ---------- 알림 구독 ----------

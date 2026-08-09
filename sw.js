@@ -10,7 +10,7 @@
  * 커뮤니티 앱에서는 치명적이라 네트워크 우선으로 바꿨습니다.
  * 첫 화면이 아주 조금 느려지지만 파일이 작아 체감되지 않습니다.
  */
-const VERSION = "2.9.0";
+const VERSION = "2.10.0";
 const CACHE = "bartalk-v" + VERSION;
 
 // 오프라인에서도 앱이 뜨도록 미리 받아두는 파일
@@ -76,7 +76,7 @@ self.addEventListener("push", (e) => {
       badge: "./icons/icon-192.png",
       tag: d.tag || "bartalk",       // 같은 대화의 알림은 겹쳐 쌓이지 않게
       renotify: true,
-      data: { cid: d.cid || null },
+      data: { cid: d.cid || null, postId: d.postId || null },
     })
   );
 });
@@ -84,7 +84,7 @@ self.addEventListener("push", (e) => {
 // 알림을 누르면 이미 열려 있는 앱으로 가고, 없으면 새로 엽니다.
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
-  const cid = e.notification.data && e.notification.data.cid;
+  const d = e.notification.data || {};
   e.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const w of wins) {
@@ -92,10 +92,12 @@ self.addEventListener("notificationclick", (e) => {
         if (new URL(w.url).origin !== self.location.origin) continue;
       } catch (err) { continue; }
       await w.focus();
-      w.postMessage({ type: "open-chat", cid: cid });
+      if (d.postId) w.postMessage({ type: "open-post", postId: d.postId });
+      else w.postMessage({ type: "open-chat", cid: d.cid || null });
       return;
     }
-    await self.clients.openWindow(cid ? "./?chat=" + cid : "./");
+    const url = d.postId ? "./?post=" + d.postId : d.cid ? "./?chat=" + d.cid : "./";
+    await self.clients.openWindow(url);
   })());
 });
 
