@@ -9,3 +9,8 @@ Thumbs.db
 *.keystore
 android.keystore
 twa-manifest.json
+
+# 작업 중 생기는 임시 파일
+_*.txt
+_*.js
+_*.html
