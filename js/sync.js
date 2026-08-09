@@ -619,6 +619,22 @@
     return msg;
   }
 
+  // 로그인 후 돌아올 주소.
+  //
+  // 그냥 location.origin 을 쓰면 안 됩니다. 파일을 직접 열어 본 화면(file://)에서는
+  // origin 이 문자열 "null" 이라, 메일에 "null/index.html" 같은 주소가 박혀서 나가요.
+  // 그 링크를 폰에서 누르면 "null 에 접근할 수 없습니다" 가 뜹니다.
+  // 그래서 http(s) 로 열렸을 때만 현재 주소를 쓰고, 아니면 설정에 적힌 운영 주소로 보냅니다.
+  // 둘 다 없으면 아예 넘기지 않아요 — 그럼 Supabase 가 Site URL 로 보냅니다.
+  function redirectUrl() {
+    var p = location.protocol;
+    if ((p === "http:" || p === "https:") && location.origin && location.origin !== "null") {
+      return location.origin + location.pathname;
+    }
+    var site = CFG.SITE_URL || "";
+    return /^https?:\/\//.test(site) ? site : undefined;
+  }
+
   // 로그인 링크를 타고 왔는데 세션이 안 생겼을 때, 왜 그런지 알려줍니다.
   // 주소에 흔적이 남아 있어서 구분할 수 있어요.
   //  · ?code=…            → 예전 pkce 방식 링크. 요청한 브라우저가 아니면 실패합니다.
@@ -809,7 +825,7 @@
         var res = await sb.auth.signInWithOAuth({
           provider: provider,
           options: {
-            redirectTo: location.origin + location.pathname,
+            redirectTo: redirectUrl(),
             queryParams: provider === "google" ? { prompt: "select_account" } : undefined,
           },
         });
@@ -826,10 +842,16 @@
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || "")) {
         return { ok: false, error: "이메일 형식이 올바르지 않아요." };
       }
+      // 파일을 직접 열어 본 화면에서는 돌아올 주소를 만들 수가 없어요.
+      // 그대로 보내면 못 쓰는 링크가 메일로 나가므로 여기서 막습니다.
+      var back = redirectUrl();
+      if (!back) {
+        return { ok: false, error: "이 화면에서는 이메일 로그인을 쓸 수 없어요. 주소창에 주소를 입력해 접속한 뒤 다시 시도해주세요." };
+      }
       try {
         var res = await sb.auth.signInWithOtp({
           email: email,
-          options: { emailRedirectTo: location.origin + location.pathname },
+          options: { emailRedirectTo: back },
         });
         if (res.error) return { ok: false, error: res.error.message };
         return { ok: true };

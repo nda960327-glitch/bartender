@@ -3,7 +3,7 @@
  * 그 외:  네트워크 우선, 실패 시 캐시
  * ※ 배포할 때마다 VERSION 을 올려야 사용자 기기의 낡은 캐시가 정리돼요.
  */
-const VERSION = "1.7.0";
+const VERSION = "1.8.0";
 const CACHE = "bartalk-v" + VERSION;
 
 // 오프라인에서도 앱이 뜨도록 미리 받아두는 파일
