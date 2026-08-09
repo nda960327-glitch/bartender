@@ -963,7 +963,7 @@
     }
     if (view !== state.view) sfx(fromPop ? "back" : "nav");
     state.view = view;
-    $(".view").forEach((v) => { v.hidden = v.id !== "view-" + view; });
+    $$(".view").forEach((v) => { v.hidden = v.id !== "view-" + view; });
     const hideNav = view === "onboard" || view === "login" ||
       (view === "doc" && (state.docFrom === "onboard" || state.docFrom === "login"));
     $("#bottom-nav").style.display = hideNav ? "none" : "";
