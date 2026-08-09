@@ -1386,28 +1386,31 @@ textarea.input { height: auto; }
 .sheet > h3:first-of-type { padding-right: 42px; }
 
 /* ---------- 홈 인사말 + 마스코트 ---------- */
-/* 인사말 + 마스코트
-   마스코트를 흐름에서 빼서 배경처럼 뒤에 깝니다.
-   자리를 차지하면 인사말이 아래로 밀려 위쪽이 휑하게 비어요.
-   글자와 겹치지 않도록 인사말에 오른쪽 여백만 확보합니다. */
-.greet-wrap { position: relative; }
-.greet-wrap .greet {
-  position: relative; z-index: 1;
-  padding-right: 44%;                /* 마스코트 자리를 글자가 침범하지 않도록 */
-}
+/* 홈 상단 — 인사말·검색창·마스코트를 한 덩어리로
+   마스코트는 흐름에서 빼서 뒤에 깝니다. 자리를 차지하면 인사말이 밀려
+   위가 비고, 인사말만 기준으로 띄우면 그림이 위로 삐져나가 잘렸어요.
+   검색창까지 포함한 넓은 무대를 만들어 그 안에 담았습니다. */
+.home-hero { position: relative; }
+.home-hero > .greet,
+.home-hero > .home-search { position: relative; z-index: 1; }
+.home-hero > .greet { padding-right: 42%; }
+
+/* 위아래를 무대에 묶어두면 인사말이 두 줄이 되든 한 줄이든
+   그림이 알아서 안쪽에 맞춰집니다. 폭만 정하면 높이 때문에 잘렸어요. */
 .greet-char {
   position: absolute; z-index: 0;
-  right: 4px; bottom: -18px;         /* 아래로 살짝 걸쳐 검색창과 이어 보이게 */
-  width: clamp(124px, 42vw, 196px);
-  pointer-events: none;
+  right: 8px; top: 4px; bottom: 4px;
+  width: clamp(120px, 40vw, 188px);
+  display: flex; align-items: flex-end; justify-content: flex-end;
+  pointer-events: none; user-select: none;
 }
-.greet-char svg { width: 100%; height: auto; display: block; }
-/* 아주 좁은 기기: 글이 우선이라 마스코트를 더 연하게, 글자 여백도 줄임 */
+.greet-char svg { width: 100%; height: 100%; display: block; }
+
+/* 좁은 기기: 글이 우선이라 연하게 깔고 글자 여백도 줄입니다 */
 @media (max-width: 359px) {
-  .greet-wrap .greet { padding-right: 34%; }
-  .greet-char { width: 112px; bottom: -12px; opacity: .55; }
+  .home-hero > .greet { padding-right: 32%; }
+  .greet-char { width: 108px; opacity: .5; }
 }
-@media (min-width: 520px) { .greet-char { right: 12px; } }
 
 /* ---------- 앱 설치 버튼 ---------- */
 .install-btn { position: relative; color: var(--accent); }
