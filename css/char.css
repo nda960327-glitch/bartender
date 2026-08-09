@@ -2,12 +2,13 @@
    style.css 의 컬러 토큰을 그대로 씁니다. */
 
 /* ---- 댓글 본문에 박히는 스티커 ---- */
-/* em 기준이라 댓글 글자 크기가 바뀌어도 같이 따라갑니다. */
+/* em 기준이라 댓글 글자 크기가 바뀌어도 같이 따라갑니다.
+   전신 캐릭터라 얼굴이 작아서, 반신이던 예전보다 크게 잡았어요. */
 .bt-sticker {
   display: inline-block;
-  width: 1.5em;
+  width: 2.1em;
   line-height: 0;
-  vertical-align: -.38em;
+  vertical-align: -.72em;
 }
 .bt-sticker svg { width: 100%; height: auto; display: block; }
 
@@ -56,7 +57,7 @@
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   font-family: inherit;
 }
-.bt-pick-item svg { width: 34px; height: 34px; display: block; }
+.bt-pick-item svg { width: 40px; height: 40px; display: block; }
 .bt-pick-item span {
   font-size: 10px; font-weight: 600; color: var(--text-muted);
   white-space: nowrap;
