@@ -116,6 +116,18 @@ Supabase 대시보드 > **Authentication > URL Configuration**
 
 로컬에서도 테스트하려면 `http://localhost:8777/**` 도 함께 추가하세요.
 
+### 0-2. 익명 로그인 끄기 ⚠️ 보안상 중요
+
+Supabase 대시보드 > **Authentication > Sign In / Providers** 에서 **Anonymous sign-ins 를 끄세요.**
+
+앱은 이제 로그인을 요구하지만, 서버가 익명 가입을 허용하는 한 **API를 직접 호출하면 로그인 없이 글을 쓸 수 있습니다.** 계정을 무한히 만들 수 있어 도배·정지 우회의 통로가 됩니다.
+
+확인 방법 — 아래가 토큰을 돌려주면 아직 열려 있는 것입니다.
+
+```bash
+curl -X POST "https://dvharpjpemxpbrhhlolx.supabase.co/auth/v1/signup" -H "apikey: <anon key>" -H "Content-Type: application/json" -d "{}"
+```
+
 ### 1. 이메일 (이미 켜져 있음)
 
 기본으로 동작합니다. 비밀번호 없이 메일로 받은 링크로 로그인합니다.
@@ -331,6 +343,7 @@ npx @bubblewrap/cli build
 | 광고 식별자 / 분석 SDK | ✅ 미사용 |
 | 결제 | ⚠️ `STORE_LIVE=false` — 사전 신청만 접수 |
 | 로그인 (정지 우회 방지) | ✅ 구글·카카오·네이버·이메일 |
+| 익명 가입 차단 | ⚠️ 대시보드에서 Anonymous sign-ins 를 꺼야 완결 |
 | 운영자 권한 (모든 글 삭제·정지) | ✅ 서버 판정. 앱에서 권한 탈취 불가 |
 
 ### 6. 업데이트 배포
