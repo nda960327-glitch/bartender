@@ -9,7 +9,12 @@
   const SUPPORT_EMAIL = LEGAL_META.email || "3663hong@gmail.com";
   // 출시 시 기능 on/off. 스토어는 실제 판매/배송·PG 연동 전까지 "사전 오픈" 안내로 동작해요.
   // 결제 인프라 없이 실제 주문을 받으면 Play 심사에서 반려될 수 있으니, 정식 오픈 전엔 STORE_LIVE = false 를 유지하세요.
-  const FEATURES = { STORE_LIVE: false };
+  const FEATURES = {
+    STORE_LIVE: false,
+    // 네이버는 Supabase 기본 지원이 아니라 별도 서버 함수가 필요해요.
+    // api/naver-login 을 배포한 뒤 true 로 바꾸세요.
+    NAVER_LOGIN: false,
+  };
 
   const COLORS = [
     "#ff6b5e", "#ff8ad4", "#c9a58f", "#ff9b3d", "#ffcb52",
@@ -948,12 +953,13 @@
   }
   const NAV_VIEWS = ["home", "dogam", "meet", "community", "mypage"];
   function show(view, fromPop) {
-    if (!fromPop && view !== state.view && view !== "onboard") {
+    if (!fromPop && view !== state.view && view !== "onboard" && view !== "login") {
       try { history.pushState({ view }, "", "#" + view); } catch {}
     }
     state.view = view;
     $$(".view").forEach((v) => { v.hidden = v.id !== "view-" + view; });
-    const hideNav = view === "onboard" || (view === "doc" && state.docFrom === "onboard");
+    const hideNav = view === "onboard" || view === "login" ||
+      (view === "doc" && (state.docFrom === "onboard" || state.docFrom === "login"));
     $("#bottom-nav").style.display = hideNav ? "none" : "";
     const navView = NAV_VIEWS.includes(view) ? view
       : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", market: "home", "market-detail": "home", cart: "home", worklog: "home", units: "home", search: "home", timer: "home", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", doc: "mypage" }[view] || "home";
@@ -4281,6 +4287,57 @@
   $("#ob-terms").addEventListener("click", () => openDoc("terms"));
   $("#ob-privacy").addEventListener("click", () => openDoc("privacy"));
 
+  /* ---------- 로그인 화면 ---------- */
+  $("#login-terms").addEventListener("click", () => openDoc("terms"));
+  $("#login-privacy").addEventListener("click", () => openDoc("privacy"));
+
+  $$("#view-login [data-login]").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      const provider = btn.dataset.login;
+      if (provider === "naver" && !FEATURES.NAVER_LOGIN) {
+        setLoginStatus("네이버 로그인은 준비 중이에요. 다른 방법으로 시작해주세요.", "err");
+        return;
+      }
+      setLoginBusy(true);
+      setLoginStatus("로그인 창을 여는 중이에요…");
+      const res = await Sync.signInWith(provider);
+      if (!res.ok) {
+        setLoginBusy(false);
+        setLoginStatus(res.error === "not-enabled"
+          ? "이 로그인 방법은 아직 준비 중이에요. 다른 방법으로 시작해주세요."
+          : "로그인에 실패했어요: " + res.error, "err");
+      }
+      // 성공하면 브라우저가 이동하므로 여기서 할 일이 없어요.
+    }));
+
+  $("#login-email-toggle").addEventListener("click", () => {
+    const box = $("#login-email-box");
+    box.hidden = !box.hidden;
+    if (!box.hidden) $("#login-email").focus();
+  });
+  const updateEmailBtn = () => {
+    const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($("#login-email").value.trim());
+    $("#login-email-send").disabled = !ok;
+    $("#login-email-send").classList.toggle("ready", ok);
+  };
+  $("#login-email").addEventListener("input", updateEmailBtn);
+  $("#login-email").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !$("#login-email-send").disabled) $("#login-email-send").click();
+  });
+  $("#login-email-send").addEventListener("click", async () => {
+    const email = $("#login-email").value.trim();
+    setLoginBusy(true);
+    setLoginStatus("메일을 보내는 중이에요…");
+    const res = await Sync.signInWithEmail(email);
+    setLoginBusy(false);
+    updateEmailBtn();
+    if (res.ok) {
+      setLoginStatus(`${email} 로 로그인 링크를 보냈어요.\n메일함(스팸함도 확인)에서 링크를 눌러주세요.`, "ok");
+    } else {
+      setLoginStatus("메일 발송 실패: " + res.error, "err");
+    }
+  });
+
   // 술도감
   $$("#dogam-seg .seg-btn").forEach((b) =>
     b.addEventListener("click", () => {
@@ -4594,8 +4651,16 @@
   $("#btn-privacy").addEventListener("click", () => openDoc("privacy"));
   $("#btn-opensource").addEventListener("click", () => openDoc("opensource"));
   $("#btn-deletion-doc").addEventListener("click", () => openDoc("deletion"));
-  $("#btn-logout").addEventListener("click", () => {
-    if (!confirm("로그아웃할까요? 데이터는 이 기기에 안전하게 보관돼요.")) return;
+  $("#btn-logout").addEventListener("click", async () => {
+    if (!confirm("로그아웃할까요? 다시 로그인하면 내 글과 기록이 그대로 돌아와요.")) return;
+    if (Sync.enabled) {
+      await Sync.signOut();
+      show("login");
+      setLoginStatus("");
+      setLoginBusy(false);
+      toast("로그아웃했어요.");
+      return;
+    }
     state.user.onboarded = false;
     saveUser();
     $("#ob-nick").value = "";
@@ -4660,9 +4725,19 @@
     $("#btn-withdraw").disabled = !state.agreeWithdraw;
     $("#btn-withdraw").classList.toggle("ready", state.agreeWithdraw);
   });
-  $("#btn-withdraw").addEventListener("click", () => {
+  $("#btn-withdraw").addEventListener("click", async () => {
     if (!state.agreeWithdraw) return;
-    if (!confirm("정말 탈퇴하시겠어요? 모든 데이터가 삭제돼요.")) return;
+    if (!confirm("정말 탈퇴하시겠어요? 이 기기의 모든 데이터가 삭제돼요.")) return;
+    // 서버에 올린 글은 본인이 개별 삭제하거나 고객센터로 요청해야 해요.
+    // 그 안내를 한 번 더 확인받습니다.
+    if (Sync.enabled && Sync.signedIn) {
+      const ok = confirm(
+        "커뮤니티에 올린 글·댓글은 탈퇴만으로는 삭제되지 않아요.\n" +
+        "전체 삭제를 원하시면 탈퇴 전에 고객센터로 요청해주세요.\n\n" +
+        "그래도 지금 탈퇴할까요?");
+      if (!ok) return;
+      await Sync.signOut();
+    }
     Object.keys(localStorage)
       .filter((k) => k.startsWith("bartalk_"))
       .forEach((k) => localStorage.removeItem(k));
@@ -4801,26 +4876,88 @@
   }
 
   let syncStarted = false;
-  let syncTries = 0;
   async function startSync() {
-    if (!Sync.enabled || syncStarted) return;
+    if (!Sync.enabled) return "off";
+    if (syncStarted) return Sync.signedIn ? "signed-in" : "signed-out";
     syncStarted = true;
     updateSyncBadge();
-    const ok = await Sync.init({
+    const result = await Sync.init({
       onData: (data) => applyRemote(data),
       onStatus: () => updateSyncBadge(),
+      onAuth: (identity) => onAuthChanged(identity),
     });
-    if (ok && Sync.ready()) {
+    if (result === "signed-in" && Sync.ready()) {
       Sync.saveProfile(state.user);
       backfillLocal();
       Sync.refresh("backfill");
+    }
+    return result;
+  }
+
+  /* ---------- 로그인 화면 ---------- */
+  function setLoginStatus(msg, kind) {
+    const el = $("#login-status");
+    if (!el) return;
+    el.hidden = !msg;
+    el.textContent = msg || "";
+    el.className = "login-status" + (kind ? " " + kind : "");
+  }
+  function setLoginBusy(busy) {
+    $$("#view-login .login-btn, #login-email-send").forEach((b) => { b.disabled = busy; });
+    if (!busy) {
+      updateLoginButtons();
+      updateEmailBtn();   // 메일 버튼은 주소가 올바를 때만 눌리도록 다시 판정
+    }
+  }
+
+  // 서버에서 켜지지 않은 로그인 방법은 눌러도 오류 페이지로 튕기기만 해요.
+  // 그래서 아예 "준비 중"으로 표시하고 막습니다.
+  function updateLoginButtons() {
+    $$("#view-login [data-login]").forEach((btn) => {
+      const p = btn.dataset.login;
+      const ready = p === "naver" ? FEATURES.NAVER_LOGIN : Sync.providerReady(p);
+      btn.disabled = !ready;
+      btn.classList.toggle("unavailable", !ready);
+      const label = btn.querySelector("span:last-child");
+      if (!label) return;
+      if (!label.dataset.base) label.dataset.base = label.textContent;
+      label.textContent = ready ? label.dataset.base : label.dataset.base.replace("로 시작하기", " (준비 중)");
+    });
+  }
+
+  // 로그인 직후 호출돼요. 닉네임이 없으면 온보딩으로, 있으면 바로 홈으로.
+  function onAuthChanged(identity) {
+    if (!identity) {
+      // 로그아웃됨
+      setLoginStatus("");
+      setLoginBusy(false);
+      show("login");
       return;
     }
-    // 연결에 실패했으면 잠시 뒤 다시 시도해요 (앱은 그동안 로컬로 계속 동작).
-    if (++syncTries <= 3) {
-      syncStarted = false;
-      setTimeout(startSync, syncTries * 15000);
+    if (state.user.onboarded && state.user.nick) {
+      enterApp();
+    } else {
+      // 소셜 계정 이름을 닉네임 후보로 한 번만 채워줘요 (게시판에는 노출되지 않아요)
+      if (!$("#ob-nick").value && identity.suggestedNick) $("#ob-nick").value = identity.suggestedNick;
+      state.obColor = state.user.color;
+      renderOnboard();
+      show("onboard");
     }
+  }
+
+  function enterApp() {
+    const ALLOWED_ENTRY = ["community", "dogam", "meet", "jobs", "market", "mypage"];
+    let entry = "home";
+    try {
+      const q = new URLSearchParams(location.search).get("go");
+      const hash = location.hash.replace("#", "");
+      if (ALLOWED_ENTRY.includes(q)) entry = q;
+      else if (ALLOWED_ENTRY.includes(hash)) entry = hash;
+    } catch {}
+    try { history.replaceState({ view: entry }, "", "#" + entry); } catch {}
+    show(entry, true);
+    dailyAttend();
+    checkMeetReminders();
   }
 
   /* ---------- PWA ---------- */
@@ -4842,29 +4979,52 @@
   updateBadge();
   // 브라우저/안드로이드 뒤로가기 지원
   window.addEventListener("popstate", (e) => {
-    if (state.view === "onboard") { history.forward(); return; }
+    if (state.view === "onboard" || state.view === "login") { history.forward(); return; }
     show((e.state && e.state.view) || "home", true);
   });
-  if (state.user.onboarded && state.user.nick) {
-    // 홈 화면 바로가기(manifest shortcuts) 또는 해시로 진입한 화면
-    const ALLOWED_ENTRY = ["community", "dogam", "meet", "jobs", "market", "mypage"];
-    let entry = "home";
-    try {
-      const q = new URLSearchParams(location.search).get("go");
-      const hash = location.hash.replace("#", "");
-      if (ALLOWED_ENTRY.includes(q)) entry = q;
-      else if (ALLOWED_ENTRY.includes(hash)) entry = hash;
-    } catch {}
-    try { history.replaceState({ view: entry }, "", "#" + entry); } catch {}
-    show(entry, true);
-    dailyAttend();
-    checkMeetReminders();
-    startSync();
-  } else {
-    state.obColor = state.user.color;
-    renderOnboard();
-    show("onboard", true);
-  }
+  (async function boot() {
+    // 서버를 안 쓰는 설정이면 예전처럼 바로 시작해요.
+    if (!Sync.enabled) {
+      if (state.user.onboarded && state.user.nick) enterApp();
+      else { state.obColor = state.user.color; renderOnboard(); show("onboard", true); }
+      return;
+    }
+
+    show("login", true);
+    setLoginBusy(true);
+    setLoginStatus("로그인 상태를 확인하고 있어요…");
+
+    const result = await startSync();
+    setLoginBusy(false);
+    updateLoginButtons();
+
+    // 로그인 시도가 실패해 되돌아온 경우 이유를 보여줘요.
+    const authErr = Sync.consumeAuthError && Sync.consumeAuthError();
+    if (authErr && result !== "signed-in") {
+      setLoginStatus("로그인이 완료되지 않았어요.\n" + authErr, "err");
+      return;
+    }
+
+    if (result === "signed-in") {
+      setLoginStatus("");
+      if (state.user.onboarded && state.user.nick) enterApp();
+      else { state.obColor = state.user.color; renderOnboard(); show("onboard", true); }
+      return;
+    }
+
+    if (result === "signed-out") {
+      setLoginStatus("");
+      return;   // 로그인 화면 유지
+    }
+
+    // 서버에 못 붙은 경우: 이미 쓰던 사람은 오프라인으로라도 쓸 수 있게 해줘요.
+    if (state.user.onboarded && state.user.nick) {
+      enterApp();
+      toast("서버에 연결하지 못했어요. 이 기기에 저장하며 계속 사용할 수 있어요.");
+    } else {
+      setLoginStatus("서버에 연결하지 못했어요. 인터넷 연결을 확인하고 다시 시도해주세요.", "err");
+    }
+  })();
 
   /* ---------- 댓글 스티커 (마스코트) ---------- */
   // 입력바 3곳(리뷰·모임·게시글)이 패널 하나를 공유합니다.
@@ -4922,7 +5082,7 @@
     }
 
     $$(".bt-pick-btn").forEach((btn) => {
-      btn.innerHTML = B.svg("smile");    // 버튼 아이콘도 마스코트로
+      btn.innerHTML = B.svg(B.icon || B.keys[0]);   // 버튼 아이콘도 마스코트로
       btn.classList.add("ready");        // 여기까지 와야 버튼이 보입니다
       btn.addEventListener("click", (ev) => {
         ev.preventDefault();

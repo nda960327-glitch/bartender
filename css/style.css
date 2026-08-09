@@ -90,6 +90,44 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .ob-colors { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 .ob-colors .color-dot { width: 44px; height: 44px; }
 .onboard-hint { text-align: center; color: var(--text-muted); font-size: 13.5px; line-height: 1.6; margin-top: 18px; }
+/* ---------- 로그인 ---------- */
+.login-note {
+  background: var(--bg-gray); border-radius: 14px; padding: 14px 16px;
+  font-size: 13.5px; line-height: 1.65; color: var(--text-sub);
+  text-align: center; margin: 22px 0 20px; word-break: keep-all;
+}
+.login-note b { color: var(--text); }
+.login-btns { display: flex; flex-direction: column; gap: 10px; }
+.login-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; height: 52px; border-radius: 14px; border: none;
+  font-size: 15.5px; font-weight: 700; font-family: inherit; cursor: pointer;
+  transition: filter .12s, transform .08s;
+}
+.login-btn:active { transform: scale(.985); filter: brightness(.94); }
+.login-btn .lb-ic {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; font-size: 15px; font-weight: 800; flex-shrink: 0;
+}
+.login-btn.kakao  { background: #fee500; color: #191600; }
+.login-btn.naver  { background: #03c75a; color: #fff; }
+.login-btn.google { background: #fff; color: #1f1f1f; border: 1px solid #dadce0; }
+.login-btn.email  { background: var(--bg-gray); color: var(--text); }
+.login-btn.unavailable { opacity: .45; cursor: default; }
+.login-btn:disabled { cursor: default; }
+@media (prefers-color-scheme: dark) {
+  .login-btn.google { background: #f8f9fa; border-color: #f8f9fa; }
+}
+#login-email-box { margin-top: 14px; }
+#login-email-box .input { margin-bottom: 10px; }
+.login-status {
+  text-align: center; font-size: 13.5px; line-height: 1.6; margin-top: 16px;
+  padding: 12px 14px; border-radius: 12px; word-break: keep-all;
+  background: var(--bg-gray); color: var(--text-sub);
+}
+.login-status.err { color: #e11d48; }
+.login-status.ok { color: var(--accent); }
+
 .link-btn {
   border: none; background: none; padding: 0; cursor: pointer;
   font-size: inherit; font-family: inherit; color: var(--accent);

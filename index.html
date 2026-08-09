@@ -35,6 +35,47 @@
 <body>
 <div id="app">
 
+  <!-- ===================== 로그인 ===================== -->
+  <section class="view onboard" id="view-login" hidden>
+    <div class="onboard-inner">
+      <div class="onboard-logo">🍸</div>
+      <h1 class="onboard-title">바텐톡</h1>
+      <p class="onboard-sub">바텐더들의 익명 커뮤니티</p>
+
+      <div class="login-note">
+        <b>로그인해도 글은 "익명"으로 올라가요.</b><br>
+        다른 이용자에게 계정 정보는 보이지 않아요.<br>
+        기기를 바꿔도 내 글과 기록이 그대로 유지됩니다.
+      </div>
+
+      <div class="login-btns">
+        <button class="login-btn kakao" data-login="kakao">
+          <span class="lb-ic">💬</span><span>카카오로 시작하기</span>
+        </button>
+        <button class="login-btn naver" data-login="naver">
+          <span class="lb-ic">N</span><span>네이버로 시작하기</span>
+        </button>
+        <button class="login-btn google" data-login="google">
+          <span class="lb-ic">G</span><span>구글로 시작하기</span>
+        </button>
+        <button class="login-btn email" id="login-email-toggle">
+          <span class="lb-ic">✉️</span><span>이메일로 시작하기</span>
+        </button>
+      </div>
+
+      <div id="login-email-box" hidden>
+        <input type="email" class="input" id="login-email" placeholder="이메일 주소" autocomplete="email" inputmode="email">
+        <button class="big-btn accent" id="login-email-send" disabled>인증 메일 받기</button>
+        <p class="onboard-hint">비밀번호 없이, 메일로 받은 링크를 누르면 로그인돼요.</p>
+      </div>
+
+      <p class="login-status" id="login-status" hidden></p>
+
+      <p class="onboard-hint">시작하면 <button class="link-btn" id="login-terms">이용약관</button> 및 <button class="link-btn" id="login-privacy">개인정보처리방침</button>에<br>동의하는 것으로 봅니다.</p>
+      <p class="onboard-hint" style="margin-top:10px">만 19세 이상만 이용할 수 있어요.</p>
+    </div>
+  </section>
+
   <!-- ===================== 온보딩 ===================== -->
   <section class="view onboard" id="view-onboard" hidden>
     <div class="onboard-inner">
@@ -50,7 +91,7 @@
         <span>만 19세 이상이며, 책임 있는 음주 문화에 동의해요</span>
       </button>
       <button class="big-btn accent" id="ob-start" disabled>시작하기</button>
-      <p class="onboard-hint">익명 커뮤니티예요. 닉네임은 나만 보이고,<br>글은 모두 "익명"으로 올라가요.<br>가입 절차 없이 바로 시작할 수 있어요. 🔒</p>
+      <p class="onboard-hint">익명 커뮤니티예요. 닉네임은 나만 보이고,<br>글은 모두 "익명"으로 올라가요.<br>계정 정보는 다른 사람에게 보이지 않아요. 🔒</p>
       <p class="onboard-hint">시작하면 <button class="link-btn" id="ob-terms">이용약관</button> 및 <button class="link-btn" id="ob-privacy">개인정보처리방침</button>에<br>동의하는 것으로 봅니다.</p>
     </div>
   </section>
@@ -613,7 +654,7 @@
         </div>
       </div>
       <button class="row-link pressable card" id="btn-admin" hidden style="margin-bottom:10px"><span class="row-label">🛡️ 관리자 페이지</span><span class="flex-1"></span><span class="row-badge" id="admin-report-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
-      <p class="app-ver" id="app-ver">바텐톡 v1.1.0<br>만 19세 미만 이용 불가 · 지나친 음주는 건강에 해롭습니다.<br>임신 중 음주는 태아의 건강을 해칠 수 있습니다.</p>
+      <p class="app-ver" id="app-ver">바텐톡 v1.2.0<br>만 19세 미만 이용 불가 · 지나친 음주는 건강에 해롭습니다.<br>임신 중 음주는 태아의 건강을 해칠 수 있습니다.</p>
     </div>
   </section>
 

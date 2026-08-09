@@ -24,11 +24,14 @@
     uid: null,
     error: null,
     isAdmin: false,    // 서버가 판정. 앱에서 조작해도 서버가 거부해요.
+    identity: null,    // { id, email, provider, suggestedNick }
+    providers: null,   // { google: true, kakao: false, ... } — 서버에서 켜진 로그인 방법
   };
 
   var sb = null;              // supabase client
   var onData = function () {};
   var onStatus = function () {};
+  var onAuth = function () {};
   var queue = [];
   var flushing = false;
   var pullTimer = null;
@@ -416,52 +419,131 @@
   }
 
   /* ---------- 초기화 ---------- */
+  /* ---------- 인증 ----------
+   * 로그인한 사용자만 앱을 쓸 수 있어요.
+   * 로그인해야 정지·차단이 실제로 유지되고, 기기를 바꿔도 내 글이 내 것으로 남습니다.
+   */
+  var subscribed = false;
+  var listenersBound = false;
+
+  function pickIdentity(user) {
+    if (!user) return null;
+    var meta = user.user_metadata || {};
+    var provider = (user.app_metadata && user.app_metadata.provider) || "email";
+    return {
+      id: user.id,
+      email: user.email || null,
+      provider: provider,
+      // 소셜 계정 이름은 기본 닉네임 추천에만 쓰고, 게시판에는 노출하지 않아요.
+      suggestedNick: (meta.name || meta.full_name || meta.nickname || meta.preferred_username || "")
+        .toString().slice(0, 10),
+    };
+  }
+
+  // 서버에서 실제로 켜진 로그인 방법을 받아와요.
+  // 이걸 모르면 꺼진 버튼을 눌러 오류 페이지로 튕기게 됩니다.
+  async function loadProviders() {
+    try {
+      var res = await fetch(CFG.SUPABASE_URL + "/auth/v1/settings", {
+        headers: { apikey: CFG.SUPABASE_ANON_KEY },
+      });
+      if (!res.ok) return;
+      var json = await res.json();
+      S.providers = json.external || null;
+    } catch (e) { /* 못 받아오면 버튼을 막지 않아요 (서버가 판단하게 둠) */ }
+  }
+
+  // 로그인 실패 후 되돌아왔을 때 주소에 남는 오류를 읽어요.
+  function consumeAuthError() {
+    var msg = null;
+    try {
+      var q = new URLSearchParams(location.search);
+      var h = new URLSearchParams(location.hash.replace(/^#/, ""));
+      msg = q.get("error_description") || q.get("error") ||
+            h.get("error_description") || h.get("error");
+      if (msg) {
+        history.replaceState(null, "", location.pathname);   // 주소를 깨끗하게
+      }
+    } catch (e) {}
+    return msg;
+  }
+
+  async function afterSignedIn() {
+    if (!S.uid) return;
+    if (!listenersBound) {
+      listenersBound = true;
+      window.addEventListener("online", function () { flush(); pullAll("online"); });
+      window.addEventListener("offline", function () { setStatus("offline"); });
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden) { flush(); schedulePull("visible"); }
+      });
+    }
+    if (!subscribed) { subscribed = true; subscribe(); }
+    await flush();
+    await pullAll("init");
+  }
+
   async function init(hooks) {
     onData = (hooks && hooks.onData) || onData;
     onStatus = (hooks && hooks.onStatus) || onStatus;
+    onAuth = (hooks && hooks.onAuth) || onAuth;
     loadQueue();
 
-    if (!S.enabled) { setStatus("off"); return false; }
+    if (!S.enabled) { setStatus("off"); return "off"; }
     setStatus("connecting");
 
     var mod;
     try {
       mod = await import(/* webpackIgnore: true */ SDK_URL);
     } catch (e) {
-      setStatus("offline", "서버 라이브러리를 불러오지 못했어요.");
-      return false;
+      setStatus("offline", "서버에 연결하지 못했어요. 인터넷 연결을 확인해주세요.");
+      return "error";
     }
 
     try {
       sb = mod.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, {
-        auth: { persistSession: true, autoRefreshToken: true, storageKey: "bartalk_auth" },
+        auth: {
+          persistSession: true, autoRefreshToken: true,
+          detectSessionInUrl: true, flowType: "pkce",
+          storageKey: "bartalk_auth",
+        },
         realtime: { params: { eventsPerSecond: 3 } },
       });
+
+      // 로그인/로그아웃/토큰갱신을 한곳에서 처리
+      sb.auth.onAuthStateChange(function (event, session) {
+        var user = session && session.user;
+        if (event === "SIGNED_OUT" || !user) {
+          S.uid = null; S.identity = null; S.isAdmin = false;
+          subscribed = false;
+          setStatus("signed-out");
+          try { onAuth(null); } catch (e) {}
+          return;
+        }
+        var wasSignedOut = !S.uid;
+        S.uid = user.id;
+        S.identity = pickIdentity(user);
+        try { onAuth(S.identity); } catch (e) {}
+        if (wasSignedOut) afterSignedIn();
+      });
+
+      await loadProviders();
 
       var sess = await sb.auth.getSession();
       var user = sess.data && sess.data.session && sess.data.session.user;
       if (!user) {
-        var anon = await sb.auth.signInAnonymously();
-        if (anon.error) throw anon.error;
-        user = anon.data.user;
+        setStatus("signed-out");
+        return "signed-out";
       }
-      if (!user) throw new Error("로그인 정보를 받지 못했어요.");
       S.uid = user.id;
+      S.identity = pickIdentity(user);
     } catch (e) {
       setStatus("error", (e && e.message) || "서버 연결에 실패했어요.");
-      return false;
+      return "error";
     }
 
-    window.addEventListener("online", function () { flush(); pullAll("online"); });
-    window.addEventListener("offline", function () { setStatus("offline"); });
-    document.addEventListener("visibilitychange", function () {
-      if (!document.hidden) { flush(); schedulePull("visible"); }
-    });
-
-    subscribe();
-    await flush();
-    await pullAll("init");
-    return true;
+    await afterSignedIn();
+    return "signed-in";
   }
 
   /* ---------- 쓰기 API (app.js 가 호출) ---------- */
@@ -474,7 +556,64 @@
     get error() { return S.error; },
     get queued() { return queue.length; },
     get isAdmin() { return S.isAdmin; },
+    get identity() { return S.identity; },
+    get signedIn() { return !!S.uid; },
+    get providers() { return S.providers; },
+    // 서버가 목록을 안 주면 막지 않아요 (알 수 없음 = 시도해봄)
+    providerReady: function (p) { return !S.providers || S.providers[p] !== false; },
+    consumeAuthError: consumeAuthError,
     ready: ready,
+
+    /* ---------- 로그인 ---------- */
+    // 구글·카카오는 브라우저를 열어 인증 후 앱으로 돌아와요.
+    async signInWith(provider) {
+      if (!sb) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      // 켜지지 않은 제공자로 이동시키면 사용자가 서버의 JSON 오류 화면에 갇혀요.
+      // 그래서 이동 전에 사용 가능 여부를 먼저 확인합니다.
+      if (S.providers && S.providers[provider] === false) {
+        return { ok: false, error: "not-enabled", provider: provider };
+      }
+      try {
+        var res = await sb.auth.signInWithOAuth({
+          provider: provider,
+          options: {
+            redirectTo: location.origin + location.pathname,
+            queryParams: provider === "google" ? { prompt: "select_account" } : undefined,
+          },
+        });
+        if (res.error) return { ok: false, error: res.error.message };
+        return { ok: true };   // 이 시점에 브라우저가 이동해요
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "로그인을 시작하지 못했어요." };
+      }
+    },
+
+    // 비밀번호 없이 메일로 받은 링크로 로그인
+    async signInWithEmail(email) {
+      if (!sb) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || "")) {
+        return { ok: false, error: "이메일 형식이 올바르지 않아요." };
+      }
+      try {
+        var res = await sb.auth.signInWithOtp({
+          email: email,
+          options: { emailRedirectTo: location.origin + location.pathname },
+        });
+        if (res.error) return { ok: false, error: res.error.message };
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "메일을 보내지 못했어요." };
+      }
+    },
+
+    async signOut() {
+      if (!sb) return;
+      try { await sb.auth.signOut(); } catch (e) {}
+      S.uid = null; S.identity = null; S.isAdmin = false;
+      subscribed = false;
+      setStatus("signed-out");
+    },
+
     init: init,
     refresh: function (reason) { return pullAll(reason || "manual"); },
     uploadPhoto: uploadPhoto,

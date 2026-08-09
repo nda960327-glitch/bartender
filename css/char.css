@@ -1,26 +1,26 @@
-/* 바텐톡 마스코트 "쉐이키" — 댓글 스티커 UI
+/* 바텐톡 캐릭터 바텡·술꼬 — 댓글 스티커 UI
    style.css 의 컬러 토큰을 그대로 씁니다. */
 
 /* ---- 댓글 본문에 박히는 스티커 ---- */
 /* em 기준이라 댓글 글자 크기가 바뀌어도 같이 따라갑니다.
-   전신 캐릭터라 얼굴이 작아서, 반신이던 예전보다 크게 잡았어요. */
+   포즈가 기울어져 있어 그림 주변 여백이 커서, 그만큼 크게 잡았어요. */
 .bt-sticker {
   display: inline-block;
-  width: 2.1em;
+  width: 2.6em;
   line-height: 0;
-  vertical-align: -.72em;
+  vertical-align: -.95em;
 }
 .bt-sticker svg { width: 100%; height: auto; display: block; }
 
 /* 스티커만 보낸 글 — 카카오톡 이모티콘처럼 큼직하게.
-   판정은 char.js 의 render() 가 합니다. */
+   판정은 char.js 의 render() 가 합니다. 이때만 손떨림 필터가 걸려요. */
 .bt-sticker.big {
-  width: 116px;
+  width: 136px;
   vertical-align: middle;
   margin: 2px 2px 0 0;
 }
 @media (max-width: 380px) {
-  .bt-sticker.big { width: 96px; }
+  .bt-sticker.big { width: 112px; }
 }
 
 /* ---- 입력바의 스티커 버튼 ---- */
@@ -59,8 +59,8 @@
 .bt-tab.on { background: var(--text); color: var(--bg); border-color: var(--text); }
 
 .bt-grid {
-  display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px;
-  max-height: 176px; overflow-y: auto;
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px;
+  max-height: 196px; overflow-y: auto;
 }
 .bt-pick-item {
   border: 0; background: none; cursor: pointer;
@@ -68,7 +68,7 @@
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   font-family: inherit;
 }
-.bt-pick-item svg { width: 40px; height: 40px; display: block; }
+.bt-pick-item svg { width: 48px; height: 48px; display: block; }
 .bt-pick-item span {
   font-size: 10px; font-weight: 600; color: var(--text-muted);
   white-space: nowrap;
@@ -82,6 +82,6 @@
 .bt-picker-veil[hidden] { display: none; }
 
 @media (max-width: 380px) {
-  .bt-grid { grid-template-columns: repeat(5, 1fr); }
-  .bt-pick-item svg { width: 31px; height: 31px; }
+  .bt-grid { grid-template-columns: repeat(4, 1fr); }
+  .bt-pick-item svg { width: 42px; height: 42px; }
 }
