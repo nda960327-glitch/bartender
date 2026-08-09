@@ -207,9 +207,21 @@
 
   // 이미 esc() 로 이스케이프된 문자열에서 토큰만 스티커로 바꿉니다.
   // 화이트리스트에 있는 key 만 치환하므로 임의 태그가 들어갈 수 없어요.
+  //
+  // 카카오톡처럼, 스티커만 보낸 글은 크게 띄웁니다.
+  //  · 스티커만 있는 글  → 큼직하게 (이모티콘 느낌)
+  //  · 글자와 섞인 스티커 → 글자 크기에 맞춰 작게
+  // 여러 개를 도배해도 화면이 망가지지 않도록 3개까지만 크게 처리해요.
+  const TOKEN = /:bt_([a-z]+):/g;
   function render(escaped) {
-    return String(escaped).replace(/:bt_([a-z]+):/g, (m, k) =>
-      FACES[k] ? `<span class="bt-sticker">${svg(k)}</span>` : m);
+    const s = String(escaped);
+    const found = s.match(TOKEN) || [];
+    const rest = s.replace(TOKEN, "").trim();
+    const allKnown = found.length > 0 && found.every((t) => FACES[t.slice(4, -1)]);
+    const big = allKnown && rest === "" && found.length <= 3;
+    const cls = big ? "bt-sticker big" : "bt-sticker";
+    return s.replace(TOKEN, (m, k) =>
+      FACES[k] ? `<span class="${cls}">${svg(k)}</span>` : m);
   }
 
   // 피커 탭용. 키 앞글자로 추측하면 wink 같은 게 고래로 새기 때문에 목록으로 못박습니다.

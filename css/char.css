@@ -12,6 +12,17 @@
 }
 .bt-sticker svg { width: 100%; height: auto; display: block; }
 
+/* 스티커만 보낸 글 — 카카오톡 이모티콘처럼 큼직하게.
+   판정은 char.js 의 render() 가 합니다. */
+.bt-sticker.big {
+  width: 116px;
+  vertical-align: middle;
+  margin: 2px 2px 0 0;
+}
+@media (max-width: 380px) {
+  .bt-sticker.big { width: 96px; }
+}
+
 /* ---- 입력바의 스티커 버튼 ---- */
 /* char.js 를 못 받으면 빈 버튼이 40px 자리만 차지하므로,
    기본은 숨기고 스크립트가 준비됐을 때만 보여줍니다. */
