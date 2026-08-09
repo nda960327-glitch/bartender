@@ -2,6 +2,8 @@
 
 바텐더 익명 커뮤니티 PWA. 술도감 · 칵테일 레시피 · 모임 · 채용정보 · 바텐더 도구.
 
+**운영 주소: https://bartender-gamma.vercel.app**
+
 - 프레임워크 없는 순수 HTML/CSS/JS (빌드 단계 없음)
 - **오프라인 우선**: 화면은 항상 기기 안 데이터로 즉시 그리고, 서버 데이터는 뒤이어 반영
 - Supabase를 연결하면 커뮤니티가 여러 기기에서 공유되고, 연결하지 않으면 내 기기 전용 앱으로 동작
@@ -149,22 +151,31 @@ node tools/gen-icons.js icons
 
 비운 채로 출시하려면 스토어 설명을 "개인 레시피 노트 · 술도감" 성격으로 잡고, 커뮤니티 성격을 강조하지 마세요.
 
-### 1. 웹 호스팅
+### 1. 웹 호스팅 — 완료됨
 
-TWA(Trusted Web Activity)는 **HTTPS 도메인이 반드시 필요**합니다.
+**운영 주소: https://bartender-gamma.vercel.app**
 
-1. Vercel / Netlify / Cloudflare Pages 중 하나에 이 폴더를 그대로 배포
-2. 커스텀 도메인 연결 (예: `https://bartalk.example.com`)
-3. 아래 URL이 모두 열리는지 확인
-   - `/` (앱)
-   - `/privacy.html`, `/terms.html`, `/account-deletion.html`
-   - `/manifest.json`, `/sw.js`
-   - `/.well-known/assetlinks.json`
+Vercel이 GitHub `main` 브랜치에 연결돼 있어, **푸시하면 자동 배포**됩니다.
+
+[`vercel.json`](vercel.json) 의 헤더 설정 의도 (JSON은 주석을 못 달아 여기 정리합니다):
+
+| 경로 | 설정 | 이유 |
+|---|---|---|
+| `/.well-known/assetlinks.json` | `Content-Type: application/json` | 이게 아니면 안드로이드가 도메인 검증에 실패해 앱에 주소창이 뜹니다 |
+| `/sw.js` | 캐시 금지 | 서비스워커가 캐시되면 앱 업데이트가 사용자에게 **영원히** 안 갑니다 |
+| `/index.html` | `no-cache` | 새 배포가 즉시 반영되도록 |
+| `/icons/*` | 1년 캐시 | 내용이 바뀌지 않는 정적 자산 |
+| 전체 | nosniff, SAMEORIGIN 등 | 기본 보안 헤더 |
+
+> ⚠️ `vercel.json` 의 `headers` 항목에는 `source`/`headers`/`has`/`missing` 만 넣을 수 있습니다.
+> 다른 키(예: 설명용 `comment`)를 넣으면 **배포가 통째로 실패**합니다.
+
+나중에 커스텀 도메인을 붙이려면 Vercel 프로젝트 > Settings > Domains 에서 추가하세요.
 
 ### 2. Bubblewrap으로 Android 패키지 만들기
 
 ```bash
-npx @bubblewrap/cli init --manifest https://내도메인/manifest.json
+npx @bubblewrap/cli init --manifest https://bartender-gamma.vercel.app/manifest.json
 ```
 
 ```bash
@@ -181,7 +192,7 @@ npx @bubblewrap/cli build
 
 1. Play Console > 설정 > 앱 서명 에서 **SHA-256 인증서 지문** 복사
 2. `.well-known/assetlinks.json`의 `package_name`과 `sha256_cert_fingerprints` 값을 실제 값으로 교체
-3. 재배포 후 `https://내도메인/.well-known/assetlinks.json` 이 그대로 열리는지 확인
+3. 재배포 후 `https://bartender-gamma.vercel.app/.well-known/assetlinks.json` 이 그대로 열리는지 확인
 
 > 이 파일이 없거나 지문이 틀리면 앱 상단에 URL 바가 보입니다.
 
@@ -193,8 +204,8 @@ npx @bubblewrap/cli build
 - [ ] 피처 그래픽 1024×500
 - [ ] 폰 스크린샷 최소 2장
 - [ ] 짧은 설명(80자) / 자세한 설명(4000자)
-- [ ] **개인정보처리방침 URL** → `https://내도메인/privacy.html`
-- [ ] **계정 삭제 URL** → `https://내도메인/account-deletion.html`
+- [ ] **개인정보처리방침 URL** → `https://bartender-gamma.vercel.app/privacy.html`
+- [ ] **계정 삭제 URL** → `https://bartender-gamma.vercel.app/account-deletion.html`
 - [ ] 데이터 안전(Data Safety) 설문 — **연결 여부에 따라 답이 달라집니다**
       - `config.js` 비움: 수집 없음 / 데이터는 기기에만 저장
       - Supabase 연결: 사용자 생성 콘텐츠(글·사진) 수집 / 전송 중 암호화 됨 / 삭제 요청 가능 / 제3자 공유 없음
@@ -216,15 +227,14 @@ npx @bubblewrap/cli build
 | 광고 식별자 / 분석 SDK | ✅ 미사용 |
 | 결제 | ⚠️ `STORE_LIVE=false` — 사전 신청만 접수 |
 
-> Supabase를 연결했다면 개인정보처리방침도 함께 고쳐야 합니다.
-> [`js/legal.js`](js/legal.js) 의 `privacy` 항목이 지금은 "서버로 수집하지 않는다"고 되어 있어요.
-
 ### 6. 업데이트 배포
 
 1. `js/legal.js`의 `META.version` 수정
 2. `sw.js`의 `VERSION` 수정 (**빠뜨리면 사용자에게 옛 화면이 계속 보입니다**)
-3. 정적 호스팅에 재배포 → 사용자는 다음 실행 때 자동 갱신
+3. `git push` → Vercel이 자동 배포 → 사용자는 다음 실행 때 자동 갱신
 4. Android 껍데기(TWA) 자체를 바꾼 게 아니라면 `.aab` 재업로드는 필요 없습니다
+
+> 약관·개인정보처리방침의 내용을 바꿨다면 `META.updated`(시행일)도 함께 올려주세요.
 
 ---
 
