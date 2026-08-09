@@ -2563,14 +2563,16 @@
     const out = [];
 
     toc.push(["facts", "한눈에"]);
+    // 위스키가 아닌 술은 "캐스크/냉각여과" 라벨이 맞지 않아서
+    // 데이터에서 라벨을 지정할 수 있게 해뒀습니다. (진이면 "주요 보태니컬" 처럼)
     out.push(dpSec("facts", "📌", "한눈에 보기", "", dpFacts([
       ["종류", d.type],
-      ["지역", d.region],
-      ["숙성", d.age],
+      [d.regionLabel || "지역", d.region],
+      [d.ageLabel || "숙성", d.age],
       ["도수", sp.abv ? sp.abv + "%" : ""],
-      ["캐스크", d.cask, true],
+      [d.caskLabel || "캐스크", d.cask, true],
       ["가격대", sp.price],
-      ["냉각여과·착색", d.filter],
+      [d.filterLabel || "냉각여과·착색", d.filter],
       ["추천 음용법", d.best, true],
     ])));
 
