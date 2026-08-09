@@ -855,6 +855,10 @@
   function esc(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
+  // 댓글·리뷰 본문용. esc() 로 이스케이프한 뒤 :bt_xxx: 토큰만 스티커로 바꿉니다.
+  // 치환되는 SVG 는 char.js 의 화이트리스트에서만 나오므로 안전해요.
+  // char.js 가 없으면 그냥 이스케이프된 원문을 돌려줍니다.
+  const escMsg = (s) => (window.BTChar ? window.BTChar.render(esc(s)) : esc(s));
   const has = (hay, q) => String(hay).toLowerCase().includes(String(q).toLowerCase());
   function fmtTime(t) {
     const d = new Date(t);
@@ -2710,7 +2714,7 @@
               ${r.mine ? `<button class="cmt-del" data-vi="${vi}">삭제</button>` : ""}
               <span class="review-time">${fmtTime(r.time)}</span>
             </div>
-            ${r.text ? `<div class="review-text">${esc(r.text)}</div>` : ""}
+            ${r.text ? `<div class="review-text">${escMsg(r.text)}</div>` : ""}
             ${r.img ? `<img class="cmt-img" src="${r.img}" alt="리뷰 사진">` : ""}
           </div>
         </div>`).join("") || '<div class="empty-state" style="padding:32px 0">첫 리뷰를 남겨보세요!</div>'}
@@ -2928,7 +2932,7 @@
           <span class="avatar" style="background:${COLORS[c.color]}"></span>
           <div class="comment-body">
             <div class="comment-head"><span class="comment-nick">익명${c.mine ? " (나)" : ""}</span><span class="comment-time">${fmtTime(c.time)}</span>${c.mine ? `<button class="cmt-del" data-mi="${mi}">삭제</button>` : ""}</div>
-            ${c.text ? `<div class="comment-text">${esc(c.text)}</div>` : ""}
+            ${c.text ? `<div class="comment-text">${escMsg(c.text)}</div>` : ""}
             ${c.img ? `<img class="cmt-img" src="${c.img}" alt="댓글 사진">` : ""}
           </div>
         </div>`).join("")}
@@ -3152,14 +3156,14 @@
           <div class="comment-body">
             <div class="comment-head"><span class="comment-nick">익명${c.mine ? " (나)" : ""}</span><span class="comment-time">${fmtTime(c.time)}</span>
               <button class="reply-btn" data-ci="${ci}">답글</button>${c.mine ? `<button class="cmt-del" data-ci="${ci}">삭제</button>` : ""}</div>
-            ${c.text ? `<div class="comment-text">${esc(c.text)}</div>` : ""}
+            ${c.text ? `<div class="comment-text">${escMsg(c.text)}</div>` : ""}
             ${c.img ? `<img class="cmt-img" src="${c.img}" alt="댓글 사진">` : ""}
             ${(c.replies || []).map((rp, ri) => `
               <div class="reply-item">
                 <span class="avatar" style="background:${COLORS[rp.color]}"></span>
                 <div class="comment-body">
                   <div class="comment-head"><span class="comment-nick">익명${rp.mine ? " (나)" : ""}</span><span class="comment-time">${fmtTime(rp.time)}</span>${rp.mine ? `<button class="cmt-del" data-ci="${ci}" data-ri="${ri}">삭제</button>` : ""}</div>
-                  ${rp.text ? `<div class="comment-text">${esc(rp.text)}</div>` : ""}
+                  ${rp.text ? `<div class="comment-text">${escMsg(rp.text)}</div>` : ""}
                   ${rp.img ? `<img class="cmt-img" src="${rp.img}" alt="댓글 사진">` : ""}
                 </div>
               </div>`).join("")}
@@ -4755,6 +4759,86 @@
     renderOnboard();
     show("onboard", true);
   }
+
+  /* ---------- 댓글 스티커 (마스코트) ---------- */
+  // 입력바 3곳(리뷰·모임·게시글)이 패널 하나를 공유합니다.
+  function initStickers() {
+    const B = window.BTChar;
+    const picker = $("#bt-picker"), veil = $("#bt-picker-veil");
+    if (!B || !picker || !veil) return;   // char.js 가 없어도 앱은 그대로 동작해야 해요
+
+    let target = null, curBtn = null, tab = B.groups[0].id;
+
+    function draw() {
+      const g = B.groups.find((x) => x.id === tab) || B.groups[0];
+      picker.innerHTML =
+        `<div class="bt-tabs">${B.groups.map((x) =>
+          `<button class="bt-tab ${x.id === tab ? "on" : ""}" data-tab="${x.id}">${esc(x.label)}</button>`).join("")}</div>` +
+        `<div class="bt-grid">${g.keys.map((k) =>
+          `<button class="bt-pick-item" data-k="${k}">${B.svg(k)}<span>${esc(B.label(k))}</span></button>`).join("")}</div>`;
+      $$("#bt-picker .bt-tab").forEach((t) =>
+        t.addEventListener("click", () => { tab = t.dataset.tab; draw(); }));
+      $$("#bt-picker .bt-pick-item").forEach((it) =>
+        it.addEventListener("click", () => insert(B.token(it.dataset.k))));
+    }
+
+    // 커서 위치에 끼워 넣습니다. 앞 글자와 붙지 않게 공백을 챙겨요.
+    function insert(tok) {
+      if (!target) return;
+      const s = target.selectionStart != null ? target.selectionStart : target.value.length;
+      const e = target.selectionEnd != null ? target.selectionEnd : s;
+      const before = target.value.slice(0, s), after = target.value.slice(e);
+      const pad = before && !/\s$/.test(before) ? " " : "";
+      target.value = before + pad + tok + " " + after;
+      const pos = (before + pad + tok + " ").length;
+      target.focus();
+      try { target.setSelectionRange(pos, pos); } catch {}
+    }
+
+    function close() {
+      picker.hidden = veil.hidden = true;
+      if (curBtn) curBtn.classList.remove("on");
+      curBtn = null;
+    }
+
+    function open(btn) {
+      target = $("#" + btn.dataset.btFor);
+      if (!target) return;
+      curBtn = btn; btn.classList.add("on");
+      draw();
+      picker.hidden = veil.hidden = false;
+      // 입력바 바로 위, 입력바 너비에 맞춰 띄웁니다.
+      const bar = btn.closest("footer") || btn.parentElement;
+      const r = bar.getBoundingClientRect();
+      picker.style.left = (r.left + 8) + "px";
+      picker.style.width = Math.max(240, r.width - 16) + "px";
+      picker.style.bottom = (window.innerHeight - r.top + 8) + "px";
+    }
+
+    $$(".bt-pick-btn").forEach((btn) => {
+      btn.innerHTML = B.svg("smile");    // 버튼 아이콘도 마스코트로
+      btn.classList.add("ready");        // 여기까지 와야 버튼이 보입니다
+      btn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        if (curBtn === btn) close(); else open(btn);
+      });
+    });
+    veil.addEventListener("click", close);
+    // 화면이 바뀌거나 창 크기가 변하면 위치가 어긋나므로 그냥 닫습니다.
+    window.addEventListener("resize", () => { if (!picker.hidden) close(); });
+    $$(".nav-btn").forEach((b) => b.addEventListener("click", close));
+    // 댓글을 보내고 나면 닫아줍니다. (전송 자체는 기존 핸들러가 처리)
+    ["review-send", "meet-comment-send", "comment-send"].forEach((id) => {
+      const b = $("#" + id);
+      if (b) b.addEventListener("click", close);
+    });
+    ["review-input", "meet-comment-input", "comment-input"].forEach((id) => {
+      const i = $("#" + id);
+      if (i) i.addEventListener("keydown", (e) => { if (e.key === "Enter") close(); });
+    });
+    return close;
+  }
+  const closeStickerPicker = initStickers();
 
   // 첫 화면이 뜬 뒤 한가할 때 심층 도감 데이터를 미리 받아둡니다.
   // 도감에 들어갔을 때 기다리는 일이 없도록 하는 용도라, 실패해도 그냥 넘어가요.

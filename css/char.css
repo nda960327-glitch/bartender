@@ -1,0 +1,75 @@
+/* 바텐톡 마스코트 "쉐이키" — 댓글 스티커 UI
+   style.css 의 컬러 토큰을 그대로 씁니다. */
+
+/* ---- 댓글 본문에 박히는 스티커 ---- */
+/* em 기준이라 댓글 글자 크기가 바뀌어도 같이 따라갑니다. */
+.bt-sticker {
+  display: inline-block;
+  width: 1.5em;
+  line-height: 0;
+  vertical-align: -.38em;
+}
+.bt-sticker svg { width: 100%; height: auto; display: block; }
+
+/* ---- 입력바의 스티커 버튼 ---- */
+/* char.js 를 못 받으면 빈 버튼이 40px 자리만 차지하므로,
+   기본은 숨기고 스크립트가 준비됐을 때만 보여줍니다. */
+.bt-pick-btn { display: none; }
+.bt-pick-btn.ready {
+  width: 40px; flex-shrink: 0;
+  padding: 0; border: 0; background: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.bt-pick-btn svg { width: 25px; height: 25px; display: block; }
+.bt-pick-btn:active { opacity: .6; }
+.bt-pick-btn.on svg { transform: scale(1.12); }
+
+/* ---- 스티커 고르는 패널 ---- */
+/* 입력바 바로 위에 뜹니다. 위치는 JS 가 잡아줘요. */
+.bt-picker {
+  position: fixed; z-index: 60;
+  background: var(--bg-card);
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 10px 12px 12px;
+}
+.bt-picker[hidden] { display: none; }
+
+/* 캐릭터 탭 */
+.bt-tabs { display: flex; gap: 6px; margin-bottom: 9px; }
+.bt-tab {
+  padding: 6px 13px; border-radius: 16px;
+  border: 1px solid var(--line-strong); background: var(--bg-card);
+  color: var(--text-sub); font-size: 12.5px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+}
+.bt-tab.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+.bt-grid {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px;
+  max-height: 176px; overflow-y: auto;
+}
+.bt-pick-item {
+  border: 0; background: none; cursor: pointer;
+  padding: 5px 2px 4px; border-radius: 11px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-family: inherit;
+}
+.bt-pick-item svg { width: 34px; height: 34px; display: block; }
+.bt-pick-item span {
+  font-size: 10px; font-weight: 600; color: var(--text-muted);
+  white-space: nowrap;
+}
+.bt-pick-item:active { background: var(--chip-bg); }
+
+/* 패널 밖을 눌러 닫기 위한 투명 막 */
+.bt-picker-veil {
+  position: fixed; inset: 0; z-index: 59; background: transparent;
+}
+.bt-picker-veil[hidden] { display: none; }
+
+@media (max-width: 380px) {
+  .bt-grid { grid-template-columns: repeat(5, 1fr); }
+  .bt-pick-item svg { width: 31px; height: 31px; }
+}

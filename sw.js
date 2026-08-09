@@ -3,7 +3,7 @@
  * 그 외:  네트워크 우선, 실패 시 캐시
  * ※ 배포할 때마다 VERSION 을 올려야 사용자 기기의 낡은 캐시가 정리돼요.
  */
-const VERSION = "1.3.0";
+const VERSION = "1.4.0";
 const CACHE = "bartalk-v" + VERSION;
 
 // 오프라인에서도 앱이 뜨도록 미리 받아두는 파일
@@ -12,9 +12,11 @@ const SHELL = [
   "./index.html",
   "./css/style.css",
   "./css/deep.css",
+  "./css/char.css",
   "./js/config.js",
   "./js/legal.js",
   "./js/sync.js",
+  "./js/char.js",
   "./js/app.js",
   // 심층 도감 데이터(cocktail-deep.js / whisky-deep.js)는 셸에서 뺐어요.
   // 설치할 때 500KB 를 같이 받으면 첫 방문이 느려지고, 어차피 도감에 들어가면
