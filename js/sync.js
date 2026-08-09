@@ -26,6 +26,7 @@
     isAdmin: false,    // 서버가 판정. 앱에서 조작해도 서버가 거부해요.
     identity: null,    // { id, email, provider, suggestedNick }
     providers: null,   // { google: true, kakao: false, ... } — 서버에서 켜진 로그인 방법
+    naverReady: false, // 네이버 로그인 함수가 배포·설정돼 있는지
   };
 
   var sb = null;              // supabase client
@@ -459,13 +460,48 @@
     try {
       var q = new URLSearchParams(location.search);
       var h = new URLSearchParams(location.hash.replace(/^#/, ""));
-      msg = q.get("error_description") || q.get("error") ||
+      msg = q.get("auth_error") ||
+            q.get("error_description") || q.get("error") ||
             h.get("error_description") || h.get("error");
       if (msg) {
         history.replaceState(null, "", location.pathname);   // 주소를 깨끗하게
       }
     } catch (e) {}
     return msg;
+  }
+
+  // 네이버 로그인 함수가 돌려준 1회용 토큰으로 세션을 완성해요.
+  // (구글·카카오는 supabase-js 가 알아서 처리하므로 이 과정이 없습니다)
+  async function consumeTokenHash() {
+    var q;
+    try { q = new URLSearchParams(location.search); } catch (e) { return false; }
+    var th = q.get("token_hash");
+    if (!th || !sb) return false;
+    var type = q.get("type") || "magiclink";
+    try {
+      var res = await sb.auth.verifyOtp({ token_hash: th, type: type });
+      history.replaceState(null, "", location.pathname);
+      if (res.error) {
+        setStatus("signed-out", res.error.message);
+        return false;
+      }
+      var user = res.data && res.data.user;
+      if (user) { S.uid = user.id; S.identity = pickIdentity(user); }
+      return !!user;
+    } catch (e) {
+      history.replaceState(null, "", location.pathname);
+      return false;
+    }
+  }
+
+  // 네이버 로그인이 서버에 설정돼 있는지 확인
+  async function probeNaver() {
+    try {
+      var res = await fetch("/api/naver-login?probe=1");
+      if (!res.ok) return false;
+      var j = await res.json();
+      return !!j.configured;
+    } catch (e) { return false; }
   }
 
   async function afterSignedIn() {
@@ -528,6 +564,10 @@
       });
 
       await loadProviders();
+      S.naverReady = await probeNaver();
+
+      // 네이버에서 돌아온 경우 여기서 세션이 만들어져요.
+      await consumeTokenHash();
 
       var sess = await sb.auth.getSession();
       var user = sess.data && sess.data.session && sess.data.session.user;
@@ -559,8 +599,12 @@
     get identity() { return S.identity; },
     get signedIn() { return !!S.uid; },
     get providers() { return S.providers; },
+    get naverReady() { return S.naverReady; },
     // 서버가 목록을 안 주면 막지 않아요 (알 수 없음 = 시도해봄)
-    providerReady: function (p) { return !S.providers || S.providers[p] !== false; },
+    providerReady: function (p) {
+      if (p === "naver") return S.naverReady;
+      return !S.providers || S.providers[p] !== false;
+    },
     consumeAuthError: consumeAuthError,
     ready: ready,
 
@@ -570,6 +614,11 @@
       if (!sb) return { ok: false, error: "서버에 연결되어 있지 않아요." };
       // 켜지지 않은 제공자로 이동시키면 사용자가 서버의 JSON 오류 화면에 갇혀요.
       // 그래서 이동 전에 사용 가능 여부를 먼저 확인합니다.
+      if (provider === "naver") {
+        if (!S.naverReady) return { ok: false, error: "not-enabled", provider: provider };
+        location.href = "/api/naver-login";
+        return { ok: true };
+      }
       if (S.providers && S.providers[provider] === false) {
         return { ok: false, error: "not-enabled", provider: provider };
       }

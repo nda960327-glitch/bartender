@@ -9,12 +9,7 @@
   const SUPPORT_EMAIL = LEGAL_META.email || "3663hong@gmail.com";
   // 출시 시 기능 on/off. 스토어는 실제 판매/배송·PG 연동 전까지 "사전 오픈" 안내로 동작해요.
   // 결제 인프라 없이 실제 주문을 받으면 Play 심사에서 반려될 수 있으니, 정식 오픈 전엔 STORE_LIVE = false 를 유지하세요.
-  const FEATURES = {
-    STORE_LIVE: false,
-    // 네이버는 Supabase 기본 지원이 아니라 별도 서버 함수가 필요해요.
-    // api/naver-login 을 배포한 뒤 true 로 바꾸세요.
-    NAVER_LOGIN: false,
-  };
+  const FEATURES = { STORE_LIVE: false };
 
   const COLORS = [
     "#ff6b5e", "#ff8ad4", "#c9a58f", "#ff9b3d", "#ffcb52",
@@ -4294,10 +4289,6 @@
   $$("#view-login [data-login]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       const provider = btn.dataset.login;
-      if (provider === "naver" && !FEATURES.NAVER_LOGIN) {
-        setLoginStatus("네이버 로그인은 준비 중이에요. 다른 방법으로 시작해주세요.", "err");
-        return;
-      }
       setLoginBusy(true);
       setLoginStatus("로그인 창을 여는 중이에요…");
       const res = await Sync.signInWith(provider);
@@ -4915,7 +4906,7 @@
   function updateLoginButtons() {
     $$("#view-login [data-login]").forEach((btn) => {
       const p = btn.dataset.login;
-      const ready = p === "naver" ? FEATURES.NAVER_LOGIN : Sync.providerReady(p);
+      const ready = Sync.providerReady(p);
       btn.disabled = !ready;
       btn.classList.toggle("unavailable", !ready);
       const label = btn.querySelector("span:last-child");
