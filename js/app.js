@@ -999,7 +999,13 @@
       else back.querySelector("[data-yes]").focus();
     });
   }
-  const btConfirm = (msg, o) => btModal(Object.assign({ kind: "confirm", msg }, o));
+  /* 삭제는 되돌릴 수 없어서 소리로도 남깁니다.
+     삭제 확인창은 전부 이 함수를 거치므로 여기 한 곳에만 답니다. */
+  const btConfirm = async (msg, o) => {
+    const yes = await btModal(Object.assign({ kind: "confirm", msg }, o));
+    if (yes && o && /삭제|탈퇴|지우/.test(String(o.yes || ""))) sfx("remove");
+    return yes;
+  };
   const btAlert = (msg, o) => btModal(Object.assign({ kind: "alert", msg }, o));
   const btPrompt = (msg, value, o) => btModal(Object.assign({ kind: "prompt", msg, value: value || "" }, o));
 
@@ -1167,6 +1173,7 @@
     if (btn.dataset.busy) return;
     btn.dataset.busy = "1";
     const wasOn = btn.classList.contains("on");
+    sfx("toggle");
     const r = wasOn ? await Push.disable() : await Push.enable();
     delete btn.dataset.busy;
     if (!r.ok) toast(r.error);
@@ -1175,6 +1182,7 @@
   });
 
   function addPoints(amt, reason) {
+    sfx("coin");
     vibrate(12);
     state.user.points += amt;
     state.user.pointLog.unshift({ amt, reason, time: Date.now() });
@@ -1204,6 +1212,13 @@
   }
   const NAV_VIEWS = ["home", "dogam", "meet", "community", "mypage"];
   function show(view, fromPop) {
+    /* 아래 탭은 톡, 안으로 들어가면 올라가는 소리, 뒤로 나오면 내려가는 소리.
+       같은 화면을 다시 그릴 때는 울리지 않아요.
+       첫 화면을 그릴 때도 조용합니다 — 브라우저가 사용자가 건드리기 전에는
+       소리를 막아두기 때문에 따로 막을 필요가 없어요. */
+    if (view !== state.view) {
+      sfx(fromPop ? "back" : NAV_VIEWS.includes(view) ? "tap" : "open");
+    }
     if (!fromPop && view !== state.view && view !== "onboard" && view !== "login") {
       try { history.pushState({ view }, "", "#" + view); } catch {}
     }
@@ -4554,6 +4569,8 @@
     $("#detail-like").addEventListener("click", () => {
       p.likedByMe = !p.likedByMe;
       p.likes += p.likedByMe ? 1 : -1;
+      sfx(p.likedByMe ? "like" : "unlike");
+      vibrate(8);
       savePosts();
       Sync.toggleLike(p.id, p.likedByMe);
       renderPostDetail();
@@ -4570,7 +4587,8 @@
       if (!c) return;
       c.likedByMe = !c.likedByMe;
       c.likes = Math.max(0, (c.likes || 0) + (c.likedByMe ? 1 : -1));
-      if (c.likedByMe) { sfx("success"); vibrate(8); }
+      sfx(c.likedByMe ? "like" : "unlike");
+      vibrate(8);
       savePosts();
       if (c.id) Sync.toggleCommentLike(c.id, c.likedByMe);
       renderPostDetail();
@@ -4968,6 +4986,7 @@
     bd.querySelector(".sheet-close").addEventListener("click", close);
     document.addEventListener("keydown", onKey);
     $("#app").appendChild(bd);
+    sfx("sheet");
     if (onOpen) onOpen(bd);
     return bd;
   }
@@ -6058,6 +6077,7 @@
     show("onboard");
   });
   $("#btn-darkmode").addEventListener("click", () => {
+    sfx("toggle");
     state.dark = !state.dark;
     store.set("dark", state.dark);
     applyTheme();
@@ -6069,6 +6089,7 @@
     toast(window.BTSfx.enabled ? "효과음을 켰어요. 🔊" : "효과음을 껐어요. 🔇");
   });
   $("#toggle-push").addEventListener("click", () => {
+    sfx("toggle");
     state.push = !state.push;
     store.set("push", state.push);
     renderMyPage();

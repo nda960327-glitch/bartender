@@ -74,11 +74,30 @@
   }
 
   /* ---------- 소리 목록 ----------
-     버튼 탭·화면 이동·시트 열기·공감·삭제처럼 눈으로 이미 보이는 동작에는
-     소리를 넣지 않습니다. 앱을 쓰는 내내 울려서 금방 피곤해져요.
-     남긴 다섯 개는 화면을 안 보고 있어도 알아야 하거나,
-     "처리가 끝났다"를 알려주는 것들입니다. */
+     자주 나는 소리(탭·화면 이동)는 아주 작고 짧게 두고,
+     드물게 나는 소리(등록·삭제·공감)는 또렷하게 둡니다.
+     같은 크기로 만들면 앱을 쓰는 내내 울려서 금방 피곤해져요. */
   var SOUNDS = {
+    // 탭 바꾸기·칩 고르기 — 손끝에 닿는 느낌만
+    tap:      function () { tone({ from: 1150, dur: 0.03, vol: 0.2 }); },
+    // 안으로 들어가기 (글·모임·도감 열기)
+    open:     function () { tone({ from: 520, to: 800, dur: 0.08, vol: 0.28 }); },
+    // 뒤로 나오기
+    back:     function () { tone({ from: 760, to: 480, dur: 0.08, vol: 0.24 }); },
+    // 시트 올라옴
+    sheet:    function () { tone({ from: 420, to: 660, dur: 0.1, vol: 0.24 }); },
+    // 공감 누름 — 기분 좋게 톡
+    like:     function () { tone({ from: 880, dur: 0.05, vol: 0.4, type: "triangle" });
+                            tone({ from: 1320, dur: 0.09, vol: 0.34, delay: 0.045, type: "triangle" }); },
+    // 공감 취소 — 되돌아가는 느낌으로 낮게
+    unlike:   function () { tone({ from: 700, to: 460, dur: 0.08, vol: 0.26 }); },
+    // 삭제 — 아래로 떨어지는 소리. 되돌릴 수 없는 일이라 확실히 들리게
+    remove:   function () { tone({ from: 440, to: 190, dur: 0.15, vol: 0.36, type: "triangle" }); },
+    // 스위치 켜고 끄기
+    toggle:   function () { tone({ from: 620, to: 920, dur: 0.06, vol: 0.3, type: "triangle" }); },
+    // 포인트 적립
+    coin:     function () { tone({ from: 1180, dur: 0.05, vol: 0.38, type: "triangle" });
+                            tone({ from: 1570, dur: 0.11, vol: 0.34, delay: 0.05, type: "triangle" }); },
     // 메시지·댓글 보냄 — 올라갔는지 눈으로 확인하기 전에 알려줘요
     send:     function () { tone({ from: 700, to: 1050, dur: 0.09, vol: 0.6 }); },
     // 채팅 도착 — 다른 화면을 보고 있을 수 있습니다
@@ -95,7 +114,7 @@
   };
 
   // 같은 소리가 연달아 울리면 시끄러우니 최소 간격을 둡니다.
-  var MIN_GAP = { receive: 200, notify: 400 };
+  var MIN_GAP = { receive: 200, notify: 400, tap: 60, open: 80, back: 80 };
 
   function play(name) {
     if (!enabled) return;
