@@ -1675,7 +1675,11 @@
     } else {
       state.adminSub = null;
       state.adminTab = target;
-      if (target === "users") state.adminUserFilter = opts.filter || "전체";
+      if (target === "users") {
+        state.adminUserFilter = opts.filter || "전체";
+        // 현황에서 넘어왔는데 예전 검색어가 남아 있으면 "왜 한 명뿐이지?" 가 됩니다.
+        if (state.adminUserQ) { state.adminUserQ = ""; state.adminUserList = null; loadAdminUsers(); }
+      }
       if (target === "reports") state.adminReportFilter = opts.filter || "전체";
     }
     renderAdmin();

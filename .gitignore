@@ -22,3 +22,6 @@ twa-manifest.json
 _*.txt
 _*.js
 _*.html
+
+# 에디터/도구 설정
+.claude/
