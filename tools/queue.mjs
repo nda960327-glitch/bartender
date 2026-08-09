@@ -111,7 +111,14 @@ function assignAuthors(drafts, personas) {
   });
 }
 
+// --yes 를 주면 물어보지 않고 진행합니다 (스크립트나 자동화용).
+let AUTO_YES = false;
+
 async function confirm(question) {
+  if (AUTO_YES) {
+    console.log(`${question} → --yes`);
+    return true;
+  }
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   const answer = await new Promise((res) => rl.question(`${question} (y/N) `, res));
   rl.close();
@@ -173,12 +180,32 @@ commands.accounts = async () => {
     "profiles",
     "select=id,nick,color,is_official,official_label,created_at&order=created_at.asc&limit=50"
   );
-  console.log(`계정 ${rows.length}개\n`);
+  // 실제로 쓰이는 계정인지 알아야 고를 수 있어요. 글·댓글 수를 한 번에 세어옵니다.
+  const tally = (list, key) => {
+    const m = new Map();
+    for (const x of list || []) m.set(x[key], (m.get(x[key]) || 0) + 1);
+    return m;
+  };
+  const posts = tally(await sb.select("posts", "select=author_id&limit=5000"), "author_id");
+  const comments = tally(await sb.select("comments", "select=author_id&limit=5000"), "author_id");
+
+  console.log(`계정 ${rows.length}개    (글 / 댓글)\n`);
   for (const r of rows) {
-    const mark = r.is_official ? `[공식${r.official_label && r.official_label !== "공식" ? ":" + r.official_label : ""}]` : "        ";
-    console.log(`${mark} ${r.id}  ${r.nick || "익명"}   (가입 ${fmtKst(r.created_at)})`);
+    const mark = r.is_official
+      ? `[공식${r.official_label && r.official_label !== "공식" ? ":" + r.official_label : ""}]`
+      : "        ";
+    const p = posts.get(r.id) || 0;
+    const c = comments.get(r.id) || 0;
+    const use = p + c === 0 ? "비어 있음 — 공식 계정으로 쓰기 좋음" : `글 ${p} · 댓글 ${c}`;
+    console.log(`${mark} ${r.id}  ${(r.nick || "익명").padEnd(8)}  ${use}`);
+    console.log(`${" ".repeat(9)}가입 ${fmtKst(r.created_at)}`);
   }
   console.log(`
+── 고르는 기준 ──────────────────────────────
+  · "비어 있음" 인 계정 중에서 2~3개만 고르세요.
+  · 본인이 실제로 쓰는 계정(글·댓글이 있는 것)은 건드리지 마세요.
+    공식으로 바꾸면 그 계정이 쓴 예전 글에도 전부 뱃지가 소급 적용됩니다.
+
 공식으로 지정하려면 Supabase SQL Editor 에서:
   update profiles set is_official = true, nick = '바텐톡 위스키', official_label = '공식'
    where id = '위 uuid 중 하나';`);
@@ -493,17 +520,21 @@ commands.stats = async () => {
  * ============================================================ */
 
 const { cmd, flags, positional } = parseArgs(process.argv.slice(2));
+AUTO_YES = !!(flags.yes || flags.y);
 const handler = commands[cmd];
 
+// process.exit() 를 바로 부르면 윈도우에서 libuv 가 핸들 정리 중에 죽으면서
+// "Assertion failed: ... src\win\async.c" 같은 게 에러 뒤에 붙습니다.
+// exitCode 만 세워두고 자연스럽게 끝내면 그 잡음이 사라져요.
 if (!handler) {
   console.error(`모르는 명령: ${cmd}\n`);
   commands.help();
-  process.exit(1);
-}
-
-try {
-  await handler(flags, positional);
-} catch (e) {
-  console.error(`\n❌ ${e.message}`);
-  process.exit(1);
+  process.exitCode = 1;
+} else {
+  try {
+    await handler(flags, positional);
+  } catch (e) {
+    console.error(`\n❌ ${e.message}`);
+    process.exitCode = 1;
+  }
 }

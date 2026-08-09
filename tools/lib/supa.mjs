@@ -73,6 +73,25 @@ export function createClient(url, serviceKey) {
         const j = JSON.parse(text);
         detail = j.message || j.hint || text;
       } catch (_) { /* 원문 사용 */ }
+
+      // 제일 흔한 실수: SQL 을 아직 안 돌린 경우. 원문 에러만 보면 뭘 해야 할지 몰라요.
+      if (/content_queue|content_settings|is_official|official_label|publish_due_content/.test(detail)
+          && /does not exist|schema cache|찾을 수 없/i.test(detail)) {
+        throw new Error(
+          "먼저 supabase/official.sql 을 실행해 주세요.\n" +
+          "  Supabase 대시보드 > SQL Editor 에 파일 내용을 통째로 붙여넣고 Run 하시면 됩니다.\n" +
+          `  (원인: ${detail})`
+        );
+      }
+      if (/JWT|Invalid API key|invalid signature/i.test(detail)) {
+        throw new Error(
+          "키가 올바르지 않습니다.\n" +
+          "  .env.local 의 SUPABASE_SERVICE_ROLE_KEY 를 확인하세요.\n" +
+          "  대시보드 > Project Settings > API Keys > service_role  (anon 키가 아닙니다)\n" +
+          `  (원인: ${detail})`
+        );
+      }
+
       throw new Error(`Supabase ${res.status} ${method} ${pathAndQuery}\n  ${detail}`);
     }
     if (!text) return null;

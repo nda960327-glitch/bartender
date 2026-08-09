@@ -758,6 +758,12 @@
     adminReportFilter: "전체",
     adminLogRows: null,
     adminSub: null,        // { kind, q, filter, rows, loading } — 콘텐츠 관리 하위 화면
+    botData: null,         // { settings, personas, queue } — 봇 탭에서 쓰는 서버 데이터
+    botError: "",
+    botSel: null,          // 상세를 보고 있는 봇의 계정 id
+    botTab: "approved",
+    botWrite: false,       // 봇으로 글쓰기 폼이 열려 있는지
+    botOpen: {},           // 큐 항목 본문을 펼쳐둔 것들
     adminSecTimer: null,
     noti: store.get("noti", []),
     chats: store.get("chats", []),
@@ -1345,14 +1351,21 @@
   const hiddenSp = () => state.user.hiddenSpirits || [];
 
   /* ---------- 익명 이름 ----------
-   * 색상마다 그 색을 실제로 띠는 클래식 칵테일을 붙였어요.
-   * (아비에이션은 제비꽃 리큐르로 보랏빛, 그래스호퍼는 민트 그린)
-   * 같은 색이면 같은 이름이라 사람을 특정하지는 못합니다 — 익명 유지. */
-  const DROP_NAMES = [
-    "네그로니", "코스모폴리탄", "올드패션드", "아페롤", "위스키사워",
-    "모히토", "김렛", "그래스호퍼", "블루하와이", "아비에이션",
-  ];
-  const dropName = (color) => DROP_NAMES[((+color || 0) % DROP_NAMES.length + DROP_NAMES.length) % DROP_NAMES.length];
+   * 모두 '술방울' 입니다. 물방울 아바타와 한 몸이 되도록.
+   * 누가 누구인지는 물방울 색으로만 구분돼요 — 익명 유지. */
+  const ANON_NAME = "술방울";
+  const dropName = () => ANON_NAME;
+
+  /* 공식(운영) 계정 표시.
+   * official 값은 서버 트리거가 프로필을 보고 직접 찍어 내려줍니다.
+   * 앱에서 만들어 보낼 수 없으니 이 뱃지는 위조되지 않아요. */
+  const officialTag = (x) =>
+    x && x.official ? ` <span class="official-tag">${esc(x.officialLabel || "공식")}</span>` : "";
+  // 글 목록·상세에 쓸 작성자 이름. 공식 계정만 실제 이름이 나오고 나머지는 익명 유지.
+  const posterName = (p) =>
+    p.official ? esc(p.nick)
+      : p.cat === "promo" ? "📢 " + esc(p.nick)
+      : esc(dropName(p.color));
 
   // 댓글 작성자가 글쓴이 본인인지. 서버에 붙어 있으면 계정으로 정확히 판별해요.
   const isOP = (c, post) =>
@@ -1360,8 +1373,11 @@
 
   // 이름 + 꼬리표 (글쓴이 / 나)
   const speakerHTML = (who, post) => {
-    const name = esc(dropName(who.color));
+    const name = who.official
+      ? `<span class="official">${esc(who.officialNick || "운영")}</span>`
+      : esc(dropName(who.color));
     const tags = [];
+    if (who.official) tags.push(`<span class="official-tag">${esc(who.officialLabel || "공식")}</span>`);
     if (isOP(who, post)) tags.push('<span class="op-tag">글쓴이</span>');
     if (who.mine) tags.push('<span class="me-tag">나</span>');
     return name + (tags.length ? " " + tags.join(" ") : "");
@@ -1660,6 +1676,7 @@
     $$("#admin-tabs .seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.atab === state.adminTab));
     if (state.adminTab === "dash") { renderAdminDash(); loadAdminStats(); }
     else if (state.adminTab === "reports") renderAdminReports();
+    else if (state.adminTab === "bots") { renderAdminBots(); loadBots(); }
     else renderAdminUsers();
   }
 
@@ -1688,6 +1705,14 @@
   }
   // 하위 화면에 있으면 뒤로가기를 대시보드로 먹습니다. (true = 내가 처리함)
   function adminBack() {
+    // 봇 상세를 보고 있으면 봇 목록으로 먼저 돌아가요.
+    if (state.botSel) {
+      dropCaret();
+      state.botSel = null;
+      state.botWrite = false;
+      renderAdmin();
+      return true;
+    }
     if (!state.adminSub) return false;
     dropCaret();
     state.adminSub = null;
@@ -1995,6 +2020,286 @@
         if (res.ok) Sync.refresh("admin");
       }));
   }
+  /* ============================================================
+   *  봇(공식 계정) 관리
+   *
+   *  여기서 하는 일은 전부 서버가 권한을 다시 확인합니다.
+   *  앱에서 status 를 '발행됨' 으로 바꿔치기 하거나 작성 계정을
+   *  갈아끼우는 건 DB 트리거가 되돌립니다.
+   * ============================================================ */
+
+  const BOT_TABS = [
+    { k: "approved", label: "예약" },
+    { k: "draft", label: "초안" },
+    { k: "published", label: "발행됨" },
+    { k: "failed", label: "실패" },
+  ];
+  const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+
+  function fmtWhen(t) {
+    const d = new Date(t);
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getMonth() + 1}/${d.getDate()}(${DAY_KO[d.getDay()]}) ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+
+  const quietAt = (h, from, to) =>
+    from === to ? false : from < to ? h >= from && h < to : h >= from || h < to;
+
+  /* 다음에 비어 있는 발행 자리를 찾습니다.
+     기기 시각 기준이라 해외에서 쓰면 한 시간쯤 어긋날 수 있지만,
+     실제 발행 판단은 서버가 Asia/Seoul 로 다시 하므로 문제되지 않아요. */
+  function nextFreeSlot() {
+    const d = state.botData;
+    if (!d) return Date.now() + 3600000;
+    const cfg = d.settings;
+    let last = Date.now();
+    d.queue.forEach((q) => {
+      if (q.status === "approved") last = Math.max(last, Date.parse(q.publish_after));
+    });
+    let t = last + cfg.min_gap_min * 60000 + Math.floor(Math.random() * 60) * 60000;
+    for (let i = 0; i < 48 && quietAt(new Date(t).getHours(), cfg.quiet_from, cfg.quiet_to); i++) {
+      t += 3600000;
+    }
+    return t;
+  }
+
+  async function loadBots(force) {
+    if (!isAdmin()) return;
+    if (state.botData && !force) return;
+    const res = await Sync.botLoad();
+    state.botError = res.ok ? "" : res.error;
+    state.botData = res.ok ? res : null;
+    if (state.view === "admin" && !state.adminSub && state.adminTab === "bots") renderAdminBots();
+  }
+
+  // 봇 화면에서 뭘 하든 끝나면 이걸 부릅니다.
+  async function botAfter(res, okMsg) {
+    if (!res.ok) { toast("실패: " + res.error); return false; }
+    toast(okMsg);
+    await loadBots(true);
+    return true;
+  }
+
+  function renderAdminBots() {
+    if (!state.botData) {
+      $("#admin-area").innerHTML = state.botError
+        ? `<div class="empty-state">봇 정보를 불러오지 못했어요.<br><br>${esc(state.botError)}</div>`
+        : '<div class="empty-state">불러오는 중이에요…</div>';
+      if (!state.botError) loadBots();
+      return;
+    }
+    if (state.botSel) { renderBotDetail(); return; }
+
+    const { settings: cfg, personas, queue } = state.botData;
+    const count = (s) => queue.filter((q) => q.status === s).length;
+    const today = new Date().toDateString();
+    const todayCnt = queue.filter(
+      (q) => q.status === "published" && new Date(q.published_at).toDateString() === today
+    ).length;
+    const upcoming = queue
+      .filter((q) => q.status === "approved")
+      .sort((a, b) => Date.parse(a.publish_after) - Date.parse(b.publish_after))
+      .slice(0, 3);
+    const nickOf = (id) => (personas.find((p) => p.id === id) || {}).nick || "?";
+
+    const chips = (name, vals, cur, suffix) =>
+      vals.map((v) => `<button class="chip ${v === cur ? "active" : ""}" data-set="${name}" data-val="${v}">${v}${suffix || ""}</button>`).join("");
+
+    $("#admin-area").innerHTML = `
+      <div class="order-item" style="margin-top:12px">
+        <div class="bot-switch">
+          <div>
+            <div class="order-title" style="margin:0">자동 발행 ${cfg.enabled ? "켜짐" : "꺼짐"}</div>
+            <div class="market-meta">${cfg.enabled
+              ? `예약된 글이 시간에 맞춰 자동으로 올라갑니다. 오늘 ${todayCnt}/${cfg.daily_cap}건`
+              : "예약된 글이 있어도 나가지 않습니다."}</div>
+          </div>
+          <button class="host-chat-btn ${cfg.enabled ? "outline" : ""}" id="bot-toggle" style="width:auto;padding:10px 16px;margin:0">
+            ${cfg.enabled ? "끄기" : "켜기"}
+          </button>
+        </div>
+      </div>
+
+      <div class="order-item">
+        <div class="order-title">발행 속도</div>
+        <div class="market-meta" style="margin-bottom:6px">하루 최대</div>
+        <div class="sort-row" style="padding:0 0 8px">${chips("daily_cap", [1, 2, 3, 4, 6, 8], cfg.daily_cap, "건")}</div>
+        <div class="market-meta" style="margin-bottom:6px">글 사이 최소 간격</div>
+        <div class="sort-row" style="padding:0 0 8px">${chips("min_gap_min", [30, 60, 90, 120, 180, 240], cfg.min_gap_min, "분")}</div>
+        <div class="market-meta" style="margin-bottom:6px">쉬는 시간 (이 사이엔 안 올라감)</div>
+        <div class="sort-row" style="padding:0">
+          <button class="chip ${cfg.quiet_from === cfg.quiet_to ? "active" : ""}" data-quiet="0-0">안 쉼</button>
+          <button class="chip ${cfg.quiet_from === 2 && cfg.quiet_to === 9 ? "active" : ""}" data-quiet="2-9">새벽 2~9시</button>
+          <button class="chip ${cfg.quiet_from === 1 && cfg.quiet_to === 10 ? "active" : ""}" data-quiet="1-10">새벽 1~10시</button>
+          <button class="chip ${cfg.quiet_from === 0 && cfg.quiet_to === 11 ? "active" : ""}" data-quiet="0-11">자정~11시</button>
+        </div>
+      </div>
+
+      <div class="order-item">
+        <div class="order-title">큐 현황</div>
+        <div class="market-meta">초안 ${count("draft")} · 예약 ${count("approved")} · 발행 ${count("published")}${count("failed") ? ` · <b>실패 ${count("failed")}</b>` : ""}</div>
+        ${upcoming.length ? `
+          <div class="market-meta" style="margin-top:10px">다음에 나갈 글</div>
+          ${upcoming.map((q) => `<div class="bot-next">${fmtWhen(q.publish_after)} · ${esc(q.title || q.text || "")} <span class="bot-by">${esc(nickOf(q.author_id))}</span></div>`).join("")}
+        ` : '<div class="market-meta" style="margin-top:10px">예약된 글이 없어요.</div>'}
+      </div>
+
+      <p class="sheet-note" style="margin:14px 16px 6px;text-align:left">봇을 눌러서 그 계정의 글을 관리하거나 직접 글을 쓸 수 있어요.</p>
+      ${personas.length ? personas.map((p) => {
+        const mine = queue.filter((q) => q.author_id === p.id);
+        const c = (s) => mine.filter((q) => q.status === s).length;
+        return `
+        <button class="row-link pressable card bot-row" data-bot="${esc(p.id)}">
+          <span class="avatar" style="background:${COLORS[p.color]}"></span>
+          <span class="flex-1" style="text-align:left">
+            <span class="bot-name">${esc(p.nick)}<span class="official-tag">${esc(p.official_label || "공식")}</span></span>
+            <span class="market-meta">발행 ${c("published")} · 예약 ${c("approved")} · 초안 ${c("draft")}</span>
+          </span>
+          <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+        </button>`;
+      }).join("") : `<div class="empty-state">공식 계정이 없어요.<br>README 의 "공식 계정" 항목을 참고해 대시보드에서 지정해주세요.</div>`}
+      <div style="height:24px"></div>`;
+
+    $("#bot-toggle").addEventListener("click", async () => {
+      const on = !cfg.enabled;
+      if (on && !(await btConfirm(`자동 발행을 켤까요?\n예약된 ${count("approved")}건이 시간에 맞춰 올라갑니다.`))) return;
+      await botAfter(await Sync.botSaveSettings({ enabled: on }), on ? "자동 발행을 켰어요." : "자동 발행을 껐어요.");
+    });
+    $$("#admin-area [data-set]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        const patch = {}; patch[b.dataset.set] = +b.dataset.val;
+        await botAfter(await Sync.botSaveSettings(patch), "저장했어요.");
+      }));
+    $$("#admin-area [data-quiet]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        const [f, t] = b.dataset.quiet.split("-").map(Number);
+        await botAfter(await Sync.botSaveSettings({ quiet_from: f, quiet_to: t }), "저장했어요.");
+      }));
+    $$("#admin-area [data-bot]").forEach((b) =>
+      b.addEventListener("click", () => {
+        state.botSel = b.dataset.bot;
+        state.botTab = "approved";
+        renderAdmin();
+        const sa = $("#view-admin .scroll-area"); if (sa) sa.scrollTop = 0;
+      }));
+  }
+
+  function renderBotDetail() {
+    const { settings: cfg, personas, queue } = state.botData;
+    const bot = personas.find((p) => p.id === state.botSel);
+    if (!bot) { state.botSel = null; renderAdminBots(); return; }
+
+    const mine = queue.filter((q) => q.author_id === bot.id);
+    const tab = state.botTab || "approved";
+    const list = mine
+      .filter((q) => q.status === tab)
+      .sort((a, b) => tab === "published"
+        ? Date.parse(b.published_at) - Date.parse(a.published_at)
+        : Date.parse(a.publish_after) - Date.parse(b.publish_after));
+    const open = state.botOpen || {};
+
+    $("#admin-area").innerHTML = `
+      <div class="order-item" style="margin-top:12px">
+        <div class="bot-name" style="font-size:17px">${esc(bot.nick)}<span class="official-tag">${esc(bot.official_label || "공식")}</span></div>
+        <div class="market-meta">이 계정으로 올라가는 글에는 항상 뱃지가 붙습니다.</div>
+        <button class="host-chat-btn ${state.botWrite ? "outline" : ""}" id="bot-write-toggle" style="margin-top:10px">
+          ${state.botWrite ? "글쓰기 닫기" : "✍️ 이 봇으로 글쓰기"}
+        </button>
+        ${state.botWrite ? `
+          <input class="input" id="bot-w-title" placeholder="제목" maxlength="200" style="margin-top:10px">
+          <textarea class="input" id="bot-w-body" placeholder="본문" maxlength="5000" style="height:160px;margin-top:8px"></textarea>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="host-chat-btn" id="bot-w-now" style="flex:1;margin:0">지금 올리기</button>
+            <button class="host-chat-btn outline" id="bot-w-later" style="flex:1;margin:0">예약 (${fmtWhen(nextFreeSlot())})</button>
+          </div>` : ""}
+      </div>
+
+      <div class="sort-row">
+        ${BOT_TABS.map((t) => {
+          const n = mine.filter((q) => q.status === t.k).length;
+          if (t.k === "failed" && !n) return "";
+          return `<button class="chip ${t.k === tab ? "active" : ""}" data-btab="${t.k}">${t.label} ${n}</button>`;
+        }).join("")}
+      </div>
+
+      ${list.length ? list.map((q) => {
+        const body = q.title ? q.body : q.text;
+        const isOpen = !!open[q.id];
+        return `
+        <div class="order-item">
+          <div class="order-head">
+            <span class="order-no">${q.kind === "comment" ? "💬 댓글" : "📄 글"}</span>
+            <span class="order-date">${q.status === "published" ? "발행 " + fmtWhen(q.published_at) : q.status === "approved" ? "⏰ " + fmtWhen(q.publish_after) : esc(q.note || "")}</span>
+          </div>
+          <div class="order-title" data-peek="${q.id}" style="cursor:pointer">${esc(q.title || q.text || "(제목 없음)")}</div>
+          ${isOpen && body ? `<div class="bot-body">${esc(body)}</div>` : ""}
+          ${q.last_error ? `<div class="market-meta" style="color:var(--accent)">⚠ ${esc(q.last_error)}</div>` : ""}
+          <div class="report-acts">
+            ${q.status === "published"
+              ? `<button class="chip" data-openpost="${q.published_id}">📄 글 보기</button>`
+              : `
+                ${q.status === "approved" ? `<button class="chip" data-now="${q.id}">⚡ 지금 발행</button>` : ""}
+                ${q.status !== "approved" ? `<button class="chip" data-approve="${q.id}">⏰ 예약</button>` : ""}
+                ${q.status === "approved" ? `<button class="chip" data-draft="${q.id}">초안으로</button>` : ""}
+                <button class="chip" data-reject="${q.id}">버림</button>`}
+          </div>
+        </div>`;
+      }).join("") : `<div class="empty-state">${tab === "draft" ? "초안이 없어요.<br>초안은 PC 에서 tools/queue.mjs seed 로 만듭니다." : "없어요."}</div>`}
+      <div style="height:24px"></div>`;
+
+    $("#bot-write-toggle").addEventListener("click", () => {
+      state.botWrite = !state.botWrite;
+      renderBotDetail();
+      if (state.botWrite) $("#bot-w-title").focus();
+    });
+    $$("#admin-area [data-btab]").forEach((b) =>
+      b.addEventListener("click", () => { state.botTab = b.dataset.btab; renderBotDetail(); }));
+    $$("#admin-area [data-peek]").forEach((b) =>
+      b.addEventListener("click", () => {
+        state.botOpen = state.botOpen || {};
+        state.botOpen[b.dataset.peek] = !state.botOpen[b.dataset.peek];
+        renderBotDetail();
+      }));
+    $$("#admin-area [data-openpost]").forEach((b) =>
+      b.addEventListener("click", () => openPost(+b.dataset.openpost)));
+
+    $$("#admin-area [data-now]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        if (!(await btConfirm("지금 바로 올릴까요?\n쉬는 시간·하루 상한을 무시합니다."))) return;
+        if (await botAfter(await Sync.botPublishNow(+b.dataset.now), "올렸어요.")) Sync.refresh("bot");
+      }));
+    $$("#admin-area [data-approve]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        const at = nextFreeSlot();
+        await botAfter(await Sync.botSetStatus(+b.dataset.approve, "approved", at), `${fmtWhen(at)} 에 올라가도록 예약했어요.`);
+      }));
+    $$("#admin-area [data-draft]").forEach((b) =>
+      b.addEventListener("click", async () =>
+        botAfter(await Sync.botSetStatus(+b.dataset.draft, "draft"), "예약을 풀었어요.")));
+    $$("#admin-area [data-reject]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        if (!(await btConfirm("이 글을 버릴까요?"))) return;
+        await botAfter(await Sync.botSetStatus(+b.dataset.reject, "rejected"), "버렸어요.");
+      }));
+
+    if (state.botWrite) {
+      const send = async (now) => {
+        const title = $("#bot-w-title").value.trim();
+        const body = $("#bot-w-body").value.trim();
+        if (!title) { toast("제목을 입력해주세요."); return; }
+        const res = await Sync.botPostAs(bot.id, { title, body, at: now ? null : nextFreeSlot() });
+        if (!res.ok) { toast("실패: " + res.error); return; }
+        sfx("success");
+        state.botWrite = false;
+        toast(now ? "올렸어요." : "예약했어요.");
+        await loadBots(true);
+        if (now) Sync.refresh("bot");
+      };
+      $("#bot-w-now").addEventListener("click", () => send(true));
+      $("#bot-w-later").addEventListener("click", () => send(false));
+    }
+  }
+
   const renderAdminUsers = () => { drawAdminUsers(); restoreCaret(); };
   function drawAdminUsers() {
     const q = state.adminUserQ || "";
@@ -2908,6 +3213,11 @@
     const greet = h < 6 ? "새벽 마감까지 고생 많아요 🌙" : h < 12 ? "좋은 아침이에요 ☀️" : h < 18 ? "오픈 준비 잘 되고 있나요? 😊" : "오늘 장사도 화이팅! 🔥";
     const streak = state.user.attendStreak >= 2 ? ` <span class="streak-tag">🔥 ${state.user.attendStreak}일 연속</span>` : "";
     $("#home-greet").innerHTML = `${esc(state.user.nick)}님, 안녕하세요!${streak}<small>${greet}</small>`;
+    // 인사말 옆 빈자리에 마스코트 둘
+    const charBox = $("#home-char");
+    if (charBox && window.BTChar && window.BTChar.duo && !charBox.firstChild) {
+      charBox.innerHTML = window.BTChar.duo();
+    }
 
     // 오늘의 칵테일 (날짜 기반 고정 추천)
     const cts = state.spirits.filter((s) => s.kind === "cocktail");
@@ -3529,8 +3839,9 @@
     $$("#spirit-detail .cmt-del").forEach((b) =>
       b.addEventListener("click", async () => {
         if (!await btConfirm("리뷰를 삭제할까요?", { yes: "삭제" })) return;
-        sp.reviews.splice(+b.dataset.vi, 1);
+        const removed = sp.reviews.splice(+b.dataset.vi, 1)[0];
         saveSpirits();
+        if (removed && removed.id) Sync.deleteReview(removed.id);
         renderSpiritDetail();
       }));
     $("#spirit-delete").hidden = !sp.mine;
@@ -3745,8 +4056,9 @@
     $$("#meet-detail .cmt-del").forEach((b) =>
       b.addEventListener("click", async () => {
         if (!await btConfirm("댓글을 삭제할까요?", { yes: "삭제" })) return;
-        m.comments.splice(+b.dataset.mi, 1);
+        const removed = m.comments.splice(+b.dataset.mi, 1)[0];
         saveMeets();
+        if (removed && removed.id) Sync.deleteMeetComment(removed.id);
         renderMeetDetail();
       }));
     const joinBtn = $("#meet-join");
@@ -3862,7 +4174,7 @@
           <div class="post-head">
             <span class="avatar" style="background:${COLORS[p.color]}"></span>
             ${p.boostUntil && p.boostUntil > Date.now() ? '<span class="boost-tag">📌 AD</span>' : ""}
-            <span class="post-nick">${p.cat === "promo" ? "📢 " + esc(p.nick) : esc(dropName(p.color))}</span>
+            <span class="post-nick${p.official ? " official" : ""}">${posterName(p)}</span>${officialTag(p)}
             <span class="post-time">· ${fmtTime(p.time)}</span>
             ${p.mine ? '<span class="my-tag">내 글</span>' : ""}
           </div>
@@ -3947,7 +4259,7 @@
       <div class="detail-wrap">
         <div class="detail-head">
           <span class="avatar md" style="background:${COLORS[p.color]}"></span>
-          <div><div class="detail-nick">${p.cat === "promo" ? `<span class="biz-link" id="biz-link">${esc(p.nick)}</span>` : esc(dropName(p.color))}${p.cat === "promo" ? ` <span class="biz-tag">📢 ${esc(p.biz || "비즈니스")}</span>` : ""}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""} · 조회 ${p.views || 0}</div></div>
+          <div><div class="detail-nick">${p.official ? `<span class="official">${esc(p.nick)}</span>` : p.cat === "promo" ? `<span class="biz-link" id="biz-link">${esc(p.nick)}</span>` : esc(dropName(p.color))}${officialTag(p)}${p.cat === "promo" ? ` <span class="biz-tag">📢 ${esc(p.biz || "비즈니스")}</span>` : ""}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""} · 조회 ${p.views || 0}</div></div>
           <span class="cat-tag detail-cat">${CAT_LABEL[p.cat] || "자유"}</span>
         </div>
         <div class="detail-title">${esc(p.title)}</div>
@@ -4011,9 +4323,11 @@
       b.addEventListener("click", async () => {
         if (!await btConfirm("댓글을 삭제할까요?", { yes: "삭제" })) return;
         const ci = +b.dataset.ci;
-        if (b.dataset.ri !== undefined) p.comments[ci].replies.splice(+b.dataset.ri, 1);
-        else p.comments.splice(ci, 1);
+        let removed;
+        if (b.dataset.ri !== undefined) removed = p.comments[ci].replies.splice(+b.dataset.ri, 1)[0];
+        else removed = p.comments.splice(ci, 1)[0];
         savePosts();
+        if (removed && removed.id) Sync.deleteComment(removed.id);
         renderPostDetail();
       }));
     $$("#post-detail .cmt-img").forEach((im) =>
@@ -4382,8 +4696,18 @@
   function openSheetHTML(html, onOpen) {
     const bd = document.createElement("div");
     bd.className = "sheet-backdrop";
-    bd.innerHTML = `<div class="sheet">${html}</div>`;
-    bd.addEventListener("click", (e) => { if (e.target === bd) bd.remove(); });
+    // 닫기 버튼을 항상 답니다. 바깥을 눌러야 닫힌다는 걸 처음 쓰는 사람은 몰라요.
+    bd.innerHTML = `<div class="sheet">
+      <button class="sheet-close" type="button" aria-label="닫기">✕</button>
+      ${html}</div>`;
+    const close = () => {
+      bd.remove();
+      document.removeEventListener("keydown", onKey);
+    };
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    bd.addEventListener("click", (e) => { if (e.target === bd) close(); });
+    bd.querySelector(".sheet-close").addEventListener("click", close);
+    document.addEventListener("keydown", onKey);
     $("#app").appendChild(bd);
     if (onOpen) onOpen(bd);
     return bd;
@@ -5003,7 +5327,19 @@
   function calcCompute() {
     const valid = state.calcRows.filter((r) => +r.price > 0 && +r.vol > 0 && +r.use > 0);
     const box = $("#calc-result");
-    if (!valid.length) { box.classList.remove("show"); return; }
+    if (!valid.length) {
+      // 뭘 더 넣어야 하는지 알려줘요. 조용히 비워두면 고장난 것처럼 보입니다.
+      const touched = state.calcRows.some((r) => r.name || r.price || r.vol || r.use);
+      if (!touched) { box.classList.remove("show"); return; }
+      const need = [];
+      const first = state.calcRows.find((r) => r.name || r.price || r.vol || r.use) || {};
+      if (!(+first.price > 0)) need.push("병 가격");
+      if (!(+first.vol > 0)) need.push("용량(ml)");
+      if (!(+first.use > 0)) need.push("사용(ml)");
+      box.classList.add("show");
+      box.innerHTML = `<div class="cr-note" style="text-align:center">${esc(need.join(" · "))} 을(를) 입력하면 원가가 계산돼요.</div>`;
+      return;
+    }
     const total = valid.reduce((a, r) => a + (+r.price / +r.vol) * +r.use, 0);
     const sell = +$("#calc-price").value;
     const suggest = Math.ceil(total / 0.2 / 100) * 100;
@@ -5326,10 +5662,11 @@
   $("#write-title").addEventListener("input", saveDraft);
   $("#write-body").addEventListener("input", saveDraft);
 
-  // 알림 탭
-  $$("[data-atab]").forEach((t) =>
+  // 알림 탭 — 관리자 화면도 data-atab 을 쓰기 때문에 반드시 이 탭바 안으로 범위를 좁혀야 해요.
+  // (전역으로 잡으면 관리자 탭을 누를 때 알림·채팅 패널이 둘 다 숨겨집니다)
+  $$("#alerts-tabs [data-atab]").forEach((t) =>
     t.addEventListener("click", () => {
-      $$("[data-atab]").forEach((x) => x.classList.toggle("active", x === t));
+      $$("#alerts-tabs [data-atab]").forEach((x) => x.classList.toggle("active", x === t));
       $("#alerts-noti").hidden = t.dataset.atab !== "noti";
       $("#alerts-chat").hidden = t.dataset.atab !== "chat";
     })
@@ -5915,6 +6252,39 @@
     dailyAttend();
     checkMeetReminders();
   }
+
+  /* ---------- 앱 설치 ----------
+   * 브라우저가 "설치 가능" 신호를 줄 때만 버튼을 띄웁니다.
+   * 이미 설치해서 앱으로 열었거나 설치를 마치면 버튼은 사라져요. */
+  let installPrompt = null;
+  const alreadyInstalled = () =>
+    window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+
+  function updateInstallBtn() {
+    const btn = $("#btn-install");
+    if (!btn) return;
+    btn.hidden = !installPrompt || alreadyInstalled();
+  }
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();          // 브라우저 기본 배너 대신 우리 버튼을 씁니다
+    installPrompt = e;
+    updateInstallBtn();
+  });
+
+  window.addEventListener("appinstalled", () => {
+    installPrompt = null;
+    updateInstallBtn();
+    toast("홈 화면에 추가됐어요! 🍸");
+  });
+
+  $("#btn-install").addEventListener("click", async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    try { await installPrompt.userChoice; } catch {}
+    installPrompt = null;        // 한 번 쓰면 재사용할 수 없어요
+    updateInstallBtn();
+  });
 
   /* ---------- PWA ---------- */
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {

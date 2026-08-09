@@ -34,6 +34,13 @@ account-deletion.html    계정·데이터 삭제 안내 (공개 URL, Play 필�
 opensource.html          오픈소스 라이선스 (공개 URL)
 .well-known/assetlinks.json   TWA 도메인 검증 파일 (배포 전 값 채우기)
 tools/gen-icons.js       PNG 아이콘 생성 스크립트
+
+supabase/official.sql    ★ 공식 계정 + 콘텐츠 예약 발행 (아래 "공식 계정" 항목)
+api/publish.js           예약 발행 크론 엔드포인트
+tools/queue.mjs          콘텐츠 큐 관리 CLI
+tools/lib/               ↳ 도감 로더 · 초안 템플릿 · 예약 시각 · Supabase 클라이언트
+.github/workflows/publish-queue.yml   무료 크론 (Vercel Hobby 대안)
+.env.example             ★ .env.local 로 복사해서 채우기 (service_role 키)
 ```
 
 ### 약관을 수정할 때
@@ -234,6 +241,154 @@ curl https://barapp.kr/api/naver-login?probe=1
 select * from reports where status = '접수' order by created_at desc;
 select * from admin_actions order by created_at desc limit 50;
 ```
+
+---
+
+## 공식 계정 · 콘텐츠 예약 발행
+
+새 커뮤니티의 진짜 문제는 "사람이 없다"가 아니라 **"피드가 비어 있다"** 입니다.
+이 기능은 운영 계정으로 좋은 글을 꾸준히 올려서 그 빈칸을 채웁니다.
+
+지켜야 할 선은 코드에 박아뒀습니다.
+
+- 발행되는 글에는 **항상 `공식` 뱃지가 붙습니다.** 운영 글을 일반 사용자 글로 위장할 수 없어요.
+- 뱃지는 서버 트리거가 프로필을 보고 직접 찍습니다. 앱을 조작해도 위조되지 않습니다.
+- 발행 파이프라인은 **공식 계정으로만** 글을 쓸 수 있습니다. 일반 계정이 큐에 들어가면 거부돼요.
+- **사람이 승인한 글만** 나갑니다 (`draft` → 검토 → `approved`).
+- 실제 사용자 글에 자동으로 공감을 누르는 기능은 **일부러 넣지 않았습니다.**
+
+글감은 앱에 이미 들어있는 도감 569종에서 뽑습니다. 지어내는 내용이 없어서
+사실 확인이 필요 없고, 도감을 고치면 글도 같이 좋아집니다. (현재 **2,027건** 생성 가능)
+
+### 1. SQL 넣기
+
+Supabase 대시보드 > SQL Editor 에 `supabase/official.sql` 을 붙여넣고 실행하세요.
+(`schema.sql`, `admin.sql` 을 먼저 실행해 둬야 합니다)
+
+### 2. 공식 계정 지정
+
+어떤 계정을 쓸지 고릅니다.
+
+```bash
+node tools/queue.mjs accounts
+```
+
+쓸 계정을 정했으면 SQL Editor 에서 켜세요. **앱에서는 못 켭니다** (일부러 막아둠).
+
+```sql
+update profiles set is_official = true, nick = '바텐톡 위스키',  official_label = '공식'
+ where id = '계정-uuid';
+update profiles set is_official = true, nick = '바텐톡 칵테일', official_label = '공식'
+ where id = '다른-계정-uuid';
+```
+
+> 닉네임에 `위스키` / `칵테일` 이 들어가면 초안이 자동으로 담당 계정에 배정됩니다.
+> 13개를 전부 쓸 필요는 없어요. **2~3개면 충분합니다.** 계정이 많을수록 관리만 어려워집니다.
+
+### 3. 로컬 설정
+
+```bash
+cp .env.example .env.local
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` 는 대시보드 > Project Settings > API Keys > service_role 값입니다.
+**RLS 를 전부 무시하는 마스터 키라서 앱 코드에는 절대 넣으면 안 됩니다.** (`.env.local` 은 커밋되지 않아요)
+
+`CRON_SECRET` 은 아무 랜덤 문자열이면 됩니다.
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+### 4. 초안 만들고 검토하기
+
+```bash
+node tools/queue.mjs seed --limit 100      # 도감에서 초안 100건 생성
+node tools/queue.mjs list                  # 목록
+node tools/queue.mjs show 12 13 14         # 본문 읽어보기  ← 여기서 사람이 검토
+node tools/queue.mjs reject 13             # 별로면 버리기
+node tools/queue.mjs approve --all --per-day 3   # 승인 + 예약
+node tools/queue.mjs plan                  # 언제 뭐가 나가는지 확인
+```
+
+예약 시각은 하루 몇 건, 최소 몇 분 간격, 몇 시부터 몇 시까지 쉴지를 지켜서
+**분 단위까지 흩어서** 잡습니다. 오후(출근 전)와 늦은 밤(마감 후)에 가중치를 둡니다.
+
+`--dry` 를 붙이면 저장하지 않고 미리보기만 합니다.
+
+### 5. 크론 연결
+
+Vercel 환경변수에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET` 을 넣으세요.
+
+**Vercel Hobby 요금제는 크론이 하루 1회로 제한됩니다.** 그래서 `vercel.json` 은
+건드리지 않았어요. 무료로 15분마다 돌리려면 GitHub 저장소에 시크릿만 넣으면 됩니다.
+
+- Settings > Secrets and variables > Actions > Secrets 에 `CRON_SECRET`
+- `.github/workflows/publish-queue.yml` 이 알아서 15분마다 노크합니다
+
+Pro 요금제라면 `vercel.json` 에 이걸 추가해도 됩니다.
+
+```json
+"crons": [{ "path": "/api/publish", "schedule": "*/15 * * * *" }]
+```
+
+> 자주 부른다고 글이 자주 올라가지 않습니다. 발행 여부는 DB 가 정합니다.
+
+### 6. 켜기
+
+여기까지 해도 **아직 아무것도 발행되지 않습니다.** 마지막에 직접 켜야 해요.
+
+```bash
+node tools/queue.mjs settings --on
+```
+
+### 앱에서 관리하기 (관리자 → 봇 탭)
+
+PC 없이 폰에서 할 수 있는 것들입니다. **마이페이지 → 🛡️ 관리자 → 봇**
+
+| 화면 | 할 수 있는 것 |
+|---|---|
+| 봇 목록 | 자동 발행 켜기/끄기 · 하루 몇 건 · 최소 간격 · 쉬는 시간 · 큐 현황 · 다음에 나갈 글 |
+| 봇 상세 | **이 봇으로 직접 글쓰기** (지금 올리기 / 다음 빈 자리에 예약) |
+| " | 예약된 글 → 지금 발행 · 초안으로 되돌리기 · 버림 |
+| " | 초안 → 본문 읽고 예약하거나 버림 |
+| " | 발행된 글 → 원본 보기 · 실패한 글 → 오류 확인 |
+
+초안을 **대량으로 만들고 한 번에 승인**하는 건 여전히 PC(`tools/queue.mjs`) 쪽이 편합니다.
+앱은 모니터링 · 비상 정지 · 개별 처리 · 직접 글쓰기용이에요.
+
+앱에서 조작해도 안전한 이유:
+
+- 서버가 `is_admin()` 을 매번 다시 확인합니다. 앱 코드를 고쳐도 권한이 생기지 않아요.
+- 상태를 `발행됨` 으로 직접 바꿔치기 하거나 작성 계정을 갈아끼우는 건 DB 트리거가 되돌립니다.
+- 큐에 **새 항목을 넣는 건** 앱에서 불가능합니다 (도구·서버 전용).
+  단, `이 봇으로 글쓰기` 는 서버 함수를 거치므로 가능하고, `admin_actions` 에 기록이 남습니다.
+
+### 일상 운영
+
+```bash
+node tools/queue.mjs stats                 # 큐 현황
+node tools/queue.mjs plan --days 7         # 이번 주 일정
+node tools/queue.mjs run                   # 지금 한 건 발행 (테스트)
+node tools/queue.mjs settings --off        # 🚨 비상 정지
+node tools/queue.mjs settings --daily-cap 2 --min-gap 180 --quiet 1-10
+```
+
+`--yes` 를 붙이면 확인 없이 진행합니다 (스크립트용).
+
+발행 속도 기본값은 **하루 4건 · 최소 90분 간격 · 새벽 2~9시 정지** 입니다.
+초반에는 하루 2~3건으로 낮게 잡는 쪽을 권합니다.
+
+### 이걸로 해결되지 않는 것
+
+피드가 차는 것과 커뮤니티가 사는 것은 다릅니다. 진짜 사람은 결국 따로 데려와야 해요.
+
+- 인스타 바텐더 해시태그 · 네이버 카페에서 직접 컨택
+- 바 돌면서 QR 명함
+- **"왜 써야 하는지" 한 줄**이 필요합니다. 구인구직? 레시피 아카이브? 재고 공유?
+
+초기 사용자가 글을 쓰면 **30분 안에 운영 계정으로 제대로 된 답글**을 다세요.
+자동 공감 100개보다 이게 훨씬 셉니다.
 
 ---
 

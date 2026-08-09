@@ -14,6 +14,8 @@
   --line-strong: #e5e8eb;
   --accent: #ff5c35;
   --accent-soft: #fff0eb;
+  --official: #1b64da;
+  --official-soft: #eaf1fd;
   --star: #ffb020;
   --chip-bg: #f2f4f6;
   --toast-bg: rgba(25, 31, 40, .92);
@@ -34,6 +36,8 @@
   --line: #24262b;
   --line-strong: #2e3138;
   --accent-soft: #33251f;
+  --official: #82abf7;
+  --official-soft: #1d2740;
   --chip-bg: #2a2d33;
   --toast-bg: rgba(240, 242, 245, .95);
   --toast-text: #17181c;
@@ -1323,3 +1327,76 @@ textarea.input { height: auto; }
 .op-tag { background: var(--accent); color: #fff; }
 .me-tag { background: var(--bg-gray); color: var(--text-sub); }
 .comment-nick, .review-nick, .post-nick { font-weight: 700; }
+
+/* 공식(운영) 계정.
+   AD(주황)·글쓴이(주황)와 헷갈리지 않게 파란 계열로 따로 뺐습니다. */
+.official-tag {
+  display: inline-block; vertical-align: middle;
+  font-size: 10.5px; font-weight: 800; line-height: 1.5; letter-spacing: -.2px;
+  padding: 1px 6px; border-radius: 6px; margin-left: 2px;
+  background: var(--official-soft); color: var(--official);
+  white-space: nowrap;
+}
+.post-nick.official, .detail-nick .official, .comment-nick .official { color: var(--official); }
+
+/* ---------- 관리자 · 봇 관리 ---------- */
+.bot-switch { display: flex; align-items: center; gap: 12px; }
+.bot-switch > div { flex: 1; min-width: 0; }
+.bot-next {
+  font-size: 13.5px; color: var(--text-sub); padding: 5px 0;
+  border-top: 1px solid var(--line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bot-by { color: var(--official); font-weight: 700; }
+.bot-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.bot-name { display: block; font-size: 15.5px; font-weight: 800; margin-bottom: 2px; }
+.bot-name .official-tag { margin-left: 6px; }
+.bot-body {
+  font-size: 14px; line-height: 1.65; color: var(--text-sub);
+  white-space: pre-wrap; word-break: break-word;
+  background: var(--bg-input); border-radius: 10px; padding: 10px 12px; margin: 8px 0;
+  max-height: 320px; overflow-y: auto;
+}
+
+/* ---------- 로고 (세 물방울) ---------- */
+.logo-drops { width: 58%; height: 58%; display: block; }
+.logo-ic { width: 19px; height: 19px; display: inline-block; vertical-align: -3px; }
+
+/* ---------- 시트 닫기 ---------- */
+.sheet { position: relative; }
+.sheet-close {
+  position: absolute; right: 12px; top: 12px;
+  width: 34px; height: 34px; border: none; border-radius: 50%;
+  background: var(--bg-gray); color: var(--text-sub);
+  font-size: 15px; line-height: 1; cursor: pointer; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+}
+.sheet-close:active { filter: brightness(.92); }
+.sheet > h3:first-of-type { padding-right: 42px; }
+
+/* ---------- 홈 인사말 + 마스코트 ---------- */
+/* 인사말 + 마스코트
+   화면 폭이 좁으면 캐릭터가 글자를 밀어내므로, 폭에 따라 같이 줄어들게 했어요.
+   아주 좁은 기기(320px 등)에서는 글이 우선이라 캐릭터를 숨깁니다. */
+.greet-wrap {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 10px; padding-right: 16px;
+}
+.greet-wrap .greet { flex: 1 1 auto; min-width: 0; padding-right: 0; }
+.greet-char {
+  flex: 0 1 auto;
+  width: clamp(96px, 33vw, 160px);
+  margin-bottom: -8px;   /* 바닥 그림자를 인사말 밑줄에 맞춤 */
+  pointer-events: none;
+}
+.greet-char svg { width: 100%; height: auto; display: block; }
+@media (max-width: 359px) { .greet-char { display: none; } }
+@media (min-width: 520px) { .greet-char { width: 176px; } }
+
+/* ---------- 앱 설치 버튼 ---------- */
+.install-btn { position: relative; color: var(--accent); }
+.install-dot {
+  position: absolute; right: 6px; top: 6px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg);
+}

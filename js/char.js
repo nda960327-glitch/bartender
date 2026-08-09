@@ -331,20 +331,30 @@
   // 필터를 걸 때마다 브라우저가 노이즈를 새로 만듭니다.
   // 작게 쓰는 스티커는 어차피 떨림이 안 보이니 필터를 빼서 비용을 아껴요.
   let uid = 0;
+  /* 이름표 — 포즈만으로는 어떤 스티커인지 헷갈려서 위에 적어줍니다.
+     글꼴이 아직 안 왔거나 막혔을 때를 대비해 기본 손글씨 계열을 함께 지정해요. */
+  const HAND = "'Nanum Pen Script', 'Gaegu', 'Segoe Script', cursive";
+  const labelOf = (text) =>
+    `<text x="120" y="-14" text-anchor="middle" font-family="${HAND}" font-size="40"` +
+    ` fill="${L}" stroke="none" style="paint-order:stroke" stroke-width="0">${text}</text>`;
+
   function svg(key, size, rough) {
     const k = resolve(key);
     if (!k) return "";
     const p = P[k];
     const dim = size ? ` width="${size}" height="${size}"` : "";
     const t = `translate(120 ${120 + (p[4] || 0)}) rotate(${p[3]}) scale(${FIT}) translate(-120 -120)`;
-    const head = `<svg viewBox="0 0 240 240"${dim} role="img" aria-label="${p[0]}">`;
+    // 위쪽에 이름표 자리를 만들기 위해 화면을 -52 부터 시작합니다.
+    const head = `<svg viewBox="0 -52 240 292"${dim} role="img" aria-label="${p[0]}">`;
+    const tag = labelOf(p[0]);
     if (!rough) {
-      return `${head}<g transform="${t}">${p[1].r}${p[1].s}</g></svg>`;
+      return `${head}${tag}<g transform="${t}">${p[1].r}${p[1].s}</g></svg>`;
     }
     // 같은 문서에 여러 개가 뜨므로 id 가 겹치면 안 됩니다.
     const a = `btr${++uid}`, b = `btf${uid}`;
     return head +
       `<defs>${wob(a, p[2], BIG.freq, BIG.scale)}${wob(b, p[2] + 13, FACE.freq, FACE.scale)}</defs>` +
+      tag +
       `<g transform="${t}"><g filter="url(#${a})">${p[1].r}</g>` +
       `<g filter="url(#${b})">${p[1].s}</g></g></svg>`;
   }
@@ -368,6 +378,87 @@
       resolve(k) ? `<span class="${cls}">${svg(k, 0, big)}</span>` : m);
   }
 
+
+  /* ============================================================
+     둘이서 — 홈 화면 인사말 옆에 놓는 장면.
+     어깨동무하고 술병 하나를 나눠 든, 알딸딸한 바텡과 술꼬.
+     스티커(240 기준)보다 넓은 무대라 좌표를 따로 잡았습니다.
+     ============================================================ */
+  function duo() {
+    const id = "btduo";
+    return `<svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="바텡과 술꼬가 어깨동무한 그림">
+      <defs>${wob(id, 7, "0.028", 5)}</defs>
+      <g filter="url(#${id})">
+
+        <!-- 기분 좋은 음표·거품 -->
+        <path d="M40 40q6-14 14-4" ${S(2.6)} fill="none" opacity=".5"/>
+        <circle cx="36" cy="42" r="3.4" fill="${SKY_D}" opacity=".7"/>
+        <path d="M252 34q7-13 15-3" ${S(2.6)} fill="none" opacity=".45"/>
+        <circle cx="248" cy="36" r="3" fill="${CHEEK}" opacity=".8"/>
+
+        <!-- ===== 술꼬 (오른쪽, 덩치 큼) ===== -->
+        <!-- 몸 -->
+        <path d="M196 208q-30 0-38-26t8-46q17-21 42-20 27 1 39 22 11 20 2 41-10 29-38 29z"
+              fill="${SKY}" ${S(4)}/>
+        <!-- 배 -->
+        <path d="M176 168q22 12 46 1 3 18-22 20-25 2-24-21z" fill="${BELLY}" ${S(3)}/>
+        <!-- 꼬리 -->
+        <path d="M254 132q16-13 22-4-8 6-6 15 9 3 6 12-12 3-24-9z" fill="${SKY_D}" ${S(3.4)}/>
+        <!-- 물 뿜기 -->
+        <path d="M212 108q-3-16 4-24" ${S(3.4)} fill="none"/>
+        <circle cx="215" cy="79" r="5" fill="${SKY_D}" opacity=".85"/>
+        <circle cx="226" cy="70" r="3.4" fill="${SKY_D}" opacity=".7"/>
+        <!-- 눈: 반쯤 감김 -->
+        <path d="M186 152q9 8 18 1" ${S(3.4)} fill="none"/>
+        <path d="M214 150q8 7 16 0" ${S(3.2)} fill="none"/>
+        <!-- 볼 -->
+        <ellipse cx="182" cy="166" rx="9" ry="6.5" fill="${CHEEK}" opacity=".85"/>
+        <ellipse cx="230" cy="164" rx="8" ry="6" fill="${CHEEK}" opacity=".8"/>
+        <!-- 헤벌쭉한 입 -->
+        <path d="M198 172q10 10 20 0" ${S(3.4)} fill="none"/>
+
+        <!-- ===== 바텡 (왼쪽) ===== -->
+        <!-- 몸통 + 조끼 -->
+        <path d="M78 208q-22 0-26-22t6-36q10-14 26-13 18 1 26 15 9 14 4 34-5 22-24 22z"
+              fill="${VEST}" ${S(4)}/>
+        <path d="M70 150q16 10 32 0-2 30-16 30t-16-30z" fill="${CREAM}" ${S(3)}/>
+        <!-- 나비넥타이 -->
+        <path d="M78 150l-11-6v13z" fill="${TIE}" ${S(2.6)}/>
+        <path d="M92 150l11-6v13z" fill="${TIE}" ${S(2.6)}/>
+        <circle cx="85" cy="150" r="3.6" fill="${TIE}" ${S(2.2)}/>
+        <!-- 머리 (한 번에 못 그은 원) -->
+        <path d="M85 62q30 0 33 31 3 30-31 32-34 2-36-30-2-31 34-33z" fill="${CREAM}" ${S(4)}/>
+        <!-- 레몬필 -->
+        <path d="M92 58q10-16 24-9-8 5-8 12" fill="${PEEL}" ${S(3)}/>
+        <!-- 눈: 취해서 처짐 -->
+        <path d="M66 96q10 10 19 1" ${S(3.4)} fill="none"/>
+        <path d="M96 94q9 9 17-1" ${S(3.2)} fill="none"/>
+        <!-- 볼 -->
+        <ellipse cx="62" cy="110" rx="9" ry="6.5" fill="${CHEEK}" opacity=".9"/>
+        <ellipse cx="112" cy="108" rx="8" ry="6" fill="${CHEEK}" opacity=".85"/>
+        <!-- 웃는 입 -->
+        <path d="M76 112q10 11 21 1" ${S(3.4)} fill="none" stroke="${MOUTH}"/>
+
+        <!-- ===== 어깨동무 팔 (바텡 → 술꼬) ===== -->
+        <path d="M112 150q30-16 62-6" ${S(4.6)} fill="none"/>
+        <circle cx="176" cy="145" r="6" fill="${CREAM}" ${S(3)}/>
+
+        <!-- ===== 술병 (둘이 함께 든) ===== -->
+        <g>
+          <path d="M136 128h20v-22h-20z" fill="${METAL}" ${S(3)}/>
+          <path d="M132 128h28l6 54q1 12-11 12h-18q-12 0-11-12z" fill="${RED}" ${S(3.4)}/>
+          <path d="M138 150h16" ${S(2.6)} fill="none" opacity=".55" stroke="${CREAM}"/>
+          <path d="M140 100h12v-8h-12z" fill="${PEEL}" ${S(2.6)}/>
+        </g>
+        <!-- 술꼬 지느러미가 병을 받침 -->
+        <path d="M170 176q-14 8-24-2" ${S(4.2)} fill="none"/>
+
+        <!-- 바닥 그림자 -->
+        <ellipse cx="150" cy="212" rx="96" ry="7" fill="${L}" opacity=".1"/>
+      </g>
+    </svg>`;
+  }
+
   const GROUPS = [
     { id: "bateng", label: "바텡", keys: BATENG_KEYS },
     { id: "sulkko", label: "술꼬", keys: SULKKO_KEYS },
@@ -381,5 +472,6 @@
     token: (k) => `:bt_${k}:`,
     svg,
     render,
+    duo,
   };
 })();

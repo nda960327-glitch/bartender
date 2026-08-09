@@ -259,6 +259,78 @@ create trigger content_queue_touch_trg before update on public.content_queue
 --
 -- 한 건이 실패해도 나머지는 계속 진행하고, 실패한 건은 10분 뒤 재시도합니다.
 -- 3번 실패하면 status = 'failed' 로 빠지고 더는 시도하지 않아요.
+-- 큐 한 건을 실제로 발행합니다. 크론과 운영자 화면이 이 함수를 함께 씁니다.
+-- 시각·상한 같은 판단은 하지 않아요. "지금 이걸 내보내라"만 합니다.
+create or replace function public.publish_queue_item(p_id bigint)
+returns bigint
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  q      public.content_queue%rowtype;
+  prof   public.profiles%rowtype;
+  new_id bigint;
+  tries  int := 0;
+begin
+  select * into q from public.content_queue where id = p_id for update;
+  if not found then
+    raise exception '큐 항목을 찾을 수 없습니다 (%)', p_id;
+  end if;
+  if q.status = 'published' then
+    raise exception '이미 발행된 항목입니다 (%)', p_id;
+  end if;
+
+  select * into prof from public.profiles where id = q.author_id;
+  if not found then
+    raise exception '작성자 프로필이 없습니다 (%)', q.author_id;
+  end if;
+
+  -- 이 파이프라인은 공식 계정으로만 발행할 수 있습니다.
+  -- 실수로 일반 사용자 계정이 큐에 들어가도 여기서 막힙니다.
+  if not prof.is_official then
+    raise exception '공식 계정이 아닙니다 (%). profiles.is_official 을 먼저 켜주세요.', q.author_id;
+  end if;
+
+  -- 앱과 같은 방식의 시간 기반 ID: Date.now() * 1000 + 난수
+  loop
+    tries  := tries + 1;
+    new_id := (floor(extract(epoch from clock_timestamp()) * 1000)::bigint) * 1000
+              + floor(random() * 1000)::bigint;
+    begin
+      if q.kind = 'post' then
+        insert into public.posts (id, author_id, cat, title, body, color, nick, emoji, img)
+        values (new_id, q.author_id, coalesce(q.cat, 'free'), q.title, coalesce(q.body, ''),
+                prof.color, coalesce(nullif(btrim(prof.nick), ''), '운영'), q.emoji, q.img);
+      else
+        insert into public.comments (id, post_id, parent_id, author_id, color, text)
+        values (new_id, q.target_post_id, q.parent_comment_id, q.author_id, prof.color, q.text);
+      end if;
+      exit;
+    exception when unique_violation then
+      if tries >= 5 then
+        raise;
+      end if;
+    end;
+  end loop;
+
+  update public.content_queue
+     set status       = 'published',
+         published_id = new_id,
+         published_at = now(),
+         attempts     = attempts + 1,
+         last_error   = null
+   where id = q.id;
+
+  return new_id;
+end $$;
+
+revoke all on function public.publish_queue_item(bigint) from public;
+revoke all on function public.publish_queue_item(bigint) from anon;
+revoke all on function public.publish_queue_item(bigint) from authenticated;
+grant execute on function public.publish_queue_item(bigint) to service_role;
+
+
 create or replace function public.publish_due_content(p_limit int default 1)
 returns table (
   queue_id     bigint,
@@ -273,14 +345,12 @@ as $$
 declare
   cfg       public.content_settings%rowtype;
   q         public.content_queue%rowtype;
-  prof      public.profiles%rowtype;
   cur_hour  int;
   quiet     boolean := false;
   last_at   timestamptz;
   today_cnt int;
   room      int;
   new_id    bigint;
-  tries     int;
 begin
   select * into cfg from public.content_settings where id = 1;
   if not found or not cfg.enabled then
@@ -330,50 +400,7 @@ begin
      for update skip locked
   loop
     begin
-      select * into prof from public.profiles where id = q.author_id;
-
-      if not found then
-        raise exception '작성자 프로필이 없습니다 (%)', q.author_id;
-      end if;
-
-      -- 이 파이프라인은 공식 계정으로만 발행할 수 있습니다.
-      -- 실수로 일반 사용자 계정이 큐에 들어가도 여기서 막힙니다.
-      if not prof.is_official then
-        raise exception '공식 계정이 아닙니다 (%). profiles.is_official 을 먼저 켜주세요.', q.author_id;
-      end if;
-
-      -- 앱과 같은 방식의 시간 기반 ID: Date.now() * 1000 + 난수
-      tries  := 0;
-      new_id := null;
-
-      loop
-        tries  := tries + 1;
-        new_id := (floor(extract(epoch from clock_timestamp()) * 1000)::bigint) * 1000
-                  + floor(random() * 1000)::bigint;
-        begin
-          if q.kind = 'post' then
-            insert into public.posts (id, author_id, cat, title, body, color, nick, emoji, img)
-            values (new_id, q.author_id, coalesce(q.cat, 'free'), q.title, coalesce(q.body, ''),
-                    prof.color, coalesce(nullif(btrim(prof.nick), ''), '운영'), q.emoji, q.img);
-          else
-            insert into public.comments (id, post_id, parent_id, author_id, color, text)
-            values (new_id, q.target_post_id, q.parent_comment_id, q.author_id, prof.color, q.text);
-          end if;
-          exit;
-        exception when unique_violation then
-          if tries >= 5 then
-            raise;
-          end if;
-        end;
-      end loop;
-
-      update public.content_queue
-         set status       = 'published',
-             published_id = new_id,
-             published_at = now(),
-             attempts     = attempts + 1,
-             last_error   = null
-       where id = q.id;
+      new_id := public.publish_queue_item(q.id);
 
       queue_id     := q.id;
       kind         := q.kind;
@@ -410,6 +437,180 @@ grant execute on function public.publish_due_content(int) to service_role;
 
 
 -- ------------------------------------------------------------
+--  5-2. 운영자가 앱에서 직접 조작하는 기능
+-- ------------------------------------------------------------
+-- 관리자 화면(앱)에서 봇을 다루기 위한 함수들입니다.
+-- 전부 is_admin() 을 먼저 확인하고, 공식 계정으로만 동작합니다.
+
+-- 예약을 기다리지 않고 지금 바로 내보냅니다. (조용한 시간·상한 무시)
+create or replace function public.admin_publish_now(p_queue_id bigint)
+returns bigint
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_id  bigint;
+  q_kind  text;
+  q_title text;
+begin
+  if not public.is_admin() then
+    raise exception '관리자만 사용할 수 있습니다.';
+  end if;
+
+  select kind, coalesce(title, left(text, 60))
+    into q_kind, q_title
+    from public.content_queue where id = p_queue_id;
+
+  new_id := public.publish_queue_item(p_queue_id);
+
+  insert into public.admin_actions (admin_id, action, target_type, target_id, title, reason)
+  values (auth.uid(), '봇 즉시 발행', q_kind, new_id, coalesce(q_title, ''), 'queue #' || p_queue_id);
+
+  return new_id;
+end $$;
+
+
+-- 운영자가 봇 계정으로 글을 씁니다.
+-- p_at 이 비었거나 지금보다 과거면 즉시 발행, 미래면 그 시각에 예약합니다.
+create or replace function public.admin_post_as(
+  p_author uuid,
+  p_title  text,
+  p_body   text default '',
+  p_cat    text default 'free',
+  p_emoji  text default null,
+  p_at     timestamptz default null
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  prof   public.profiles%rowtype;
+  qid    bigint;
+  new_id bigint;
+begin
+  if not public.is_admin() then
+    raise exception '관리자만 사용할 수 있습니다.';
+  end if;
+
+  select * into prof from public.profiles where id = p_author;
+  if not found or not prof.is_official then
+    raise exception '공식 계정이 아닙니다.';
+  end if;
+  if p_title is null or btrim(p_title) = '' then
+    raise exception '제목을 입력해 주세요.';
+  end if;
+
+  insert into public.content_queue
+    (kind, status, author_id, cat, title, body, emoji, publish_after, source, note)
+  values
+    ('post', 'approved', p_author, coalesce(p_cat, 'free'), btrim(p_title),
+     coalesce(p_body, ''), p_emoji, coalesce(p_at, now()), 'manual', '운영자 작성')
+  returning id into qid;
+
+  -- 미래 시각이면 큐에 두고 크론이 가져가게 합니다.
+  if p_at is not null and p_at > now() then
+    return jsonb_build_object('mode', 'scheduled', 'queue_id', qid, 'at', p_at);
+  end if;
+
+  new_id := public.publish_queue_item(qid);
+
+  insert into public.admin_actions (admin_id, action, target_type, target_id, title, reason)
+  values (auth.uid(), '봇 글 작성', 'post', new_id, btrim(p_title), prof.nick);
+
+  return jsonb_build_object('mode', 'published', 'queue_id', qid, 'post_id', new_id);
+end $$;
+
+
+-- 운영자가 봇 계정으로 댓글을 답니다. 이건 항상 즉시 등록돼요.
+-- (실제 사용자 글에 빠르게 답하는 게 이 기능의 목적입니다)
+create or replace function public.admin_comment_as(
+  p_author  uuid,
+  p_post_id bigint,
+  p_text    text,
+  p_parent  bigint default null
+) returns bigint
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  prof   public.profiles%rowtype;
+  qid    bigint;
+  new_id bigint;
+begin
+  if not public.is_admin() then
+    raise exception '관리자만 사용할 수 있습니다.';
+  end if;
+
+  select * into prof from public.profiles where id = p_author;
+  if not found or not prof.is_official then
+    raise exception '공식 계정이 아닙니다.';
+  end if;
+  if p_text is null or btrim(p_text) = '' then
+    raise exception '내용을 입력해 주세요.';
+  end if;
+  if not exists (select 1 from public.posts where id = p_post_id) then
+    raise exception '글을 찾을 수 없습니다.';
+  end if;
+
+  insert into public.content_queue
+    (kind, status, author_id, target_post_id, parent_comment_id, text, publish_after, source, note)
+  values
+    ('comment', 'approved', p_author, p_post_id, p_parent, btrim(p_text), now(), 'manual', '운영자 댓글')
+  returning id into qid;
+
+  new_id := public.publish_queue_item(qid);
+
+  insert into public.admin_actions (admin_id, action, target_type, target_id, title, reason)
+  values (auth.uid(), '봇 댓글 작성', 'comment', new_id, left(btrim(p_text), 60), prof.nick);
+
+  return new_id;
+end $$;
+
+
+revoke all on function public.admin_publish_now(bigint) from public;
+revoke all on function public.admin_post_as(uuid, text, text, text, text, timestamptz) from public;
+revoke all on function public.admin_comment_as(uuid, bigint, text, bigint) from public;
+
+grant execute on function public.admin_publish_now(bigint) to authenticated;
+grant execute on function public.admin_post_as(uuid, text, text, text, text, timestamptz) to authenticated;
+grant execute on function public.admin_comment_as(uuid, bigint, text, bigint) to authenticated;
+
+
+-- 운영자가 앱에서 큐를 고칠 때의 안전장치.
+-- 승인·취소·시각 변경·문구 수정은 되지만, "발행됨" 으로 직접 바꿔치기 하거나
+-- 작성 계정을 갈아끼우는 건 막습니다.
+create or replace function public.guard_queue_edit() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if current_user in ('service_role', 'postgres', 'supabase_admin') then
+    return new;
+  end if;
+
+  if old.status = 'published' then
+    raise exception '이미 발행된 항목은 수정할 수 없습니다.';
+  end if;
+  if new.status not in ('draft', 'approved', 'rejected') then
+    raise exception '앱에서는 초안·예약·버림 상태만 지정할 수 있습니다.';
+  end if;
+
+  new.author_id    := old.author_id;
+  new.kind         := old.kind;
+  new.published_id := old.published_id;
+  new.published_at := old.published_at;
+  new.dedupe_key   := old.dedupe_key;
+  return new;
+end $$;
+
+drop trigger if exists content_queue_guard_trg on public.content_queue;
+create trigger content_queue_guard_trg
+  before update on public.content_queue
+  for each row execute function public.guard_queue_edit();
+
+
+-- ------------------------------------------------------------
 --  6. RLS
 -- ------------------------------------------------------------
 alter table public.content_queue    enable row level security;
@@ -427,10 +628,13 @@ begin
   end loop;
 end $$;
 
--- 큐는 관리자만 열람할 수 있습니다. 쓰기 정책은 일부러 만들지 않았어요.
--- (정책이 없으면 RLS 가 전부 거부합니다. 큐에 넣는 건 service_role 만 가능)
+-- 큐는 관리자만 다룰 수 있습니다.
+-- insert 정책은 일부러 없습니다 — 큐에 새로 넣는 건 service_role(도구·서버)만.
+-- update 는 허용하되 위 guard_queue_edit 트리거가 위험한 변경을 되돌립니다.
 create policy cq_read on public.content_queue
   for select to authenticated using (public.is_admin());
+create policy cq_update on public.content_queue
+  for update to authenticated using (public.is_admin()) with check (public.is_admin());
 
 -- 설정은 관리자가 앱에서도 끌 수 있게 열어둡니다 (비상 정지용).
 create policy cs_read on public.content_settings
@@ -456,6 +660,10 @@ update public.comments c
  where pr.id = c.author_id
    and pr.is_official
    and c.official is distinct from true;
+
+
+-- 새로 만든 함수·컬럼을 REST API 가 바로 알아보게 합니다.
+notify pgrst, 'reload schema';
 
 
 -- ============================================================

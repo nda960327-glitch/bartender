@@ -63,9 +63,18 @@ const pick = (arr, seed) => arr[Math.abs(seed) % arr.length];
 
 /* ---------- 공통 조각 ---------- */
 
+/* age 는 "12년" 일 때도 있고 "숙성연수 미표기" / "해당 없음" 일 때도 있어요.
+   앞에 무턱대고 "숙성" 을 붙이면 "숙성 해당 없음" 같은 말이 나옵니다. */
+function ageBit(age) {
+  if (!age) return null;
+  const a = clean(age);
+  if (/미표기|해당\s*없음|없음|무연산|NAS/i.test(a)) return "숙성연수 미표기";
+  return `숙성 ${a}`;
+}
+
 function specLine(item) {
   const d = item.deep || {};
-  const bits = [d.type, d.region, d.age && `숙성 ${d.age}`, item.abv && `${item.abv}%`, item.price && `가격대 ${item.price}`];
+  const bits = [d.type, d.region, ageBit(d.age), item.abv && `${item.abv}%`, item.price && `가격대 ${item.price}`];
   return bullets(bits.filter(Boolean));
 }
 

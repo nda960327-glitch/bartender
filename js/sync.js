@@ -149,7 +149,7 @@
   var t = function (iso) { return iso ? Date.parse(iso) : Date.now(); };
 
   function toAppComment(row) {
-    return {
+    var c = {
       id: Number(row.id),
       cid: Number(row.id),
       authorId: row.author_id,
@@ -161,6 +161,14 @@
       remote: true,
       replies: [],
     };
+    // 공식(운영) 계정 댓글만 이름이 보입니다. 나머지는 계속 익명이에요.
+    // 이 값들은 서버 트리거가 찍기 때문에 앱에서 위조할 수 없습니다.
+    if (row.official) {
+      c.official = true;
+      c.officialLabel = row.official_label || "공식";
+      c.officialNick = row.official_nick || "운영";
+    }
+    return c;
   }
 
   function toAppPost(row, comments, likedIds) {
@@ -187,6 +195,11 @@
     if (row.contact) p.contact = row.contact;
     if (row.edited) p.edited = true;
     if (row.boost_until) p.boostUntil = t(row.boost_until);
+    // 공식(운영) 계정 표시. 서버 트리거가 찍는 값이라 앱에서 못 만듭니다.
+    if (row.official) {
+      p.official = true;
+      p.officialLabel = row.official_label || "공식";
+    }
     return p;
   }
 
@@ -1069,6 +1082,22 @@
       });
     },
 
+    // 내가 쓴 것만 지울 수 있어요 (서버 정책이 한 번 더 막습니다).
+    deleteComment(id) {
+      if (!ready()) return;
+      enqueue({ table: "comments", op: "delete", match: { id: id, author_id: S.uid } });
+    },
+
+    deleteMeetComment(id) {
+      if (!ready()) return;
+      enqueue({ table: "meet_comments", op: "delete", match: { id: id, author_id: S.uid } });
+    },
+
+    deleteReview(id) {
+      if (!ready()) return;
+      enqueue({ table: "reviews", op: "delete", match: { id: id, author_id: S.uid } });
+    },
+
     markRead(conversationId) {
       if (!ready()) return;
       enqueue({
@@ -1267,6 +1296,131 @@
         return { ok: true, label: label };
       } catch (e) {
         return { ok: false, error: (e && e.message) || "처리에 실패했어요." };
+      }
+    },
+
+    /* ---------- 봇(공식 계정) 관리 ----------
+     * 전부 관리자만 쓸 수 있어요. 권한 판정은 서버가 합니다.
+     * 앱에서 status 를 '발행됨' 으로 직접 바꾸거나 작성 계정을 갈아끼우는 건
+     * 서버 트리거가 되돌립니다. */
+
+    // 봇 화면 첫 진입에 필요한 것들을 한 번에 가져와요.
+    async botLoad() {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      try {
+        var sRes = await sb.from("content_settings").select("*").eq("id", 1).maybeSingle();
+        if (sRes.error) throw sRes.error;
+        if (!sRes.data) {
+          return { ok: false, error: "supabase/official.sql 을 아직 실행하지 않았어요." };
+        }
+
+        var pRes = await sb.from("profiles")
+          .select("id,nick,color,official_label")
+          .eq("is_official", true).order("nick");
+        if (pRes.error) throw pRes.error;
+
+        var qRes = await sb.from("content_queue")
+          .select("id,status,kind,author_id,title,text,publish_after,published_at,published_id,note,last_error")
+          .order("publish_after", { ascending: true })
+          .limit(1000);
+        if (qRes.error) throw qRes.error;
+
+        return { ok: true, settings: sRes.data, personas: pRes.data || [], queue: qRes.data || [] };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "봇 정보를 불러오지 못했어요." };
+      }
+    },
+
+    async botSaveSettings(patch) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      try {
+        var res = await sb.from("content_settings").update(patch).eq("id", 1).select("*");
+        if (res.error) return { ok: false, error: res.error.message };
+        if (!res.data || !res.data.length) return { ok: false, error: "권한이 없어요." };
+        if (typeof patch.enabled === "boolean") {
+          await api.logAdmin(patch.enabled ? "봇 자동발행 켜기" : "봇 자동발행 끄기", "user", null, "", "");
+        }
+        return { ok: true, settings: res.data[0] };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "저장에 실패했어요." };
+      }
+    },
+
+    // status: 'approved'(예약) / 'rejected'(버림) / 'draft'(되돌리기)
+    async botSetStatus(id, status, publishAfter) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      try {
+        var patch = { status: status };
+        if (publishAfter) patch.publish_after = new Date(publishAfter).toISOString();
+        if (status !== "failed") { patch.attempts = 0; patch.last_error = null; }
+        var res = await sb.from("content_queue").update(patch).eq("id", id).select("*");
+        if (res.error) return { ok: false, error: res.error.message };
+        if (!res.data || !res.data.length) {
+          return { ok: false, error: "권한이 없거나 이미 발행된 글이에요." };
+        }
+        return { ok: true, row: res.data[0] };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "처리에 실패했어요." };
+      }
+    },
+
+    async botEdit(id, fields) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      try {
+        var res = await sb.from("content_queue").update(fields).eq("id", id).select("*");
+        if (res.error) return { ok: false, error: res.error.message };
+        if (!res.data || !res.data.length) return { ok: false, error: "권한이 없거나 이미 발행된 글이에요." };
+        return { ok: true, row: res.data[0] };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "수정에 실패했어요." };
+      }
+    },
+
+    // 예약 시각을 기다리지 않고 지금 내보냅니다.
+    async botPublishNow(queueId) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      try {
+        var res = await sb.rpc("admin_publish_now", { p_queue_id: queueId });
+        if (res.error) return { ok: false, error: res.error.message };
+        return { ok: true, id: res.data };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "발행에 실패했어요." };
+      }
+    },
+
+    // 봇 계정으로 글쓰기. at 이 미래면 그 시각에 예약돼요.
+    async botPostAs(authorId, p) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      try {
+        var res = await sb.rpc("admin_post_as", {
+          p_author: authorId,
+          p_title: p.title,
+          p_body: p.body || "",
+          p_cat: p.cat || "free",
+          p_emoji: p.emoji || null,
+          p_at: p.at ? new Date(p.at).toISOString() : null,
+        });
+        if (res.error) return { ok: false, error: res.error.message };
+        return { ok: true, result: res.data || {} };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "작성에 실패했어요." };
+      }
+    },
+
+    // 봇 계정으로 댓글 달기. 이건 항상 즉시 등록됩니다.
+    async botCommentAs(authorId, postId, text, parentId) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      try {
+        var res = await sb.rpc("admin_comment_as", {
+          p_author: authorId,
+          p_post_id: postId,
+          p_text: text,
+          p_parent: parentId || null,
+        });
+        if (res.error) return { ok: false, error: res.error.message };
+        return { ok: true, id: res.data };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "작성에 실패했어요." };
       }
     },
 
