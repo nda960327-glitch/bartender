@@ -3588,12 +3588,26 @@
       <p class="sheet-note">글 작성 +30P · 리뷰 작성 +30P · 술/칵테일 등록 +50P · 모임 개설 +50P</p>`);
   }
   function openSupportSheet() {
+    // 익명 서비스라 문의·삭제요청 때 본인을 특정할 수단이 필요해요.
+    const uid = Sync.uid;
     openSheetHTML(`
       <h3>고객센터</h3>
       <div class="sheet-row"><span>📧 이메일 문의</span><span class="r">${SUPPORT_EMAIL}</span></div>
       <div class="sheet-row"><span>🕐 운영 시간</span><span class="r">평일 10:00 ~ 19:00</span></div>
       <div class="sheet-row"><span>📱 앱 버전</span><span class="r">v${APP_VER}</span></div>
-      <p class="sheet-note">신고·건의사항은 이메일로 보내주시면 영업일 기준 3일 이내에 답변드려요. 커뮤니티 규칙 위반 게시물은 신고 접수 후 24시간 이내에 검토합니다.</p>`);
+      ${uid ? `
+      <div class="sheet-row"><span>🆔 이용자 번호</span><span class="r" style="font-family:monospace;font-size:12.5px">${esc(uid)}</span></div>
+      <button class="big-btn" id="copy-uid" style="margin-top:12px">이용자 번호 복사</button>` : ""}
+      <p class="sheet-note">신고·건의사항은 이메일로 보내주시면 영업일 기준 3일 이내에 답변드려요. 커뮤니티 규칙 위반 게시물은 신고 접수 후 24시간 이내에 검토합니다.${uid ? " 게시글 전체 삭제를 요청하실 땐 위 이용자 번호를 함께 보내주세요." : ""}</p>`);
+    const btn = document.querySelector(".sheet #copy-uid");
+    if (btn) btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(uid);
+        toast("이용자 번호를 복사했어요.");
+      } catch {
+        toast("복사에 실패했어요. 번호를 직접 적어주세요.");
+      }
+    });
   }
 
   /* ---------- 약관·정책 문서 (js/legal.js 가 단일 원본) ---------- */

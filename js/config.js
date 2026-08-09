@@ -15,8 +15,8 @@
  *  준비 순서는 README.md 의 "Supabase 연결" 항목을 참고하세요.
  * ============================================================ */
 window.BARTALK_CONFIG = {
-  SUPABASE_URL: "",
-  SUPABASE_ANON_KEY: "",
+  SUPABASE_URL: "https://dvharpjpemxpbrhhlolx.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2aGFycGpwZW14cGJyaGhsb2x4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyMjE4ODUsImV4cCI6MjEwMTc5Nzg4NX0.HRkSGBh1I1Slo2S4sxannHLp1tlRIATr7JychadY94c",
 
   // 서버에서 가져올 최대 개수 (첫 로딩 속도와 관련)
   LIMIT_POSTS: 300,
