@@ -71,7 +71,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.18.1";
+  const APP_BUILD = "2.18.2";
 
   /* ---------- 저장소 ---------- */
   const store = {
@@ -6856,6 +6856,45 @@
     certs: "", skills: [], sig1: "", sig2: "", sig3: "", awards: "", contact: "",
   };
 
+  /* 빈 화면 앞에서는 아무도 첫 줄을 못 씁니다.
+     연차대별로 셋을 두고, 눌러서 채운 다음 고쳐 쓰게 해요.
+     실제 사람이 아니라 형식을 보여주려고 만든 예시입니다. */
+  const SAMPLE_CARDS = [
+    {
+      label: "2년차 · 주니어",
+      intro: "이제 2년차라 아직 배우는 중이지만, 클래식은 레시피 안 보고 만들 수 있어요. 시키는 것보다 하나 더 하려고 합니다.",
+      years: "2", region: "서울 마포·서대문", status: "구직중",
+      shop: "홍대 펍 (홀 겸 바)",
+      certs: "조주기능사",
+      skills: ["클래식 칵테일", "커피/논알콜", "SNS 운영"],
+      sig1: "얼그레이 진토닉", sig2: "", sig3: "",
+      awards: "2024 조주기능사 취득\n2024~ 홍대 펍 주말 근무",
+      contact: "",
+    },
+    {
+      label: "6년차 · 메인",
+      intro: "클래식 위주로 6년째. 손님 취향 물어보고 그 자리에서 짜는 걸 제일 좋아합니다. 바 열 때 초기 세팅도 해봤어요.",
+      years: "6", region: "서울 강남·서초", status: "재직중",
+      shop: "문라이트라운지 (메인 바텐더)",
+      certs: "조주기능사, WSET Level 2",
+      skills: ["클래식 칵테일", "시그니처 개발", "위스키", "원가 관리", "직원 교육"],
+      sig1: "무화과 올드패션드", sig2: "산초 네그로니", sig3: "",
+      awards: "2021~2023 ○○바 바텐더\n2023 △△바 오픈 멤버 (메뉴 설계)\n2024~ 문라이트라운지 메인",
+      contact: "",
+    },
+    {
+      label: "12년차 · 매니저",
+      intro: "12년 하면서 매장 세 곳을 맡아봤습니다. 요즘은 만드는 것만큼 사람 가르치는 일에 시간을 많이 씁니다.",
+      years: "12", region: "서울 전역 · 경기 남부", status: "프리랜서",
+      shop: "컨설팅 · 팝업 위주",
+      certs: "조주기능사, WSET Level 3, 위스키 앰배서더 과정 수료",
+      skills: ["시그니처 개발", "위스키", "와인", "바 매니지먼트", "원가 관리", "발주/재고", "직원 교육"],
+      sig1: "리버스 마티니 (하우스 베르무트)", sig2: "제철 과실 사워", sig3: "배럴 에이징 네그로니",
+      awards: "2013~2017 ○○호텔 라운지바\n2017~2021 △△바 헤드 바텐더\n2021~2024 □□그룹 3개 매장 총괄\n2024~ 프리랜서 (바 오픈 컨설팅)",
+      contact: "",
+    },
+  ];
+
   function cardFilled(c) {
     if (!c) return 0;
     const keys = ["intro", "years", "region", "shop", "certs", "sig1", "awards", "contact"];
@@ -6876,9 +6915,32 @@
             경력·시그니처·가능 업무를 한 장으로 정리해두면<br>
             채용 공고에 지원할 때 그대로 복사해 쓸 수 있어요.
           </p>
-          <button class="big-btn accent ready" id="card-new">프로필 만들기</button>
-        </div>`;
+          <button class="big-btn accent ready" id="card-new">빈 프로필로 시작</button>
+        </div>
+
+        <p class="sheet-note" style="text-align:left;margin:16px 20px 8px">
+          아니면 예시 하나를 골라 채운 다음 고쳐 쓰셔도 돼요.
+          <b>실제 사람이 아니라</b> 형식을 보여주려고 만든 것입니다.
+        </p>
+        ${SAMPLE_CARDS.map((s, i) => `
+          <button class="card sample-card pressable" data-s="${i}">
+            <div class="sample-label">${esc(s.label)}</div>
+            <p class="sample-intro">${esc(s.intro)}</p>
+            <div class="sample-meta">${esc(s.region)} · ${esc(s.status)} · 시그니처 ${[s.sig1, s.sig2, s.sig3].filter(Boolean).length}개</div>
+          </button>`).join("")}
+        <div style="height:24px"></div>`;
       $("#card-new").addEventListener("click", openCardEdit);
+      $$("#card-area .sample-card").forEach((el) =>
+        el.addEventListener("click", () => {
+          const s = SAMPLE_CARDS[+el.dataset.s];
+          const next = Object.assign({}, s);
+          delete next.label;                    // 화면용 딱지는 저장하지 않아요
+          next.skills = next.skills.slice();
+          state.user.card = next;
+          saveUser();
+          renderCard();
+          toast("예시로 채웠어요. 내용을 고쳐서 쓰세요.");
+        }));
       return;
     }
 
