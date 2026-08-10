@@ -1023,6 +1023,32 @@
     updateBadge();
   }
 
+  /* 채팅도 알림 목록에 남깁니다. 목록에 없으면 위에 뜬 팝업을 놓친 순간
+     "누가 뭐라고 했더라"를 확인할 방법이 사라져요.
+
+     addNoti 를 쓰지 않고 직접 넣습니다. 두 가지 때문입니다.
+       · 소리 — 받을 때 이미 한 번 울렸습니다
+       · 숫자 — 안 읽은 수는 대화 쪽에서 이미 세고 있어요.
+                여기서 또 세면 메시지 하나에 종 숫자가 둘씩 올라갑니다.
+     그래서 읽음으로 넣고, 세는 일은 대화 쪽 한 곳에만 맡깁니다.
+
+     같은 대화에서 연달아 오면 줄을 늘리지 않고 맨 위 것을 고쳐요.
+     열 마디 보내면 열 줄이 쌓여서 알림 목록이 못 쓰게 됩니다. */
+  function noteChatMsg(c, text) {
+    const line = (text || "").replace(/\s+/g, " ").trim().slice(0, 40) || "(사진)";
+    const i = state.noti.findIndex((x) => x.to && x.to.view === "chat" && x.to.id === c.id);
+    if (i >= 0) state.noti.splice(i, 1);
+    state.noti.unshift({
+      ic: "💬",
+      text: dropName(c.color) + ": " + line,
+      time: Date.now(),
+      read: true,
+      to: { view: "chat", id: c.id },
+    });
+    if (state.noti.length > 50) state.noti.length = 50;
+    saveNoti();
+  }
+
   /* 알림을 눌렀을 때 그 자리로 데려다줍니다.
      그 사이에 지워졌으면 조용히 알려주고 넘어가요. */
   function gotoNoti(to) {
@@ -6530,6 +6556,7 @@
           sfx("receive");
           c.unread = (c.unread || 0) + 1;
           popChatMsg(c, p.item.text);
+          noteChatMsg(c, p.item.text);
         }
       }
       saveChats();
