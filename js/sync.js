@@ -302,18 +302,23 @@
     var ids = rows.map(function (r) { return r.id; });
     var mRes = await sb.from("messages").select("*")
       .in("conversation_id", ids).order("created_at").limit(2000);
-    var rRes = await sb.from("conversation_reads").select("*").eq("user_id", S.uid);
+    // 내 것 + 상대 것. 서버 정책이 "같은 대화 참여자"까지만 열어줍니다.
+    var rRes = await sb.from("conversation_reads").select("*").in("conversation_id", ids);
 
     var byConv = {};
     (mRes.data || []).forEach(function (m) {
       (byConv[m.conversation_id] = byConv[m.conversation_id] || []).push(toAppMessage(m));
     });
-    var readAt = {};
-    (rRes.data || []).forEach(function (r) { readAt[r.conversation_id] = t(r.last_read_at); });
+    var readAt = {}, peerReadAt = {};
+    (rRes.data || []).forEach(function (r) {
+      if (r.user_id === S.uid) readAt[r.conversation_id] = t(r.last_read_at);
+      else peerReadAt[r.conversation_id] = Math.max(peerReadAt[r.conversation_id] || 0, t(r.last_read_at));
+    });
 
     return rows.map(function (r) {
       var c = toAppConversation(r);
       c.msgs = byConv[r.id] || [];
+      c.peerReadAt = peerReadAt[r.id] || 0;
       var seen = readAt[r.id] || 0;
       c.unread = c.msgs.filter(function (m) { return !m.me && m.time > seen; }).length;
       return c;
@@ -464,6 +469,15 @@
     });
   }
 
+  /* 같은 대상에 좋아요를 껐다 켰다 하면 알림이 그때마다 또 갑니다.
+     한 번 부탁한 대상은 이 접속 동안 다시 부탁하지 않아요. */
+  var notifiedOnce = new Set();
+  function notifyOnce(key, spec) {
+    if (notifiedOnce.has(key)) return null;
+    notifiedOnce.add(key);
+    return spec;
+  }
+
   /* ---------- 알림 보내달라고 부탁하기 ----------
    * 알림을 실제로 쏘는 것은 서버 함수입니다. 여기서는 부탁만 해요.
    * 서버는 원본(메시지·댓글)을 직접 읽어 정말 내가 쓴 것인지 확인합니다.
@@ -589,7 +603,7 @@
     posts: "post", comments: "comment", likes: "like",
     meets: "meet", meet_participants: "meetJoin", meet_comments: "meetComment",
     spirits: "spirit", reviews: "review", comment_likes: "commentLike",
-    conversations: "conversation", messages: "message",
+    conversations: "conversation", messages: "message", conversation_reads: "convRead",
     content_overrides: "override",
   };
 
@@ -605,7 +619,12 @@
     var old = payload.old && Object.keys(payload.old).length ? payload.old : null;
 
     // 신고는 목록을 통째로 다시 받는 편이 단순하고, 운영자에게만 옵니다.
-    if (table === "reports" || table === "content_overrides") { schedulePull(table); return; }
+    if (table === "reports") {
+      if (ev === "INSERT" && row) emitPatch("report", "upsert", { reporterId: row.reporter_id });
+      schedulePull(table);
+      return;
+    }
+    if (table === "content_overrides") { schedulePull(table); return; }
 
     if (ev === "DELETE") {
       var delId = old && old.id;
@@ -662,6 +681,13 @@
         break;
       case "messages":
         emitPatch("message", "upsert", toAppMessage(row), { conversationId: Number(row.conversation_id) });
+        break;
+      case "conversation_reads":
+        emitPatch("convRead", "upsert", {
+          conversationId: Number(row.conversation_id),
+          userId: row.user_id,
+          at: t(row.last_read_at),
+        });
         break;
     }
   }
@@ -1049,7 +1075,10 @@
 
     toggleLike(postId, liked) {
       if (!ready()) return;
-      if (liked) enqueue({ table: "likes", op: "upsert", row: { post_id: postId, user_id: S.uid } });
+      if (liked) enqueue({
+        table: "likes", op: "upsert", row: { post_id: postId, user_id: S.uid },
+        notify: notifyOnce("pl:" + postId, { type: "like", postId: postId }),
+      });
       else enqueue({ table: "likes", op: "delete", match: { post_id: postId, user_id: S.uid } });
     },
 
@@ -1068,7 +1097,10 @@
 
     joinMeet(meetId, joined) {
       if (!ready()) return;
-      if (joined) enqueue({ table: "meet_participants", op: "upsert", row: { meet_id: meetId, user_id: S.uid } });
+      if (joined) enqueue({
+        table: "meet_participants", op: "upsert", row: { meet_id: meetId, user_id: S.uid },
+        notify: notifyOnce("mj:" + meetId, { type: "meetJoin", meetId: meetId }),
+      });
       else enqueue({ table: "meet_participants", op: "delete", match: { meet_id: meetId, user_id: S.uid } });
     },
 
@@ -1119,6 +1151,8 @@
           target_id: typeof targetId === "number" ? targetId : null,
           target_user: targetUser || null, title: title || null, reason: reason,
         },
+        // 운영자 폰으로 바로 알립니다. 신고는 빨리 볼수록 좋아요.
+        notify: { type: "report" },
       });
     },
 
@@ -1203,7 +1237,10 @@
 
     toggleCommentLike(commentId, on) {
       if (!ready()) return;
-      if (on) enqueue({ table: "comment_likes", op: "upsert", row: { comment_id: commentId, user_id: S.uid } });
+      if (on) enqueue({
+        table: "comment_likes", op: "upsert", row: { comment_id: commentId, user_id: S.uid },
+        notify: notifyOnce("cl:" + commentId, { type: "commentLike", commentId: commentId }),
+      });
       else enqueue({ table: "comment_likes", op: "delete", match: { comment_id: commentId, user_id: S.uid } });
     },
 

@@ -1541,3 +1541,9 @@ textarea.input { height: auto; }
   color: var(--text-muted); font-size: 12px; cursor: pointer;
 }
 .nudge-x:hover { color: var(--text); }
+
+/* 상대가 읽은 마지막 내 말풍선 밑에 붙습니다 */
+.read-mark {
+  text-align: right; padding: 2px 6px 6px;
+  font-size: 11px; color: var(--text-muted);
+}

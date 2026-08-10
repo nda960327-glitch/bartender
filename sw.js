@@ -10,7 +10,7 @@
  * 커뮤니티 앱에서는 치명적이라 네트워크 우선으로 바꿨습니다.
  * 첫 화면이 아주 조금 느려지지만 파일이 작아 체감되지 않습니다.
  */
-const VERSION = "2.12.0";
+const VERSION = "2.13.0";
 const CACHE = "bartalk-v" + VERSION;
 
 // 오프라인에서도 앱이 뜨도록 미리 받아두는 파일
@@ -76,7 +76,7 @@ self.addEventListener("push", (e) => {
       badge: "./icons/icon-192.png",
       tag: d.tag || "bartalk",       // 같은 대화의 알림은 겹쳐 쌓이지 않게
       renotify: true,
-      data: { cid: d.cid || null, postId: d.postId || null },
+      data: { cid: d.cid || null, postId: d.postId || null, meetId: d.meetId || null, admin: !!d.admin },
     })
   );
 });
@@ -93,10 +93,15 @@ self.addEventListener("notificationclick", (e) => {
       } catch (err) { continue; }
       await w.focus();
       if (d.postId) w.postMessage({ type: "open-post", postId: d.postId });
+      else if (d.meetId) w.postMessage({ type: "open-meet", meetId: d.meetId });
+      else if (d.admin) w.postMessage({ type: "open-admin" });
       else w.postMessage({ type: "open-chat", cid: d.cid || null });
       return;
     }
-    const url = d.postId ? "./?post=" + d.postId : d.cid ? "./?chat=" + d.cid : "./";
+    const url = d.postId ? "./?post=" + d.postId
+      : d.meetId ? "./?meet=" + d.meetId
+      : d.admin ? "./?admin=1"
+      : d.cid ? "./?chat=" + d.cid : "./";
     await self.clients.openWindow(url);
   })());
 });

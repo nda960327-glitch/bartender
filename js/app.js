@@ -1015,9 +1015,21 @@
   /* 알림에 "어디로 가면 되는지"를 함께 담습니다.
      글자만 남기면 무슨 일인지 알아도 찾아가려면 직접 뒤져야 해요.
      to 는 { view: "post", id: 12 } 같은 모양입니다. */
-  function addNoti(ic, text, to) {
+  /* group 이 같은 알림은 줄을 늘리지 않고 하나로 모읍니다.
+     "공감이 눌렸어요"가 열 줄 쌓이면 정작 중요한 알림이 밀려나요.
+     같은 글 공감 열 개 = "공감이 눌렸어요 (10)" 한 줄입니다. */
+  function addNoti(ic, text, to, group) {
     sfx("notify");
-    state.noti.unshift({ ic, text, time: Date.now(), read: false, to: to || null });
+    let count = 1;
+    if (group) {
+      const i = state.noti.findIndex((x) => x.group === group && !x.read);
+      if (i >= 0) { count = (state.noti[i].n || 1) + 1; state.noti.splice(i, 1); }
+    }
+    state.noti.unshift({
+      ic, text: count > 1 ? text + " (" + count + ")" : text,
+      time: Date.now(), read: false, to: to || null,
+      group: group || null, n: count,
+    });
     if (state.noti.length > 50) state.noti.length = 50;
     saveNoti();
     updateBadge();
@@ -4968,12 +4980,20 @@
       <div class="chat-hint">${c.remote
         ? "상대방도 익명으로 표시돼요.<br>메시지는 두 사람만 볼 수 있어요. 운영자도 볼 수 없습니다."
         : "이 문의는 이 기기에만 저장돼요."}</div>
-      ${c.msgs.map((m) => `
+      ${(() => {
+        /* 상대가 읽은 마지막 내 메시지 밑에만 "읽음"을 답니다.
+           말풍선마다 달면 지저분하고, 마지막 하나면 충분해요. */
+        let lastRead = -1;
+        if (c.remote && c.peerReadAt) {
+          c.msgs.forEach((m, i) => { if (m.me && m.time <= c.peerReadAt) lastRead = i; });
+        }
+        return c.msgs.map((m, i) => `
         <div class="bubble-row ${m.me ? "me" : ""}">
           ${m.me ? `<span class="bubble-time">${fmtTime(m.time)}</span>` : ""}
           <div class="bubble">${esc(m.text)}</div>
           ${m.me ? "" : `<span class="bubble-time">${fmtTime(m.time)}</span>`}
-        </div>`).join("")}`;
+        </div>${i === lastRead ? '<div class="read-mark">읽음</div>' : ""}`).join("");
+      })()}`;
     const area = $("#chat-msgs");
     area.scrollTop = area.scrollHeight;
   }
@@ -6464,7 +6484,7 @@
           || (p.parentId && (post.comments.find((c) => c.id === p.parentId) || {}).mine);
         if (forMe) {
           addNoti("💬", p.parentId ? "내 댓글에 답글이 달렸어요." : "내 글에 댓글이 달렸어요.",
-            { view: "post", id: post.id });
+            { view: "post", id: post.id }, (p.parentId ? "reply:" : "cmt:") + post.id);
         }
       }
 
@@ -6473,7 +6493,7 @@
       if (p.op !== "delete" && p.item.userId !== Sync.uid) {
         const mine = state.posts.find((x) => x.id === p.item.postId && x.mine);
         if (mine) addNoti("❤️", `'${mine.title.slice(0, 14)}' 글에 공감이 눌렸어요.`,
-          { view: "post", id: mine.id });
+          { view: "post", id: mine.id }, "pl:" + mine.id);
       }
       // 공감 수는 서버가 posts 를 갱신해 따로 오므로, 여기선 내 표시만 맞춰요.
       if (p.item.userId !== Sync.uid) return;
@@ -6496,7 +6516,7 @@
       if (p.op !== "delete" && p.item.userId !== Sync.uid) {
         const m = state.meets.find((x) => x.id === p.item.meetId && x.mine);
         if (m) addNoti("🙋", `'${(m.title || "내 모임").slice(0, 14)}' 모임에 참여 신청이 들어왔어요.`,
-          { view: "meet", id: m.id });
+          { view: "meet", id: m.id }, "mj:" + m.id);
       }
       const m = state.meets.find((x) => x.id === p.item.meetId);
       if (!m) return;
@@ -6509,7 +6529,7 @@
       if (p.op !== "delete" && !(p.item && p.item.mine)) {
         const m = state.meets.find((x) => x.id === p.meetId && x.mine);
         if (m) addNoti("💬", `'${(m.title || "내 모임").slice(0, 14)}' 모임에 댓글이 달렸어요.`,
-          { view: "meet", id: m.id });
+          { view: "meet", id: m.id }, "mc:" + m.id);
       }
       const m = state.meets.find((x) => x.id === p.meetId);
       if (!m) return;
@@ -6533,7 +6553,7 @@
       if (p.op !== "delete" && !(p.item && p.item.mine)) {
         const sp = state.spirits.find((x) => x.id === p.spiritId && x.mine);
         if (sp) addNoti("⭐", `'${(sp.name || "내 항목").slice(0, 14)}' 에 리뷰가 달렸어요.`,
-          { view: "spirit", id: sp.id });
+          { view: "spirit", id: sp.id }, "rv:" + sp.id);
       }
       const sp = state.spirits.find((x) => x.id === p.spiritId);
       if (!sp) return;
@@ -6550,7 +6570,7 @@
           for (const c of post.comments || []) {
             const hit = c.id === p.commentId ? c : (c.replies || []).find((r) => r.id === p.commentId);
             if (!hit) continue;
-            if (hit.mine) addNoti("❤️", "내 댓글에 공감이 눌렸어요.", { view: "post", id: post.id });
+            if (hit.mine) addNoti("❤️", "내 댓글에 공감이 눌렸어요.", { view: "post", id: post.id }, "cl:" + post.id);
             break outer;
           }
         }
@@ -6569,6 +6589,26 @@
         else hit.likes = Math.max(0, (hit.likes || 0) + add);
         savePosts();
         break;
+      }
+
+    } else if (p.kind === "convRead") {
+      const c = state.chats.find((x) => x.id === p.conversationId);
+      if (!c) return;
+      if (p.userId === Sync.uid) {
+        // 다른 내 기기에서 읽었어요. 이 기기의 안 읽음 수도 내립니다.
+        c.unread = 0;
+        saveChats();
+        updateBadge();
+      } else {
+        c.peerReadAt = Math.max(c.peerReadAt || 0, p.at || 0);
+        saveChats();
+        if (state.view === "chat" && state.curChat === c.id) renderChatMsgs();
+      }
+
+    } else if (p.kind === "report") {
+      // 운영자에게만. 내가 낸 신고로 나에게 울리지는 않아요.
+      if (isAdmin() && p.reporterId !== Sync.uid) {
+        addNoti("🚨", "새 신고가 접수됐어요.", { view: "admin" }, "report");
       }
 
     } else if (p.kind === "conversation") {
@@ -6776,17 +6816,22 @@
       const d = e.data || {};
       if (d.type === "open-chat" && d.cid && state.chats.some((c) => c.id === d.cid)) openChat(d.cid);
       else if (d.type === "open-post" && d.postId) gotoNoti({ view: "post", id: d.postId });
+      else if (d.type === "open-meet" && d.meetId) gotoNoti({ view: "meet", id: d.meetId });
+      else if (d.type === "open-admin" && isAdmin()) show("admin");
     });
   }
   {
     const q = new URLSearchParams(location.search);
-    const wantChat = +q.get("chat"), wantPost = +q.get("post");
-    if (wantChat || wantPost) {
+    const wantChat = +q.get("chat"), wantPost = +q.get("post"),
+          wantMeet = +q.get("meet"), wantAdmin = q.get("admin");
+    if (wantChat || wantPost || wantMeet || wantAdmin) {
       // 주소는 정리해둡니다. 새로고침할 때마다 그리로 튀면 곤란해요.
       try { history.replaceState(null, "", location.pathname + location.hash); } catch (e) {}
       setTimeout(() => {
         if (wantChat && state.chats.some((c) => c.id === wantChat)) openChat(wantChat);
         else if (wantPost) gotoNoti({ view: "post", id: wantPost });
+        else if (wantMeet) gotoNoti({ view: "meet", id: wantMeet });
+        else if (wantAdmin && isAdmin()) show("admin");
       }, 800);
     }
   }

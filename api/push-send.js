@@ -194,6 +194,92 @@ async function planComment(me, body) {
   return { targets: targets };
 }
 
+/* ---------- 공감 (글) ----------
+   "정말 눌렀는지"를 서버에서 확인합니다. likes 행이 실제로 있어야 해요.
+   그래서 누르지도 않은 공감으로 남의 폰을 울릴 수 없습니다. */
+async function planLike(me, body) {
+  const postId = digits(body.postId);
+  if (!postId) return { error: "글을 찾을 수 없어요.", code: 400 };
+
+  const likes = await db("likes?post_id=eq." + postId + "&user_id=eq." + me + "&select=post_id");
+  if (!likes.length) return { error: "공감 기록이 없어요.", code: 403 };
+
+  const posts = await db("posts?id=eq." + postId + "&select=id,author_id");
+  const post = posts && posts[0];
+  if (!post || !post.author_id || post.author_id === me) return { targets: [] };
+
+  return {
+    targets: [{
+      user: post.author_id,
+      payload: { title: "바텐톡", body: "내 글에 공감이 눌렸어요.", tag: "post-" + postId, postId: Number(postId) },
+    }],
+  };
+}
+
+/* ---------- 공감 (댓글) ---------- */
+async function planCommentLike(me, body) {
+  const commentId = digits(body.commentId);
+  if (!commentId) return { error: "댓글을 찾을 수 없어요.", code: 400 };
+
+  const likes = await db("comment_likes?comment_id=eq." + commentId + "&user_id=eq." + me + "&select=comment_id");
+  if (!likes.length) return { error: "공감 기록이 없어요.", code: 403 };
+
+  const comments = await db("comments?id=eq." + commentId + "&select=id,author_id,post_id");
+  const c = comments && comments[0];
+  if (!c || !c.author_id || c.author_id === me) return { targets: [] };
+
+  return {
+    targets: [{
+      user: c.author_id,
+      payload: { title: "바텐톡", body: "내 댓글에 공감이 눌렸어요.", tag: "post-" + c.post_id, postId: Number(c.post_id) },
+    }],
+  };
+}
+
+/* ---------- 모임 참여 신청 ---------- */
+async function planMeetJoin(me, body) {
+  const meetId = digits(body.meetId);
+  if (!meetId) return { error: "모임을 찾을 수 없어요.", code: 400 };
+
+  const joins = await db("meet_participants?meet_id=eq." + meetId + "&user_id=eq." + me + "&select=meet_id");
+  if (!joins.length) return { error: "참여 기록이 없어요.", code: 403 };
+
+  const meets = await db("meets?id=eq." + meetId + "&select=id,host_id");
+  const m = meets && meets[0];
+  if (!m || !m.host_id || m.host_id === me) return { targets: [] };
+
+  return {
+    targets: [{
+      user: m.host_id,
+      payload: { title: "바텐톡", body: "내 모임에 참여 신청이 들어왔어요.", tag: "meet-" + meetId, meetId: Number(meetId) },
+    }],
+  };
+}
+
+/* ---------- 신고 → 운영자 전원 ----------
+   신고 글에는 클라이언트가 id 를 붙이지 않아 번호로 짚을 수 없습니다.
+   대신 "방금(5분 안) 내가 낸 신고가 실제로 있는지"를 확인해요.
+   신고 한 건 없이 운영자 폰만 울리는 장난을 막습니다. */
+async function planReport(me) {
+  const recent = await db(
+    "reports?reporter_id=eq." + me + "&order=created_at.desc&limit=1&select=created_at"
+  );
+  const last = recent && recent[0];
+  if (!last || Date.now() - new Date(last.created_at).getTime() > 5 * 60 * 1000) {
+    return { error: "신고 기록이 없어요.", code: 403 };
+  }
+
+  const admins = await db("admins?select=user_id");
+  return {
+    targets: admins
+      .filter((a) => a.user_id && a.user_id !== me)
+      .map((a) => ({
+        user: a.user_id,
+        payload: { title: "바텐톡 운영", body: "🚨 새 신고가 접수됐어요.", tag: "report", admin: true },
+      })),
+  };
+}
+
 module.exports = async (req, res) => {
   if (req.method !== "POST") { res.status(405).json({ ok: false, error: "POST 만 받습니다." }); return; }
   if (!SUPABASE_URL || !SERVICE_KEY) { res.status(200).json({ ok: false, error: "서버 설정 없음" }); return; }
@@ -214,6 +300,10 @@ module.exports = async (req, res) => {
     let plan;
     if (type === "chat") plan = await planChat(me, body);
     else if (type === "comment") plan = await planComment(me, body);
+    else if (type === "like") plan = await planLike(me, body);
+    else if (type === "commentLike") plan = await planCommentLike(me, body);
+    else if (type === "meetJoin") plan = await planMeetJoin(me, body);
+    else if (type === "report") plan = await planReport(me);
     else { res.status(400).json({ ok: false, error: "알 수 없는 알림 종류예요." }); return; }
 
     if (plan.error) { res.status(plan.code || 400).json({ ok: false, error: plan.error }); return; }
