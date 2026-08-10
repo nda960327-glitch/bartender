@@ -73,6 +73,49 @@ async function rpc(env, name, args) {
   }
 }
 
+/* PostgREST 로 표를 그냥 읽습니다 (service_role 이라 RLS 를 지나갑니다). */
+async function sel(env, path) {
+  const r = await fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+    },
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`supabase ${path} ${r.status}: ${text}`);
+  return text ? JSON.parse(text) : [];
+}
+
+/* 미리보기용 대상 고르기.
+   auto_comment_pick 은 스위치가 꺼져 있으면 아무것도 안 줍니다 — 당연히
+   그래야 하고요. 그래서 미리보기는 상한·확률을 다 건너뛰고 최근 글 하나를
+   직접 집어옵니다. 어차피 글로 남기지 않으니 안전해요. */
+async function pickForDry(env) {
+  const since = new Date(Date.now() - 72 * 3600e3).toISOString();
+  const posts = await sel(env,
+    `posts?select=id,title,body,cat,created_at&created_at=gte.${since}&order=created_at.desc&limit=20`);
+  if (!posts.length) return null;
+
+  const personas = await sel(env, "profiles?select=id,nick&is_official=is.true&limit=20");
+  if (!personas.length) return null;
+
+  const post = posts[Math.floor(Math.random() * posts.length)];
+  const persona = personas[Math.floor(Math.random() * personas.length)];
+  const comments = await sel(env,
+    `comments?select=nick,text&post_id=eq.${post.id}&order=created_at.asc&limit=8`);
+
+  return {
+    post_id: post.id,
+    post_title: post.title,
+    post_body: String(post.body || "").slice(0, 1200),
+    post_cat: post.cat,
+    post_age_h: Math.round((Date.now() - Date.parse(post.created_at)) / 36e5 * 10) / 10,
+    comments: comments.map((c) => ({ nick: c.nick, text: String(c.text || "").slice(0, 200) })),
+    author_id: persona.id,
+    author_nick: persona.nick,
+  };
+}
+
 /* 바텐더가 실제로 쓰는 댓글의 조건을 그대로 적었습니다.
    "짧게 써라" 하나로는 부족해요 — 짧기만 하고 알맹이 없는 댓글이
    제일 티가 납니다. */
@@ -150,15 +193,30 @@ module.exports = async (req, res) => {
     return send(res, 200, { ok: true, posted: false, reason: "no_api_key" });
   }
 
+  /* ?dry=1 — 문구만 만들어 보고 등록하지 않습니다.
+     켜기 전에 어떤 말투가 나오는지 확인하는 용도예요. */
+  let dry = false;
+  try {
+    dry = new URL(req.url, "http://localhost").searchParams.get("dry") === "1";
+  } catch (_) { /* 기본값 사용 */ }
+
   try {
     // 1. 지금 달아도 되나? 달면 어디에?
-    const rows = await rpc(env, "auto_comment_pick", {});
-    const target = Array.isArray(rows) ? rows[0] : rows;
+    let picked;
+    if (dry) {
+      picked = await pickForDry(env);
+    } else {
+      const rows = await rpc(env, "auto_comment_pick", {});
+      picked = Array.isArray(rows) ? rows[0] : rows;
+    }
 
     // 빈손이 정상입니다 — 꺼져 있거나, 쉬는 시간이거나, 상한을 채웠거나,
     // 주사위가 안 나왔거나, 달 만한 글이 없거나.
-    if (!target || !target.post_id) {
-      return send(res, 200, { ok: true, posted: false, reason: "no_target" });
+    if (!picked || !picked.post_id) {
+      return send(res, 200, {
+        ok: true, posted: false, dry,
+        reason: dry ? "no_recent_post" : "no_target",
+      });
     }
 
     // 2. 문구를 씁니다.
@@ -171,15 +229,15 @@ module.exports = async (req, res) => {
         effort: "low",           // 댓글 한 줄에 깊은 사고는 필요 없습니다
         format: { type: "json_schema", schema: SCHEMA },
       },
-      messages: [{ role: "user", content: buildPrompt(target) }],
+      messages: [{ role: "user", content: buildPrompt(picked) }],
     });
 
     // 안전 분류기가 거절하면 이번 글은 그냥 건너뜁니다.
     // 이 기능에서는 거절이 곧 "이 글에는 달지 마라"라서, 다른 모델로
     // 우회할 이유가 없어요.
     if (message.stop_reason === "refusal") {
-      console.warn("[auto-comment] 모델이 거절했습니다. post", target.post_id);
-      return send(res, 200, { ok: true, posted: false, reason: "refusal" });
+      console.warn("[auto-comment] 모델이 거절했습니다. post", picked.post_id);
+      return send(res, 200, { ok: true, posted: false, dry, reason: "refusal" });
     }
 
     const block = message.content.find((b) => b.type === "text");
@@ -188,23 +246,34 @@ module.exports = async (req, res) => {
       out = JSON.parse(block ? block.text : "");
     } catch (_) {
       console.error("[auto-comment] 응답을 해석하지 못했습니다:", block && block.text);
-      return send(res, 200, { ok: true, posted: false, reason: "bad_model_output" });
+      return send(res, 200, { ok: true, posted: false, dry, reason: "bad_model_output" });
     }
 
     const body = String((out && out.comment) || "").trim();
     if (!out || out.skip || !body) {
-      return send(res, 200, { ok: true, posted: false, reason: "model_skipped" });
+      return send(res, 200, { ok: true, posted: false, dry, reason: "model_skipped" });
     }
     if (body.length > 300) {
       // 프롬프트에 60자라고 했는데 300자가 왔다면 뭔가 어긋난 겁니다.
       console.warn("[auto-comment] 너무 긴 댓글이라 버립니다:", body.length);
-      return send(res, 200, { ok: true, posted: false, reason: "too_long" });
+      return send(res, 200, { ok: true, posted: false, dry, reason: "too_long" });
+    }
+
+    // 미리보기는 여기서 끝. 글로 남기지 않습니다.
+    if (dry) {
+      return send(res, 200, {
+        ok: true, posted: false, dry: true,
+        would_comment: body,
+        post_id: picked.post_id,
+        post_title: picked.post_title,
+        nick: picked.author_nick,
+      });
     }
 
     // 3. 등록.
     const commentId = await rpc(env, "auto_comment_publish", {
-      p_author: target.author_id,
-      p_post_id: target.post_id,
+      p_author: picked.author_id,
+      p_post_id: picked.post_id,
       p_text: body,
     });
 
@@ -213,13 +282,13 @@ module.exports = async (req, res) => {
       return send(res, 200, { ok: true, posted: false, reason: "duplicate" });
     }
 
-    console.log(`[auto-comment] post#${target.post_id} ← ${target.author_nick}: ${body}`);
+    console.log(`[auto-comment] post#${picked.post_id} ← ${picked.author_nick}: ${body}`);
     return send(res, 200, {
       ok: true,
       posted: true,
-      post_id: target.post_id,
+      post_id: picked.post_id,
       comment_id: commentId,
-      nick: target.author_nick,
+      nick: picked.author_nick,
     });
   } catch (e) {
     console.error("[auto-comment] 예외", e);

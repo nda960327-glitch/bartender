@@ -393,7 +393,11 @@ node tools/queue.mjs settings --daily-cap 2 --min-gap 180 --quiet 1-10
 키는 [console.anthropic.com](https://console.anthropic.com) > API keys 에서 만듭니다.
 넣기 전까지는 크론이 돌아도 `{"reason":"no_api_key"}` 만 돌려주고 아무 일도 하지
 않아요 (에러가 아니라 정상 응답입니다 — 로그가 빨개지지 않습니다).
-댓글 한 개당 대략 1~2원 정도라서, 하루 12개를 달아도 월 몇 백 원 수준입니다.
+
+**비용** — 댓글 한 개에 대략 **20~40원** (Claude Opus 5 기준, 글 길이에 따라 다름).
+기본값인 하루 1개면 월 1,000원 안팎, 하루 12개로 올리면 월 1만원 안팎입니다.
+더 싸게 쓰려면 `api/auto-comment.js` 의 `MODEL` 을 `claude-haiku-4-5` 로 바꾸세요 —
+5분의 1 수준이고, 한두 줄짜리 댓글에는 큰 차이가 없습니다.
 
 **3. 크론** — 예약 발행과 똑같이 GitHub Actions 를 씁니다 (Vercel Hobby 는 크론이
 하루 1회라서요). `.github/workflows/auto-comment.yml` 이 10분마다 노크합니다.
@@ -415,6 +419,19 @@ curl -H "x-cron-key: $CRON_SECRET" https://barapp.kr/api/auto-comment
 
 `{"posted":false,"reason":"no_target"}` 이 정상 응답입니다 — 꺼져 있거나, 쉬는 시간이거나,
 상한을 채웠거나, 주사위가 안 나왔거나, 달 만한 글이 없는 경우예요.
+
+**미리보기** — `?dry=1` 을 붙이면 문구만 만들어 보여주고 실제로 달지는 않습니다.
+스위치가 꺼져 있어도 되고, 상한·확률도 건너뜁니다. 말투가 마음에 드는지 볼 때 쓰세요.
+
+```bash
+curl -H "x-cron-key: $CRON_SECRET" "https://barapp.kr/api/auto-comment?dry=1"
+```
+
+```json
+{ "posted": false, "dry": true,
+  "would_comment": "마티니에 환불이라니 ㅋㅋ 그날은 그냥 넘기는 게 답이었을 듯",
+  "post_title": "3년차인데 오늘 처음으로 셰이커 던질 뻔했다", "nick": "바텡이" }
+```
 
 ⚠️ 자동 댓글도 **공식 계정**으로 나가므로 댓글 옆에 공식 뱃지가 붙습니다.
 말투는 현직 바텐더처럼 쓰이지만, 사람이 쓴 것처럼 위장하지는 않아요. 초기에 활기를
