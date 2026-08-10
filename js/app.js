@@ -1255,9 +1255,20 @@
     saveUser();
     toast(`+${amt}P 적립! (${reason})`);
   }
-  function checkKeywords(title, body) {
-    const hit = (state.user.keywords || []).find((k) => title.includes(k) || body.includes(k));
-    if (hit) addNoti("🔔", `키워드 알림: '${hit}' 이(가) 포함된 새 글이 올라왔어요.`);
+  /* 키워드 알림. 서버에서 도착한 남의 글에만 반응합니다.
+     수정 한 번에 알림이 또 오지 않도록 이미 알린 것은 기억해둬요. */
+  const kwSeen = new Set();
+  function checkKeywords(item, kind) {
+    if (!item || item.mine || item.official) return;
+    if (!(state.user.keywords || []).length) return;
+    if (kwSeen.has(kind + ":" + item.id)) return;
+    const text = [item.title, item.body, item.name, item.note, item.desc]
+      .filter(Boolean).join(" ");
+    const hit = state.user.keywords.find((k) => text.includes(k));
+    if (!hit) return;
+    kwSeen.add(kind + ":" + item.id);
+    const label = (item.title || item.name || "").slice(0, 18);
+    addNoti("🔔", `키워드 '${hit}' — ${label}`, { view: kind, id: item.id });
   }
 
   /* ---------- 테마 ---------- */
@@ -4254,7 +4265,6 @@
     state.user.mySpiritIds.push(id);
     saveSpirits(); saveUser();
     Sync.saveSpirit(item);
-    checkKeywords(item.name, item.note || "");
     ["sw-name", "sw-abv", "sw-price", "sw-note", "sw-ings", "sw-recipe", "sw-img"].forEach((i) => { $("#" + i).value = ""; });
     setSwImg(null);
     $("#sw-file").value = "";
@@ -4441,7 +4451,6 @@
     state.meets.push(meet);
     saveMeets();
     Sync.saveMeet(meet);
-    checkKeywords(meet.title, meet.desc);
     ["mw-title", "mw-date", "mw-time", "mw-place", "mw-max", "mw-desc"].forEach((i) => { $("#" + i).value = ""; });
     state.mwRegion = null;
     show("meet");
@@ -4806,7 +4815,6 @@
     savePosts(); saveUser();
     Sync.savePost(post);
     checkBadges();
-    checkKeywords(title, body);
     store.set("draft", null);
     $("#write-title").value = "";
     $("#write-body").value = "";
@@ -4823,6 +4831,12 @@
   /* ---------- 알림/채팅 ---------- */
   function renderNoti() {
     $("#noti-list").innerHTML = `
+      <div class="banner push-nudge" id="push-nudge" hidden>
+        <span class="banner-ic">🔔</span>
+        <span class="banner-txt">앱을 닫아둬도 채팅·댓글 알림 받기</span>
+        <button class="nudge-on" id="push-nudge-on">켜기</button>
+        <button class="nudge-x" id="push-nudge-x" aria-label="다시 보지 않기">✕</button>
+      </div>
       <button class="banner" id="kw-banner">
         <span class="banner-ic">🔔</span>
         <span class="banner-txt">키워드알림 설정${state.user.keywords.length ? ` (${state.user.keywords.length})` : ""}</span>
@@ -4841,6 +4855,27 @@
         + '<button class="text-btn muted" id="noti-clear" style="width:100%;padding:14px">알림 전체 지우기</button>'
         : '<div class="empty-state">알림이 없어요.</div>'}`;
     $("#kw-banner").addEventListener("click", openKeywordSheet);
+
+    /* 기기 알림 안내 띠. 조건이 하나라도 안 맞으면 조용히 숨어 있습니다.
+       (지원 안 함 · 이미 켬 · 차단됨 · 서버 키 없음 · "다시 보지 않기") */
+    (async () => {
+      const el = $("#push-nudge");
+      if (!el) return;
+      let off = null;
+      try { off = localStorage.getItem("bartalk_push_nudge_off"); } catch (e) {}
+      if (off || !Push.supported() || Notification.permission === "denied") return;
+      if (!Sync.ready() || !(await Push.publicKey()) || (await Push.isOn())) return;
+      el.hidden = false;
+      $("#push-nudge-on").addEventListener("click", async () => {
+        const r = await Push.enable();
+        toast(r.ok ? "알림을 켰어요. 앱을 닫아둬도 알려드릴게요." : r.error);
+        renderNoti();
+      });
+      $("#push-nudge-x").addEventListener("click", () => {
+        try { localStorage.setItem("bartalk_push_nudge_off", "1"); } catch (e) {}
+        el.hidden = true;
+      });
+    })();
     $$("#noti-list .noti-item.tappable").forEach((el) => el.addEventListener("click", (e) => {
       if (e.target.closest(".noti-del")) return;   // ✕ 는 지우기입니다
       gotoNoti(state.noti[+el.dataset.go] && state.noti[+el.dataset.go].to);
@@ -6396,6 +6431,7 @@
           comments: keep.comments || [], likedByMe: keep.likedByMe,
         });
       } else state.posts.push(p.item);
+      if (p.op !== "delete") checkKeywords(p.item, "post");
       savePosts();
 
     } else if (p.kind === "comment") {
@@ -6453,6 +6489,7 @@
           comments: keep.comments || [], joined: keep.joined, isJoined: keep.isJoined,
         });
       } else state.meets.push(p.item);
+      if (p.op !== "delete") checkKeywords(p.item, "meet");
       saveMeets();
 
     } else if (p.kind === "meetJoin") {
@@ -6489,6 +6526,7 @@
         const keep = state.spirits[i];
         state.spirits[i] = Object.assign({}, keep, p.item, { reviews: keep.reviews || [] });
       } else state.spirits.push(p.item);
+      if (p.op !== "delete") checkKeywords(p.item, "spirit");
       saveSpirits();
 
     } else if (p.kind === "review") {

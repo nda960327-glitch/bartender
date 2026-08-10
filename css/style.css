@@ -1527,3 +1527,17 @@ textarea.input { height: auto; }
   font-size: 13px; font-weight: 600; text-align: left; cursor: pointer;
 }
 .filter-bar:hover { color: var(--text); }
+
+/* ---------- 기기 알림 안내 띠 ---------- */
+.push-nudge { display: flex; align-items: center; cursor: default; }
+.nudge-on {
+  flex: none; padding: 7px 14px; border: 0; border-radius: 999px;
+  background: var(--accent); color: #fff;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.nudge-x {
+  flex: none; width: 28px; height: 28px; margin-left: 2px;
+  border: 0; border-radius: 50%; background: transparent;
+  color: var(--text-muted); font-size: 12px; cursor: pointer;
+}
+.nudge-x:hover { color: var(--text); }
