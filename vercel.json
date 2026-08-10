@@ -2,10 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": false,
   "trailingSlash": false,
-  "crons": [
-    { "path": "/api/publish", "schedule": "*/10 * * * *" },
-    { "path": "/api/auto-comment", "schedule": "*/10 * * * *" }
-  ],
   "headers": [
     {
       "source": "/.well-known/assetlinks.json",

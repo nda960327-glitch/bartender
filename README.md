@@ -395,9 +395,10 @@ node tools/queue.mjs settings --daily-cap 2 --min-gap 180 --quiet 1-10
 않아요 (에러가 아니라 정상 응답입니다 — 로그가 빨개지지 않습니다).
 댓글 한 개당 대략 1~2원 정도라서, 하루 12개를 달아도 월 몇 백 원 수준입니다.
 
-**3. 크론** — `vercel.json` 에 `/api/auto-comment` 이 10분마다 돌도록 들어가 있습니다.
-Vercel 무료 플랜은 크론이 하루 한 번까지라, 10분 간격이 필요하면 유료 플랜이거나
-GitHub Actions 로 부르세요 (예약 발행 크론과 같은 방식).
+**3. 크론** — 예약 발행과 똑같이 GitHub Actions 를 씁니다 (Vercel Hobby 는 크론이
+하루 1회라서요). `.github/workflows/auto-comment.yml` 이 10분마다 노크합니다.
+`CRON_SECRET` 시크릿만 넣어두면 되고, 예약 발행용으로 이미 넣었다면 그대로 쓰입니다.
+주소가 `barapp.kr` 이 아니면 저장소 Variables 에 `AUTO_COMMENT_URL` 을 넣으세요.
 
 **4. 켜기** — 관리자 → 봇 탭 → "AI 자동 댓글" 켜기.
 
