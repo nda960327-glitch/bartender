@@ -5095,6 +5095,10 @@
       </div>`;
     }).join("");
     $("#btn-admin").hidden = !(state.adminMode || isAdmin());
+    /* 백업/복원은 오프라인 전용 앱이던 시절의 흔적입니다. 지금은 서버가
+       보관하므로 일반 이용자에게는 쓸 일이 없고, 복원은 오히려 위험해요
+       (아래 importData 주석 참고). 운영자에게만 남깁니다. */
+    $("#btn-backup").hidden = !(state.adminMode || isAdmin());
     const pendingR = (state.serverReports || []).filter((r) => r.status === "접수").length;
     $("#admin-report-cnt").textContent = pendingR ? `신고 ${pendingR}건` : "";
     $("#toggle-push").classList.toggle("on", state.push);
@@ -5623,7 +5627,10 @@
     Object.keys(localStorage)
       .filter((k) => k.startsWith("bartalk_"))
       .forEach((k) => { data[k] = localStorage.getItem(k); });
-    const blob = new Blob([JSON.stringify({ app: "bartalk", ver: 1, exportedAt: Date.now(), data })], { type: "application/json" });
+    // 누구 것인지 적어둬야 복원할 때 남의 백업인지 알아챌 수 있어요.
+    const blob = new Blob([JSON.stringify({
+      app: "bartalk", ver: 2, uid: Sync.uid || null, exportedAt: Date.now(), data,
+    })], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     const d = new Date();
@@ -5632,13 +5639,25 @@
     URL.revokeObjectURL(a.href);
     toast("백업 파일을 저장했어요. 💾");
   }
+  /* 복원은 생각보다 위험합니다.
+     저장된 값을 통째로 덮어쓰기 때문에, 다른 계정의 백업을 넣으면 그 글들이
+     "내 글"로 남고 다음 동기화 때 지금 로그인한 계정 이름으로 서버에 다시
+     올라갑니다. 남의 글이 내 글이 되는 거예요.
+     그래서 계정이 다르면 한 번 더 묻고, 무엇을 하려는지 분명히 알립니다. */
   function importData(file) {
     const reader = new FileReader();
     reader.onload = async () => {
       try {
         const parsed = JSON.parse(reader.result);
         if (parsed.app !== "bartalk" || !parsed.data) throw new Error("bad");
-        if (!await btConfirm("백업 데이터로 복원할까요?\n현재 데이터는 백업 내용으로 바뀌어요.", { yes: "복원" })) return;
+
+        const otherAccount = parsed.uid && Sync.uid && parsed.uid !== Sync.uid;
+        if (otherAccount) {
+          const ok = await btConfirm(
+            "다른 계정에서 만든 백업이에요.\n\n복원하면 그 계정의 글이 지금 로그인한 계정의 글로 서버에 올라갑니다. 되돌릴 수 없어요.\n\n그래도 복원할까요?",
+            { yes: "알고도 복원", face: "sad" });
+          if (!ok) return;
+        } else if (!await btConfirm("백업 데이터로 복원할까요?\n현재 데이터는 백업 내용으로 바뀌어요.", { yes: "복원" })) return;
         Object.entries(parsed.data).forEach(([k, v]) => {
           if (k.startsWith("bartalk_")) localStorage.setItem(k, v);
         });
@@ -6054,6 +6073,7 @@
 
   // 데이터 백업/복원
   $("#btn-backup").addEventListener("click", () => {
+    if (!(state.adminMode || isAdmin())) return;
     let bytes = 0;
     Object.keys(localStorage).filter((k) => k.startsWith("bartalk_"))
       .forEach((k) => { bytes += (localStorage.getItem(k) || "").length * 2; });
