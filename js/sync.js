@@ -1513,6 +1513,33 @@
      * 앱에서 status 를 '발행됨' 으로 직접 바꾸거나 작성 계정을 갈아끼우는 건
      * 서버 트리거가 되돌립니다. */
 
+    /* 순위표. supabase/ranking.sql 을 넣지 않은 곳에서는 함수가 없으니
+       그 경우를 오류가 아니라 "아직 없음"으로 구분해 돌려줍니다. */
+    async topBartenders(limit) {
+      if (!ready()) return { ok: false, error: "not-installed" };
+      try {
+        var res = await sb.rpc("top_bartenders", { p_limit: limit || 50 });
+        if (res.error) {
+          var m = String(res.error.message || "");
+          if (/does not exist|not find|schema cache/i.test(m)) return { ok: false, error: "not-installed" };
+          return { ok: false, error: m };
+        }
+        return { ok: true, rows: res.data || [] };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "순위를 불러오지 못했어요." };
+      }
+    },
+
+    /* 내 점수를 올려둡니다. 실패해도 앱은 그대로 동작해야 하므로
+       조용히 넘어가요 (ranking.sql 을 아직 안 넣었을 수도 있습니다). */
+    async pushPoints(points) {
+      if (!ready()) return false;
+      try {
+        var res = await sb.rpc("bump_my_points", { p_points: Math.max(0, Math.round(points || 0)) });
+        return !res.error;
+      } catch (e) { return false; }
+    },
+
     // 봇 화면 첫 진입에 필요한 것들을 한 번에 가져와요.
     async botLoad() {
       if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
@@ -1529,7 +1556,7 @@
         if (pRes.error) throw pRes.error;
 
         var qRes = await sb.from("content_queue")
-          .select("id,status,kind,author_id,title,text,publish_after,published_at,published_id,note,last_error")
+          .select("id,status,kind,author_id,title,text,publish_after,published_at,published_id,note,last_error,source,target_post_id")
           .order("publish_after", { ascending: true })
           .limit(1000);
         if (qRes.error) throw qRes.error;
@@ -1548,6 +1575,9 @@
         if (!res.data || !res.data.length) return { ok: false, error: "권한이 없어요." };
         if (typeof patch.enabled === "boolean") {
           await api.logAdmin(patch.enabled ? "봇 자동발행 켜기" : "봇 자동발행 끄기", "user", null, "", "");
+        }
+        if (typeof patch.auto_comment_enabled === "boolean") {
+          await api.logAdmin(patch.auto_comment_enabled ? "AI 자동댓글 켜기" : "AI 자동댓글 끄기", "user", null, "", "");
         }
         return { ok: true, settings: res.data[0] };
       } catch (e) {

@@ -1,6 +1,11 @@
 /* ============ 바텐톡 - 바텐더 익명 커뮤니티 ============ */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* hidden 을 붙였으면 무조건 안 보여야 합니다.
+   클래스에 display 를 준 요소는 브라우저 기본 [hidden] 을 이겨버려서,
+   숨긴 줄 알았던 것이 그대로 남아 있곤 했어요. */
+[hidden] { display: none !important; }
+
 :root {
   --bg: #ffffff;
   --bg-gray: #f4f5f7;
@@ -1529,18 +1534,125 @@ textarea.input { height: auto; }
 .filter-bar:hover { color: var(--text); }
 
 /* ---------- 기기 알림 안내 띠 ---------- */
-.push-nudge { display: flex; align-items: center; cursor: default; }
+.push-nudge { display: flex; align-items: center; cursor: default; gap: 8px; }
+/* 글이 두 줄로 접히더라도 버튼 자리는 남겨둡니다. */
+.push-nudge .banner-txt { flex: 1; min-width: 0; }
 .nudge-on {
-  flex: none; padding: 7px 14px; border: 0; border-radius: 999px;
+  flex: none; padding: 8px 15px; border: 0; border-radius: 999px;
   background: var(--accent); color: #fff;
   font-size: 13px; font-weight: 700; cursor: pointer;
 }
+.nudge-on:active { opacity: .75; }
+/* 손가락으로 눌러야 하는 버튼입니다. 28px 는 작았어요. */
 .nudge-x {
-  flex: none; width: 28px; height: 28px; margin-left: 2px;
-  border: 0; border-radius: 50%; background: transparent;
-  color: var(--text-muted); font-size: 12px; cursor: pointer;
+  flex: none; width: 34px; height: 34px; margin-left: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%; background: rgba(0, 0, 0, .06);
+  color: var(--text-sub); font-size: 15px; line-height: 1; cursor: pointer;
 }
+.nudge-x:active { background: rgba(0, 0, 0, .14); }
 .nudge-x:hover { color: var(--text); }
+
+/* ---------- 공통: 카드 안의 항목 줄 ---------- */
+.card-h { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+.card-row {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 7px 0; border-top: 1px solid var(--line);
+}
+.card-row:first-of-type { border-top: 0; }
+.card-row.col { flex-direction: column; gap: 4px; }
+.card-row.on { color: var(--accent); font-weight: 700; }
+.card-k { flex: none; min-width: 76px; font-size: 13.5px; color: var(--text-sub); }
+.card-v { flex: 1; font-size: 14.5px; text-align: right; word-break: keep-all; }
+.card-row.col .card-v { text-align: left; }
+.card-multi { font-size: 14.5px; line-height: 1.65; white-space: pre-wrap; }
+
+/* ---------- 바텐더 프로필 ---------- */
+.bcard { padding: 20px 18px; }
+.bcard-top { display: flex; align-items: center; gap: 12px; }
+.bcard-id { min-width: 0; }
+.bcard-nick { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
+.bcard-status { font-size: 13px; color: var(--text-sub); margin-top: 3px; }
+.bcard-intro {
+  margin-top: 14px; font-size: 15px; line-height: 1.7;
+  word-break: keep-all; white-space: pre-wrap;
+}
+.sig-line { padding: 7px 0; font-size: 15px; border-top: 1px solid var(--line); }
+.sig-line:first-of-type { border-top: 0; }
+
+/* ---------- 바 찾기 ---------- */
+.bar-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 15px 16px; border: none; border-bottom: 1px solid var(--line);
+  background: var(--bg); cursor: pointer; text-align: left;
+}
+.bar-main { flex: 1; min-width: 0; }
+.bar-name { font-size: 15.5px; font-weight: 700; }
+.bar-meta { font-size: 13px; color: var(--text-sub); margin-top: 3px; }
+.bar-sig { font-size: 13.5px; color: var(--text-sub); margin-top: 5px; }
+.bar-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.bar-tags span {
+  font-size: 11.5px; font-weight: 600; color: var(--text-sub);
+  background: var(--chip-bg); border-radius: 999px; padding: 3px 8px;
+}
+
+/* ---------- 랭킹 ---------- */
+.rank-me { padding: 22px 18px; text-align: center; }
+.rank-lv { font-size: 17px; font-weight: 800; }
+.rank-pt { font-size: 30px; font-weight: 800; color: var(--accent); margin: 6px 0 12px; letter-spacing: -0.5px; }
+.rank-bar { height: 8px; border-radius: 999px; background: var(--chip-bg); overflow: hidden; }
+.rank-bar span { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+.rank-next { font-size: 13px; color: var(--text-sub); margin-top: 9px; }
+.rank-mine { font-size: 13px; font-weight: 700; margin-top: 4px; }
+.rank-row {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 0; border-top: 1px solid var(--line);
+}
+.rank-row:first-of-type { border-top: 0; }
+.rank-row.me { background: var(--accent-soft); margin: 0 -16px; padding: 9px 16px; border-radius: 10px; }
+.rank-no { flex: none; width: 26px; font-size: 13px; font-weight: 700; color: var(--text-sub); text-align: center; }
+.rank-no.top { font-size: 16px; }
+.rank-nick { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-lvsm { flex: none; font-size: 14px; }
+.rank-pts { flex: none; font-size: 13.5px; font-weight: 700; color: var(--text-sub); }
+
+/* ---------- 재고 · 발주 ---------- */
+.stock-top { display: flex; align-items: center; gap: 12px; padding: 16px; }
+.stock-top > div:first-child { flex: 1; min-width: 0; }
+.stock-top-n { font-size: 15px; font-weight: 700; }
+.stock-top-n .warn { color: var(--accent); }
+.stock-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 0; border-top: 1px solid var(--line);
+}
+.stock-item:first-of-type { border-top: 0; }
+.stock-info { flex: 1; min-width: 0; cursor: pointer; }
+.stock-name { font-size: 14.5px; font-weight: 600; }
+.stock-sub { font-size: 12.5px; color: var(--text-sub); margin-top: 2px; }
+.stock-warn {
+  font-size: 11px; font-weight: 700; color: #fff; background: var(--accent);
+  border-radius: 999px; padding: 2px 7px; margin-left: 4px;
+}
+.stock-qty { flex: none; display: flex; align-items: center; gap: 4px; }
+.qty-btn {
+  width: 32px; height: 32px; border: 1px solid var(--line-strong); border-radius: 9px;
+  background: var(--bg-card); color: var(--text); font-size: 17px; line-height: 1; cursor: pointer;
+}
+.qty-btn:active { background: var(--chip-bg); }
+.qty-n { min-width: 30px; text-align: center; font-size: 15px; font-weight: 700; }
+
+/* ---------- 내 레시피 노트 ---------- */
+.recipe-item { display: block; width: 100%; text-align: left; border: none; cursor: pointer; }
+.recipe-name { font-size: 15.5px; font-weight: 700; }
+.recipe-spec {
+  font-size: 14px; line-height: 1.65; color: var(--text-sub);
+  margin-top: 7px; white-space: pre-wrap;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.recipe-time { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+.my-spec { background: var(--accent-soft); }
+.my-spec-text { font-size: 15px; line-height: 1.7; white-space: pre-wrap; }
+.my-spec-empty { font-size: 14px; line-height: 1.7; color: var(--text-sub); word-break: keep-all; }
 
 /* 상대가 읽은 마지막 내 말풍선 밑에 붙습니다 */
 .read-mark {

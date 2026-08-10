@@ -97,6 +97,56 @@
     { id: 8, shop: "달빛한잔", days: 4, title: "전통주 다이닝바 바텐더 채용 (주말)", pay: "시급 16,000원", region: "서울", area: "서울 종로구", type: "칵테일바" },
   ];
 
+  /* 업장(바) 목록.
+     주소·전화번호는 일부러 넣지 않았어요. 확인되지 않은 정보를 앱이
+     사실처럼 보여주면 그 가게에 민폐가 됩니다. 동네와 분위기까지만. */
+  const SEED_BARS = [
+    { id: 1, name: "문라이트라운지", region: "서울", area: "서울 강남구", type: "칵테일바",
+      hours: "19:00 ~ 03:00 · 일 휴무", sig: "무화과 올드패션드",
+      note: "강남 뒷골목 지하. 조도가 낮고 스피커가 좋아서 혼자 오는 손님이 많아요.",
+      tags: ["클래식", "혼술", "심야"], seed: true },
+    { id: 2, name: "몰트하우스", region: "경기", area: "경기 수원시", type: "위스키바",
+      hours: "18:00 ~ 01:00 · 월 휴무", sig: "글렌캐런 플라이트 3종",
+      note: "싱글몰트 200병대. 사장님이 직접 테이스팅 노트를 붙여둡니다.",
+      tags: ["위스키", "플라이트", "조용함"], seed: true },
+    { id: 3, name: "바네온", region: "서울", area: "서울 마포구", type: "펍/호프",
+      hours: "18:00 ~ 04:00 · 연중무휴", sig: "네온 하이볼",
+      note: "홍대 한복판. 시끄럽고 빠르고 사람 많습니다. 주말 웨이팅 각오.",
+      tags: ["하이볼", "시끌", "주말"], seed: true },
+    { id: 4, name: "비노쉐어", region: "서울", area: "서울 강남구", type: "와인바",
+      hours: "17:00 ~ 24:00 · 일 휴무", sig: "글라스 와인 12종 로테이션",
+      note: "내추럴 위주. 잔술 회전이 빨라 혼자 두세 잔 비교해보기 좋아요.",
+      tags: ["와인", "내추럴", "안주"], seed: true },
+    { id: 5, name: "그랜드바", region: "인천", area: "인천 중구", type: "호텔바",
+      hours: "17:00 ~ 01:00 · 연중무휴", sig: "클래식 마티니",
+      note: "호텔 라운지. 드레스코드는 없지만 분위기가 정중한 편입니다.",
+      tags: ["클래식", "뷰", "정장"], seed: true },
+    { id: 6, name: "서면비어", region: "부산", area: "부산 부산진구", type: "펍/호프",
+      hours: "17:00 ~ 02:00 · 연중무휴", sig: "부산 페일에일 탭 6종",
+      note: "크래프트 탭이 자주 바뀝니다. 바텐더가 시음잔을 잘 내줘요.",
+      tags: ["맥주", "탭", "가성비"], seed: true },
+    { id: 7, name: "달빛한잔", region: "서울", area: "서울 종로구", type: "전통주바",
+      hours: "18:00 ~ 01:00 · 일·월 휴무", sig: "제철 과실 막걸리",
+      note: "익선동 한옥. 전통주 베이스 칵테일을 계절마다 새로 짭니다.",
+      tags: ["전통주", "한옥", "데이트"], seed: true },
+    { id: 8, name: "코너스툴", region: "서울", area: "서울 용산구", type: "칵테일바",
+      hours: "20:00 ~ 03:00 · 화 휴무", sig: "바텐더 오마카세 3잔",
+      note: "좌석 8개짜리 스탠딩 바. 취향만 말하면 알아서 만들어줍니다.",
+      tags: ["오마카세", "소규모", "취향"], seed: true },
+    { id: 9, name: "하이볼공장", region: "경기", area: "경기 성남시", type: "하이볼바",
+      hours: "17:00 ~ 02:00 · 연중무휴", sig: "산토리 가쿠 하이볼",
+      note: "판교 직장인 밀집. 퇴근 직후 한 시간이 제일 붐빕니다.",
+      tags: ["하이볼", "퇴근", "빠름"], seed: true },
+    { id: 10, name: "제주바람", region: "제주", area: "제주 제주시", type: "칵테일바",
+      hours: "19:00 ~ 02:00 · 수 휴무", sig: "한라봉 진토닉",
+      note: "제주 재료로만 짠 시그니처 메뉴가 다섯 개 있습니다.",
+      tags: ["로컬", "진", "여행"], seed: true },
+  ];
+  const BAR_TYPES = ["칵테일바", "위스키바", "와인바", "펍/호프", "하이볼바", "전통주바", "호텔바", "이자카야", "기타"];
+
+  /* 재고 품목 분류. 발주서를 이 순서로 묶어줍니다. */
+  const STOCK_CATS = ["스피릿", "리큐르", "와인/맥주", "시럽/주스", "가니시", "소모품", "기타"];
+
   const SEED_SPIRITS = [
     { id: 1, kind: "spirit", emoji: "🥃", name: "글렌피딕 12년", cat: "위스키", abv: 40, price: "5~7만원", note: "배와 사과 향이 나는 입문용 싱글몰트. 부드럽고 깔끔한 피니시라 하이볼로도 좋아요.", by: "익명", time: now - 20 * D, reviews: [
       { color: 3, stars: 5, text: "입문자한테 늘 추천하는 몰트", time: now - 5 * D },
@@ -777,6 +827,14 @@
     cart: store.get("cart", []),
     orders: store.get("orders", []),
     worklog: store.get("worklog", []),
+    bars: store.get("bars", SEED_BARS),
+    stock: store.get("stock", []),
+    barQ: "",
+    barRegion: "전체",
+    curBar: null,
+    rankRows: null,        // 서버에서 받은 랭킹. null 이면 아직 안 받았어요
+    rankState: "idle",     // idle | loading | ok | off | error
+    rankError: "",
     imgCache: store.get("imgCache", {}),
     reports: store.get("reports", []),
     members: store.get("members", []),
@@ -858,6 +916,8 @@
   const saveCart = () => store.set("cart", state.cart);
   const saveOrders = () => store.set("orders", state.orders);
   const saveWorklog = () => store.set("worklog", state.worklog);
+  const saveBars = () => store.set("bars", state.bars);
+  const saveStock = () => store.set("stock", state.stock);
 
   /* ---------- 사용자 필드 보강 (앱 업데이트 시) ---------- */
   state.user.cellar = state.user.cellar || { tried: [], wish: [] };
@@ -874,6 +934,9 @@
   }
   state.user.hiddenPosts = state.user.hiddenPosts || [];
   state.user.hiddenSpirits = state.user.hiddenSpirits || [];
+  state.user.card = state.user.card || null;          // 바텐더 프로필
+  state.user.myRecipes = state.user.myRecipes || {};  // 칵테일 id → 내 배합
+  state.user.myBars = state.user.myBars || [];        // 즐겨찾은 바 id
 
   /* ---------- 시드 병합 (앱 업데이트 시 새 데이터 추가) ---------- */
   const SEED_V = 8;
@@ -1308,6 +1371,19 @@
     if (state.user.pointLog.length > 50) state.user.pointLog.length = 50;
     saveUser();
     toast(`+${amt}P 적립! (${reason})`);
+    pushPointsSoon();
+  }
+
+  /* 점수를 서버에 올려 순위에 반영합니다. 포인트가 오를 때마다 바로
+     보내면 요청이 우수수 나가므로 잠깐 모았다 한 번만 보내요. */
+  let pointPushTimer = null;
+  function pushPointsSoon() {
+    clearTimeout(pointPushTimer);
+    pointPushTimer = setTimeout(() => {
+      Sync.pushPoints(state.user.points);
+      state.rankRows = null;      // 다음에 랭킹을 열면 새로 받도록
+      state.rankState = "idle";
+    }, 4000);
   }
   /* 키워드 알림. 서버에서 도착한 남의 글에만 반응합니다.
      수정 한 번에 알림이 또 오지 않도록 이미 알린 것은 기억해둬요. */
@@ -1476,7 +1552,7 @@
       (view === "doc" && (state.docFrom === "onboard" || state.docFrom === "login"));
     $("#bottom-nav").style.display = hideNav ? "none" : "";
     const navView = NAV_VIEWS.includes(view) ? view
-      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", market: "home", "market-detail": "home", cart: "home", worklog: "home", units: "home", search: "home", timer: "home", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", doc: "mypage" }[view] || "home";
+      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", market: "home", "market-detail": "home", cart: "home", worklog: "home", units: "home", search: "home", timer: "home", bars: "home", bar: "home", rank: "home", stock: "home", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", card: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
     $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === navView));
     if (view === "home") renderHome();
     if (view === "market") renderStore();
@@ -1508,6 +1584,12 @@
     if (view === "settings") renderSettings();
     if (view === "alerts") renderNoti();
     if (view === "blocked") renderBlocked();
+    if (view === "card") renderCard();
+    if (view === "bars") renderBars();
+    if (view === "bar") renderBarDetail();
+    if (view === "rank") renderRank();
+    if (view === "stock") renderStock();
+    if (view === "recipes") renderRecipes();
 
     /* 방금 그린 것은 이 기기에 있던 내용입니다.
        서버에 새 글이 있으면 곧바로 받아 다시 그려요. */
@@ -2588,8 +2670,10 @@
     const { settings: cfg, personas, queue } = state.botData;
     const count = (s) => queue.filter((q) => q.status === s).length;
     const today = new Date().toDateString();
+    // 자동 댓글은 자기 상한을 따로 쓰므로 발행 상한에서 빼고 셉니다.
+    const isAuto = (q) => q.kind === "comment" && String(q.source || "").indexOf("auto:") === 0;
     const todayCnt = queue.filter(
-      (q) => q.status === "published" && new Date(q.published_at).toDateString() === today
+      (q) => q.status === "published" && !isAuto(q) && new Date(q.published_at).toDateString() === today
     ).length;
     const upcoming = queue
       .filter((q) => q.status === "approved")
@@ -2599,6 +2683,16 @@
 
     const chips = (name, vals, cur, suffix) =>
       vals.map((v) => `<button class="chip ${v === cur ? "active" : ""}" data-set="${name}" data-val="${v}">${v}${suffix || ""}</button>`).join("");
+
+    /* 자동 댓글. auto-comment.sql 을 아직 안 돌렸으면 이 칸이 통째로 없어요. */
+    const acReady = typeof cfg.auto_comment_enabled === "boolean";
+    const acDay = queue.filter(
+      (q) => q.status === "published" && isAuto(q) && Date.parse(q.published_at) > Date.now() - 864e5
+    ).length;
+    const acRecent = queue
+      .filter((q) => q.status === "published" && isAuto(q))
+      .sort((a, b) => Date.parse(b.published_at) - Date.parse(a.published_at))
+      .slice(0, 5);
 
     $("#admin-area").innerHTML = `
       <div class="order-item" style="margin-top:12px">
@@ -2630,6 +2724,54 @@
         </div>
       </div>
 
+      ${acReady ? `
+      <div class="order-item">
+        <div class="bot-switch">
+          <div>
+            <div class="order-title" style="margin:0">AI 자동 댓글 ${cfg.auto_comment_enabled ? "켜짐" : "꺼짐"}</div>
+            <div class="market-meta">${cfg.auto_comment_enabled
+              ? `공식 계정이 최근 글에 알아서 댓글을 답니다. 최근 24시간 ${acDay}/${cfg.ac_cap_24h}개`
+              : "글이 올라와도 자동으로 댓글이 달리지 않습니다."}</div>
+          </div>
+          <button class="host-chat-btn ${cfg.auto_comment_enabled ? "outline" : ""}" id="ac-toggle" style="width:auto;padding:10px 16px;margin:0">
+            ${cfg.auto_comment_enabled ? "끄기" : "켜기"}
+          </button>
+        </div>
+        <div class="market-meta" style="margin-top:12px">구간별 상한 (셋 다 동시에 지켜집니다)</div>
+        <div class="market-meta" style="margin-bottom:6px">10분 안에</div>
+        <div class="sort-row" style="padding:0 0 8px">${chips("ac_cap_10min", [0, 1, 2, 3], cfg.ac_cap_10min, "개")}</div>
+        <div class="market-meta" style="margin-bottom:6px">60분 안에</div>
+        <div class="sort-row" style="padding:0 0 8px">${chips("ac_cap_60min", [0, 1, 2, 3, 5, 8], cfg.ac_cap_60min, "개")}</div>
+        <div class="market-meta" style="margin-bottom:6px">24시간 안에</div>
+        <div class="sort-row" style="padding:0 0 8px">${chips("ac_cap_24h", [0, 1, 3, 6, 12, 24], cfg.ac_cap_24h, "개")}</div>
+        <div class="market-meta" style="margin-bottom:6px">확률 — 10분마다 굴려서 이만큼만 답니다</div>
+        <div class="sort-row" style="padding:0 0 8px">${chips("ac_chance_pct", [20, 40, 60, 80, 100], cfg.ac_chance_pct, "%")}</div>
+        <div class="market-meta" style="margin-bottom:6px">이보다 오래된 글에는 안 답니다</div>
+        <div class="sort-row" style="padding:0">${chips("ac_max_age_h", [6, 24, 72, 168], cfg.ac_max_age_h, "시간")}</div>
+        ${acRecent.length ? `
+          <div class="market-meta" style="margin-top:14px">최근 자동 댓글</div>
+          ${acRecent.map((q) => `<div class="bot-next">${fmtWhen(q.published_at)} · ${esc(q.text || "")} <span class="bot-by">${esc(nickOf(q.author_id))}</span></div>`).join("")}
+        ` : `<div class="market-meta" style="margin-top:14px;line-height:1.65">
+            아직 자동으로 단 댓글이 없어요.${cfg.auto_comment_enabled ? `<br>
+            켰는데도 하루가 지나도록 하나도 안 달렸다면, 서버(Vercel)에
+            <b>ANTHROPIC_API_KEY</b> 가 들어가 있는지 확인해주세요.
+            키가 없으면 여기 설정과 무관하게 문구를 만들지 못합니다.` : ""}
+          </div>`}
+      </div>
+      ` : `
+      <div class="order-item">
+        <div class="order-title">AI 자동 댓글 — 준비가 덜 됐어요</div>
+        <div class="market-meta" style="line-height:1.7">
+          켜고 끄는 스위치는 아래 두 가지를 마치면 바로 여기 나타납니다.<br><br>
+          <b>1.</b> Supabase 대시보드 &gt; SQL Editor 에<br>
+          &nbsp;&nbsp;&nbsp;<b>supabase/auto-comment.sql</b> 을 붙여넣고 실행<br>
+          <b>2.</b> Vercel 환경변수에 <b>ANTHROPIC_API_KEY</b> 추가 후 재배포<br><br>
+          다 하셨는데도 이 안내가 계속 보이면 다른 탭을 눌렀다 봇 탭으로 돌아와보세요
+          (설정을 다시 읽어옵니다).
+        </div>
+        <button class="host-chat-btn outline" id="ac-recheck" style="margin-top:10px">다시 확인</button>
+      </div>`}
+
       <div class="order-item">
         <div class="order-title">큐 현황</div>
         <div class="market-meta">초안 ${count("draft")} · 예약 ${count("approved")} · 발행 ${count("published")}${count("failed") ? ` · <b>실패 ${count("failed")}</b>` : ""}</div>
@@ -2659,6 +2801,22 @@
       const on = !cfg.enabled;
       if (on && !(await btConfirm(`자동 발행을 켤까요?\n예약된 ${count("approved")}건이 시간에 맞춰 올라갑니다.`))) return;
       await botAfter(await Sync.botSaveSettings({ enabled: on }), on ? "자동 발행을 켰어요." : "자동 발행을 껐어요.");
+    });
+    const acRecheck = $("#ac-recheck");
+    if (acRecheck) acRecheck.addEventListener("click", async () => {
+      await loadBots(true);
+      if (state.botData && typeof state.botData.settings.auto_comment_enabled !== "boolean") {
+        toast("아직 auto-comment.sql 이 적용되지 않았어요.");
+      }
+    });
+    const acBtn = $("#ac-toggle");
+    if (acBtn) acBtn.addEventListener("click", async () => {
+      const on = !cfg.auto_comment_enabled;
+      if (on && !(await btConfirm(
+        "AI 자동 댓글을 켤까요?\n최근 글에 공식 계정으로 댓글이 달립니다.\n(공식 계정이라 댓글 옆에 뱃지가 붙어요)"
+      ))) return;
+      await botAfter(await Sync.botSaveSettings({ auto_comment_enabled: on }),
+        on ? "자동 댓글을 켰어요." : "자동 댓글을 껐어요.");
     });
     $$("#admin-area [data-set]").forEach((b) =>
       b.addEventListener("click", async () => {
@@ -4310,6 +4468,17 @@
         <p>${esc(sp.recipe)}</p>
       </div>`}` : ""}
       ${dp ? dp.html : ""}
+      ${isCt ? `
+      <div class="sp-body my-spec">
+        <h3>내 배합 📓</h3>
+        ${myRecipeOf(sp.id)
+          ? `<p class="my-spec-text">${escMsg(myRecipeOf(sp.id).spec)}</p>
+             <div class="sp-by">내가 적어둠 · ${fmtTime(myRecipeOf(sp.id).time)}</div>
+             <button class="big-btn outline" id="my-spec-edit" style="margin-top:10px">고치기</button>`
+          : `<p class="my-spec-empty">우리 바에서는 이 스펙 그대로 쓰지 않죠.
+             바꾼 용량이나 재료를 적어두면 <b>내 레시피 노트</b>에 모입니다.</p>
+             <button class="big-btn outline" id="my-spec-edit" style="margin-top:6px">내 배합 적기</button>`}
+      </div>` : ""}
       <div class="sp-body">
         <h3>${isCt ? "한 줄 메모" : "한 줄 요약"} 📝</h3>
         <p>${esc(sp.note || (deep ? deep.tagline : "") || "아직 설명이 없어요.")}</p>
@@ -4335,6 +4504,8 @@
     wireDeep("#spirit-detail");
     $$("#spirit-detail .cmt-img").forEach((im) =>
       im.addEventListener("click", () => openLightbox(im.src)));
+    const specBtn = $("#my-spec-edit");
+    if (specBtn) specBtn.addEventListener("click", () => openRecipeEdit(sp));
     $("#cellar-tried").addEventListener("click", () => { toggleCellar("tried", sp.id); renderSpiritDetail(); });
     $("#cellar-wish").addEventListener("click", () => { toggleCellar("wish", sp.id); renderSpiritDetail(); });
     $$("#spirit-detail .cmt-del").forEach((b) =>
@@ -5024,6 +5195,85 @@
   }
 
   /* ---------- 알림/채팅 ---------- */
+
+  /* 이 띠를 지금 보여줘도 되는지.
+     하나라도 어긋나면 false — 지원 안 함 · 이미 켬 · 차단됨 · 서버 키 없음
+     · "다시 보지 않기" 를 누른 적 있음. */
+  async function pushNudgeVisible() {
+    try {
+      if (localStorage.getItem("bartalk_push_nudge_off")) return false;
+    } catch (e) { /* 시크릿 모드 등 — 그냥 진행합니다 */ }
+    if (!Push.supported()) return false;
+    if (typeof Notification !== "undefined" && Notification.permission === "denied") return false;
+    if (!Sync.ready()) return false;
+    try {
+      if (!(await Push.publicKey())) return false;
+      if (await Push.isOn()) return false;
+    } catch (e) { return false; }
+    return true;
+  }
+
+  /* 알림 목록의 클릭을 컨테이너 한 곳에서 받습니다.
+     예전에는 그릴 때마다 버튼마다 리스너를 달았는데, 그리는 도중에 다시
+     그려지면 리스너가 통째로 날아가 아무것도 안 눌리는 일이 있었어요.
+     컨테이너는 index.html 에 고정이라 한 번만 달면 됩니다. */
+  function wireNotiList() {
+    const box = $("#noti-list");
+    if (!box || box.dataset.wired) return;
+    box.dataset.wired = "1";
+
+    box.addEventListener("click", async (e) => {
+      const t = e.target;
+
+      if (t.closest("#push-nudge-on")) {
+        const btn = t.closest("#push-nudge-on");
+        if (btn.dataset.busy) return;
+        btn.dataset.busy = "1";
+        btn.textContent = "켜는 중…";
+        const r = await Push.enable();
+        delete btn.dataset.busy;
+        toast(r.ok ? "알림을 켰어요. 앱을 닫아둬도 알려드릴게요." : (r.error || "알림을 켜지 못했어요."));
+        renderNoti();
+        return;
+      }
+
+      if (t.closest("#push-nudge-x")) {
+        try { localStorage.setItem("bartalk_push_nudge_off", "1"); } catch (_) {}
+        const el = $("#push-nudge");
+        if (el) el.hidden = true;
+        toast("이 안내를 다시 보여주지 않을게요.");
+        return;
+      }
+
+      if (t.closest("#kw-banner")) { openKeywordSheet(); return; }
+
+      const del = t.closest(".noti-del");
+      if (del) {
+        e.stopPropagation();
+        state.noti.splice(+del.dataset.i, 1);
+        saveNoti();
+        renderNoti();
+        updateBadge();
+        return;
+      }
+
+      if (t.closest("#noti-clear")) {
+        if (!await btConfirm("알림을 전부 지울까요?", { yes: "삭제" })) return;
+        state.noti = [];
+        saveNoti();
+        renderNoti();
+        updateBadge();
+        return;
+      }
+
+      const item = t.closest(".noti-item.tappable");
+      if (item) {
+        const n = state.noti[+item.dataset.go];
+        gotoNoti(n && n.to);
+      }
+    });
+  }
+
   function renderNoti() {
     $("#noti-list").innerHTML = `
       <div class="banner push-nudge" id="push-nudge" hidden>
@@ -5049,47 +5299,17 @@
           </div>`).join("")
         + '<button class="text-btn muted" id="noti-clear" style="width:100%;padding:14px">알림 전체 지우기</button>'
         : '<div class="empty-state">알림이 없어요.</div>'}`;
-    $("#kw-banner").addEventListener("click", openKeywordSheet);
+    wireNotiList();
 
     /* 기기 알림 안내 띠. 조건이 하나라도 안 맞으면 조용히 숨어 있습니다.
-       (지원 안 함 · 이미 켬 · 차단됨 · 서버 키 없음 · "다시 보지 않기") */
+       (지원 안 함 · 이미 켬 · 차단됨 · 서버 키 없음 · "다시 보지 않기")
+       여기서는 보일지 말지만 정합니다. 버튼 동작은 wireNotiList 가 맡아요 —
+       화면을 다시 그려도 안 떨어지도록. */
     (async () => {
+      const show0 = await pushNudgeVisible();
       const el = $("#push-nudge");
-      if (!el) return;
-      let off = null;
-      try { off = localStorage.getItem("bartalk_push_nudge_off"); } catch (e) {}
-      if (off || !Push.supported() || Notification.permission === "denied") return;
-      if (!Sync.ready() || !(await Push.publicKey()) || (await Push.isOn())) return;
-      el.hidden = false;
-      $("#push-nudge-on").addEventListener("click", async () => {
-        const r = await Push.enable();
-        toast(r.ok ? "알림을 켰어요. 앱을 닫아둬도 알려드릴게요." : r.error);
-        renderNoti();
-      });
-      $("#push-nudge-x").addEventListener("click", () => {
-        try { localStorage.setItem("bartalk_push_nudge_off", "1"); } catch (e) {}
-        el.hidden = true;
-      });
+      if (el) el.hidden = !show0;
     })();
-    $$("#noti-list .noti-item.tappable").forEach((el) => el.addEventListener("click", (e) => {
-      if (e.target.closest(".noti-del")) return;   // ✕ 는 지우기입니다
-      gotoNoti(state.noti[+el.dataset.go] && state.noti[+el.dataset.go].to);
-    }));
-    $$("#noti-list .noti-del").forEach((b) => b.addEventListener("click", (e) => {
-      e.stopPropagation();
-      state.noti.splice(+b.dataset.i, 1);
-      saveNoti();
-      renderNoti();
-      updateBadge();
-    }));
-    const clearBtn = $("#noti-clear");
-    if (clearBtn) clearBtn.addEventListener("click", async () => {
-      if (!await btConfirm("알림을 전부 지울까요?", { yes: "삭제" })) return;
-      state.noti = [];
-      saveNoti();
-      renderNoti();
-      updateBadge();
-    });
     state.noti.forEach((n) => { n.read = true; });
     saveNoti();
     updateBadge();
@@ -5207,6 +5427,13 @@
     const cel = state.user.cellar.tried.length + state.user.cellar.wish.length;
     $("#cellar-cnt").textContent = cel ? cel + "병" : "";
     $("#blocked-cnt").textContent = blockedKeys().length ? blockedKeys().length + "명" : "";
+    const filled = cardFilled(state.user.card);
+    $("#card-cnt").textContent = state.user.card ? (filled >= 6 ? "완성" : `${filled}/9`) : "미작성";
+    const rcN = Object.keys(state.user.myRecipes).length;
+    $("#recipe-cnt").textContent = rcN ? rcN + "개" : "";
+    $("#rank-cnt").textContent = levelOf(state.user.points || 0).cur.name;
+    const lowN = state.stock.filter(stockLow).length;
+    $("#stock-cnt").textContent = lowN ? `부족 ${lowN}` : (state.stock.length ? `${state.stock.length}품목` : "");
     checkBadges();
     $("#badge-count").textContent = `${state.user.badges.length}/${BADGES.length}`;
     $("#badge-grid").innerHTML = BADGES.map((b) => {
@@ -6040,6 +6267,24 @@
   }));
   $("#btn-alerts").addEventListener("click", () => show("alerts"));
 
+  /* ---------- 새 화면들 ---------- */
+  $("#card-copy").addEventListener("click", () => {
+    if (!state.user.card) { toast("먼저 프로필을 만들어주세요."); return; }
+    copyText(cardText(), "프로필을 텍스트로 복사했어요. 🪪");
+  });
+  $("#bar-add").addEventListener("click", openBarSheet);
+  $("#bar-q").addEventListener("input", (e) => { state.barQ = e.target.value; renderBars(); });
+  $("#bar-del").addEventListener("click", async () => {
+    const b = state.bars.find((x) => x.id === state.curBar);
+    if (!b || !b.mine) return;
+    if (!await btConfirm(`'${b.name}' 을 삭제할까요?`, { yes: "삭제" })) return;
+    state.bars = state.bars.filter((x) => x.id !== b.id);
+    saveBars();
+    show("bars");
+    toast("삭제했어요.");
+  });
+  $("#stock-add").addEventListener("click", () => openStockSheet(null));
+
   // 온보딩
   $("#ob-nick").addEventListener("input", renderOnboard);
   $("#ob-adult").addEventListener("click", () => { state.obAdult = !state.obAdult; renderOnboard(); });
@@ -6569,6 +6814,769 @@
   });
 
   /* ============================================================
+   *  내 바텐더 프로필 (포트폴리오)
+   *
+   *  채용 화면은 있는데 지원할 "사람" 쪽 이력이 없었어요.
+   *  서버에 올리지 않고 이 기기에만 둡니다 — 공고에 지원할 때
+   *  텍스트로 복사해 붙여넣는 것이 지금 단계에선 가장 실용적이라서요.
+   * ============================================================ */
+  const CARD_STATUS = ["구직중", "재직중", "프리랜서", "비공개"];
+  const CARD_SKILLS = [
+    "클래식 칵테일", "시그니처 개발", "위스키", "와인", "전통주", "커피/논알콜",
+    "플레어", "바 매니지먼트", "원가 관리", "발주/재고", "직원 교육", "SNS 운영",
+  ];
+  const EMPTY_CARD = {
+    intro: "", years: "", region: "", status: "구직중", shop: "",
+    certs: "", skills: [], sig1: "", sig2: "", sig3: "", awards: "", contact: "",
+  };
+
+  function cardFilled(c) {
+    if (!c) return 0;
+    const keys = ["intro", "years", "region", "shop", "certs", "sig1", "awards", "contact"];
+    let n = keys.filter((k) => String(c[k] || "").trim()).length;
+    if ((c.skills || []).length) n++;
+    return n;
+  }
+
+  function renderCard() {
+    const c = state.user.card;
+    const box = $("#card-area");
+    if (!c) {
+      box.innerHTML = `
+        <div class="card" style="padding:28px 20px;text-align:center">
+          <div style="font-size:44px;margin-bottom:10px">🪪</div>
+          <h3 style="font-size:17px;margin-bottom:8px">아직 프로필이 없어요</h3>
+          <p class="sheet-note" style="text-align:center;margin:0 0 18px">
+            경력·시그니처·가능 업무를 한 장으로 정리해두면<br>
+            채용 공고에 지원할 때 그대로 복사해 쓸 수 있어요.
+          </p>
+          <button class="big-btn accent ready" id="card-new">프로필 만들기</button>
+        </div>`;
+      $("#card-new").addEventListener("click", openCardEdit);
+      return;
+    }
+
+    const row = (label, val) => val
+      ? `<div class="card-row"><span class="card-k">${label}</span><span class="card-v">${esc(val)}</span></div>` : "";
+    const sigs = [c.sig1, c.sig2, c.sig3].filter((s) => String(s || "").trim());
+
+    box.innerHTML = `
+      <div class="card bcard">
+        <div class="bcard-top">
+          <span class="avatar md" style="background:${COLORS[state.user.color]}"></span>
+          <div class="bcard-id">
+            <div class="bcard-nick">${esc(state.user.nick)}</div>
+            <div class="bcard-status">${esc(c.status || "")}${c.years ? ` · 경력 ${esc(c.years)}년` : ""}${c.region ? ` · ${esc(c.region)}` : ""}</div>
+          </div>
+        </div>
+        ${c.intro ? `<p class="bcard-intro">${esc(c.intro)}</p>` : ""}
+      </div>
+
+      ${sigs.length ? `
+      <div class="card">
+        <h3 class="card-h">시그니처</h3>
+        ${sigs.map((s) => `<div class="sig-line">🍸 ${esc(s)}</div>`).join("")}
+      </div>` : ""}
+
+      ${(c.skills || []).length ? `
+      <div class="card">
+        <h3 class="card-h">할 수 있는 일</h3>
+        <div class="chip-wrap" style="padding:0">
+          ${c.skills.map((s) => `<span class="chip active" style="pointer-events:none">${esc(s)}</span>`).join("")}
+        </div>
+      </div>` : ""}
+
+      ${(c.shop || c.certs || c.awards || c.contact) ? `
+      <div class="card">
+        <h3 class="card-h">이력</h3>
+        ${row("근무지", c.shop)}
+        ${row("자격증", c.certs)}
+        ${row("연락처", c.contact)}
+        ${c.awards ? `<div class="card-row col"><span class="card-k">경력·수상</span><p class="card-multi">${escMsg(c.awards)}</p></div>` : ""}
+      </div>` : ""}
+
+      <div class="card" style="padding:14px 16px">
+        <button class="big-btn outline" id="card-edit">프로필 수정</button>
+        <button class="text-btn muted" id="card-clear" style="width:100%;padding:14px 0 4px">프로필 지우기</button>
+      </div>
+      <p class="sheet-note" style="margin:2px 20px 24px">
+        이 프로필은 이 기기에만 저장돼요. 오른쪽 위 복사 버튼을 누르면
+        공고 지원용 텍스트로 만들어 드립니다.
+      </p>
+      <div style="height:16px"></div>`;
+
+    $("#card-edit").addEventListener("click", openCardEdit);
+    $("#card-clear").addEventListener("click", async () => {
+      if (!await btConfirm("프로필을 지울까요?", { yes: "삭제" })) return;
+      state.user.card = null;
+      saveUser();
+      renderCard();
+      toast("프로필을 지웠어요.");
+    });
+  }
+
+  function cardText() {
+    const c = state.user.card;
+    if (!c) return "";
+    const L = [];
+    L.push(`${state.user.nick} · 바텐더`);
+    const head = [c.status, c.years ? `경력 ${c.years}년` : "", c.region].filter(Boolean).join(" · ");
+    if (head) L.push(head);
+    if (c.intro) L.push("", c.intro);
+    const sigs = [c.sig1, c.sig2, c.sig3].filter((s) => String(s || "").trim());
+    if (sigs.length) L.push("", "[시그니처]", ...sigs.map((s) => "· " + s));
+    if ((c.skills || []).length) L.push("", "[할 수 있는 일]", c.skills.join(", "));
+    if (c.shop) L.push("", "[근무지] " + c.shop);
+    if (c.certs) L.push("[자격증] " + c.certs);
+    if (c.awards) L.push("", "[경력·수상]", c.awards);
+    if (c.contact) L.push("", "[연락처] " + c.contact);
+    return L.join("\n");
+  }
+
+  function openCardEdit() {
+    const c = Object.assign({}, EMPTY_CARD, state.user.card || {});
+    let skills = (c.skills || []).slice();
+
+    openSheetHTML(`
+      <h3>🪪 바텐더 프로필</h3>
+      <p class="sheet-note" style="text-align:left;margin:0 0 12px">
+        비워둔 항목은 프로필에 나오지 않아요. 다 채우지 않아도 됩니다.
+      </p>
+      <label class="form-label">한 줄 소개</label>
+      <textarea class="input textarea" data-f="intro" rows="2" maxlength="120"
+        placeholder="예: 클래식 위주로 6년째. 손님 취향 물어보고 즉석에서 짜는 걸 제일 좋아합니다.">${esc(c.intro)}</textarea>
+      <label class="form-label">지금 상태</label>
+      <div class="chip-wrap" id="card-status" style="padding:0 0 4px"></div>
+      <label class="form-label">경력 (년)</label>
+      <input type="number" class="input" data-f="years" min="0" max="60" value="${esc(String(c.years))}" placeholder="예: 6">
+      <label class="form-label">활동 지역</label>
+      <input type="text" class="input" data-f="region" maxlength="30" value="${esc(c.region)}" placeholder="예: 서울 강남·서초">
+      <label class="form-label">현재 / 최근 근무지</label>
+      <input type="text" class="input" data-f="shop" maxlength="40" value="${esc(c.shop)}" placeholder="예: 문라이트라운지 (메인 바텐더)">
+      <label class="form-label">할 수 있는 일</label>
+      <div class="chip-wrap" id="card-skills" style="padding:0 0 4px"></div>
+      <label class="form-label">시그니처 (최대 3개)</label>
+      <input type="text" class="input" data-f="sig1" maxlength="50" value="${esc(c.sig1)}" placeholder="예: 무화과 올드패션드">
+      <input type="text" class="input" data-f="sig2" maxlength="50" value="${esc(c.sig2)}" placeholder="두 번째" style="margin-top:8px">
+      <input type="text" class="input" data-f="sig3" maxlength="50" value="${esc(c.sig3)}" placeholder="세 번째" style="margin-top:8px">
+      <label class="form-label">자격증</label>
+      <input type="text" class="input" data-f="certs" maxlength="80" value="${esc(c.certs)}" placeholder="예: 조주기능사, WSET Level 2">
+      <label class="form-label">경력 · 수상</label>
+      <textarea class="input textarea" data-f="awards" rows="4" maxlength="500"
+        placeholder="줄바꿈으로 나눠 적어주세요.&#10;예: 2023 ○○바 오픈 멤버&#10;2024 △△ 칵테일 대회 본선">${esc(c.awards)}</textarea>
+      <label class="form-label">연락처 (선택)</label>
+      <input type="text" class="input" data-f="contact" maxlength="60" value="${esc(c.contact)}" placeholder="공고에 지원할 때만 쓰입니다">
+      <p class="sheet-note" style="text-align:left;margin:10px 0 0">
+        ⚠️ 연락처는 이 기기에만 저장되고 서버로 올라가지 않아요. 그래도 남에게
+        보여줄 화면이니 꼭 필요한 것만 적어주세요.
+      </p>
+      <button class="big-btn accent ready" id="card-save" style="margin-top:14px">저장하기</button>`);
+
+    const bd = document.querySelector(".sheet-backdrop");
+    let status = c.status || "구직중";
+
+    const paint = () => {
+      bd.querySelector("#card-status").innerHTML = CARD_STATUS.map((s) =>
+        `<button class="chip ${s === status ? "active" : ""}" data-st="${esc(s)}">${esc(s)}</button>`).join("");
+      bd.querySelector("#card-skills").innerHTML = CARD_SKILLS.map((s) =>
+        `<button class="chip ${skills.includes(s) ? "active" : ""}" data-sk="${esc(s)}">${esc(s)}</button>`).join("");
+      bd.querySelectorAll("[data-st]").forEach((b) =>
+        b.addEventListener("click", () => { status = b.dataset.st; paint(); }));
+      bd.querySelectorAll("[data-sk]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const v = b.dataset.sk;
+          const i = skills.indexOf(v);
+          if (i >= 0) skills.splice(i, 1); else skills.push(v);
+          paint();
+        }));
+    };
+    paint();
+
+    bd.querySelector("#card-save").addEventListener("click", () => {
+      const next = { status, skills };
+      bd.querySelectorAll("[data-f]").forEach((el) => { next[el.dataset.f] = el.value.trim(); });
+      if (!isClean(next.intro + " " + next.awards)) return;
+      const first = !state.user.card;
+      state.user.card = next;
+      saveUser();
+      bd.remove();
+      renderCard();
+      toast(first ? "프로필을 만들었어요. 🪪" : "프로필을 저장했어요.");
+      if (first) addPoints(50, "바텐더 프로필 작성");
+    });
+  }
+
+  /* ============================================================
+   *  바 찾기 (업장)
+   * ============================================================ */
+  function barRegions() {
+    const set = new Set(state.bars.map((b) => b.region).filter(Boolean));
+    return ["전체", ...[...set].sort((a, b) => a.localeCompare(b, "ko"))];
+  }
+
+  function renderBars() {
+    $("#bar-regions").innerHTML = barRegions().map((r) =>
+      `<button class="chip ${r === state.barRegion ? "active" : ""}" data-r="${esc(r)}">${esc(r)}</button>`).join("");
+    $$("#bar-regions .chip").forEach((ch) =>
+      ch.addEventListener("click", () => { state.barRegion = ch.dataset.r; renderBars(); }));
+
+    const q = state.barQ.trim().toLowerCase();
+    const list = state.bars.filter((b) => {
+      if (state.barRegion !== "전체" && b.region !== state.barRegion) return false;
+      if (!q) return true;
+      return [b.name, b.area, b.type, b.sig, b.note, (b.tags || []).join(" ")]
+        .filter(Boolean).join(" ").toLowerCase().includes(q);
+    });
+
+    $("#bar-list").innerHTML = list.length
+      ? list.map((b) => `
+        <button class="bar-item pressable" data-id="${b.id}">
+          <div class="bar-main">
+            <div class="bar-name">${esc(b.name)}${state.user.myBars.includes(b.id) ? ' <span class="me-tag">단골</span>' : ""}</div>
+            <div class="bar-meta">${esc(b.area || b.region || "")} · ${esc(b.type || "")}</div>
+            ${b.sig ? `<div class="bar-sig">🍸 ${esc(b.sig)}</div>` : ""}
+            ${(b.tags || []).length ? `<div class="bar-tags">${b.tags.map((t) => `<span>#${esc(t)}</span>`).join("")}</div>` : ""}
+          </div>
+          <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+        </button>`).join("")
+      : `<div class="empty-state">${q || state.barRegion !== "전체"
+        ? "조건에 맞는 바가 없어요."
+        : "아직 등록된 바가 없어요. 오른쪽 위 + 로 추가해보세요."}</div>`;
+
+    $$("#bar-list .bar-item").forEach((el) =>
+      el.addEventListener("click", () => openBar(+el.dataset.id)));
+  }
+
+  function openBar(id) {
+    state.curBar = id;
+    show("bar");
+  }
+
+  function renderBarDetail() {
+    const b = state.bars.find((x) => x.id === state.curBar);
+    if (!b) { show("bars"); return; }
+    $("#bar-title").textContent = b.name;
+    $("#bar-del").hidden = !b.mine;
+    const fav = state.user.myBars.includes(b.id);
+
+    const row = (k, v) => v ? `<div class="card-row"><span class="card-k">${k}</span><span class="card-v">${esc(v)}</span></div>` : "";
+
+    $("#bar-detail").innerHTML = `
+      <div class="card bcard">
+        <div class="bcard-nick" style="font-size:20px">${esc(b.name)}</div>
+        <div class="bcard-status">${esc(b.area || b.region || "")} · ${esc(b.type || "")}</div>
+        ${b.note ? `<p class="bcard-intro">${escMsg(b.note)}</p>` : ""}
+        ${(b.tags || []).length ? `<div class="bar-tags" style="margin-top:10px">${b.tags.map((t) => `<span>#${esc(t)}</span>`).join("")}</div>` : ""}
+      </div>
+      <div class="card">
+        <h3 class="card-h">정보</h3>
+        ${row("영업시간", b.hours)}
+        ${row("시그니처", b.sig)}
+        ${row("등록", b.by || "바텐톡")}
+      </div>
+      <div class="card" style="padding:14px 16px">
+        <button class="big-btn ${fav ? "outline" : "accent ready"}" id="bar-fav">
+          ${fav ? "단골 해제" : "⭐ 단골로 저장"}
+        </button>
+        <button class="big-btn outline" id="bar-write" style="margin-top:8px">이 바 이야기 글쓰기</button>
+      </div>
+      <p class="sheet-note" style="margin:2px 20px 24px">
+        주소·전화번호는 일부러 넣지 않았어요. 확인되지 않은 정보가 퍼지면
+        그 가게에 폐가 됩니다. 방문 전에 직접 확인해주세요.
+      </p>
+      <div style="height:16px"></div>`;
+
+    $("#bar-fav").addEventListener("click", () => {
+      const i = state.user.myBars.indexOf(b.id);
+      if (i >= 0) state.user.myBars.splice(i, 1); else state.user.myBars.push(b.id);
+      saveUser();
+      renderBarDetail();
+      toast(i >= 0 ? "단골에서 뺐어요." : "단골로 저장했어요. ⭐");
+    });
+    $("#bar-write").addEventListener("click", () => {
+      state.writeCat = "free";
+      show("write");
+      const t = $("#write-title");
+      if (t) t.value = `${b.name} 다녀왔어요`;
+      const body = $("#write-body");
+      if (body) { body.value = ""; body.focus(); }
+      updateSubmit();
+    });
+  }
+
+  function openBarSheet() {
+    let type = BAR_TYPES[0];
+    openSheetHTML(`
+      <h3>📍 바 등록</h3>
+      <p class="sheet-note" style="text-align:left;margin:0 0 12px">
+        내가 일하는 곳이나 다녀와서 좋았던 곳을 올려주세요.
+        주소·전화번호는 받지 않습니다.
+      </p>
+      <label class="form-label">이름</label>
+      <input type="text" class="input" data-f="name" maxlength="30" placeholder="예: 코너스툴">
+      <label class="form-label">지역</label>
+      <input type="text" class="input" data-f="region" maxlength="10" placeholder="예: 서울">
+      <label class="form-label">동네</label>
+      <input type="text" class="input" data-f="area" maxlength="30" placeholder="예: 서울 용산구">
+      <label class="form-label">종류</label>
+      <div class="chip-wrap" id="bar-types" style="padding:0 0 4px"></div>
+      <label class="form-label">영업시간</label>
+      <input type="text" class="input" data-f="hours" maxlength="40" placeholder="예: 19:00 ~ 02:00 · 월 휴무">
+      <label class="form-label">시그니처</label>
+      <input type="text" class="input" data-f="sig" maxlength="40" placeholder="예: 무화과 올드패션드">
+      <label class="form-label">한 줄 소개</label>
+      <textarea class="input textarea" data-f="note" rows="3" maxlength="200" placeholder="분위기, 자리 수, 어떤 사람에게 어울리는지"></textarea>
+      <label class="form-label">태그 (쉼표로 구분)</label>
+      <input type="text" class="input" data-f="tags" maxlength="60" placeholder="예: 클래식, 혼술, 심야">
+      <button class="big-btn accent ready" id="bar-save" style="margin-top:14px">등록하기</button>`);
+
+    const bd = document.querySelector(".sheet-backdrop");
+    const paint = () => {
+      bd.querySelector("#bar-types").innerHTML = BAR_TYPES.map((t) =>
+        `<button class="chip ${t === type ? "active" : ""}" data-t="${esc(t)}">${esc(t)}</button>`).join("");
+      bd.querySelectorAll("#bar-types .chip").forEach((ch) =>
+        ch.addEventListener("click", () => { type = ch.dataset.t; paint(); }));
+    };
+    paint();
+
+    bd.querySelector("#bar-save").addEventListener("click", () => {
+      if (isBanned()) return;
+      const v = {};
+      bd.querySelectorAll("[data-f]").forEach((el) => { v[el.dataset.f] = el.value.trim(); });
+      if (v.name.length < 2) { toast("이름을 2자 이상 적어주세요."); return; }
+      if (!isClean(v.name + " " + v.note)) return;
+      if (state.bars.some((b) => b.name === v.name && b.area === v.area)) {
+        toast("같은 이름의 바가 이미 있어요.");
+        return;
+      }
+      state.bars.unshift({
+        id: newId(), name: v.name, region: v.region || "기타", area: v.area,
+        type, hours: v.hours, sig: v.sig, note: v.note,
+        tags: v.tags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 5),
+        by: state.user.nick, time: Date.now(), mine: true,
+      });
+      saveBars();
+      bd.remove();
+      renderBars();
+      toast("등록했어요. 📍");
+      addPoints(30, "바 등록");
+    });
+  }
+
+  /* ============================================================
+   *  랭킹
+   *
+   *  포인트는 원래 이 기기에만 쌓였어요. 서버에 올려야 비교가 되므로
+   *  supabase/ranking.sql 을 넣은 곳에서만 전체 순위가 보입니다.
+   *  없으면 내 기록만 보여주고 조용히 안내해요.
+   * ============================================================ */
+  const LEVELS = [
+    { min: 0, name: "새내기", ic: "🌱" },
+    { min: 300, name: "홀 보조", ic: "🧊" },
+    { min: 1000, name: "주니어 바텐더", ic: "🍹" },
+    { min: 3000, name: "바텐더", ic: "🍸" },
+    { min: 7000, name: "메인 바텐더", ic: "🥃" },
+    { min: 15000, name: "바 매니저", ic: "🎩" },
+    { min: 30000, name: "레전드", ic: "👑" },
+  ];
+  function levelOf(points) {
+    let cur = LEVELS[0];
+    for (const l of LEVELS) if (points >= l.min) cur = l;
+    const next = LEVELS.find((l) => l.min > points) || null;
+    return { cur, next };
+  }
+
+  async function loadRank(force) {
+    if (state.rankState === "loading") return;
+    if (state.rankRows && !force) return;
+    if (!Sync.ready || !Sync.ready()) { state.rankState = "off"; renderRank(); return; }
+    state.rankState = "loading";
+    renderRank();
+    const res = await Sync.topBartenders();
+    if (res.ok) { state.rankRows = res.rows; state.rankState = "ok"; }
+    else { state.rankState = res.error === "not-installed" ? "off" : "error"; state.rankError = res.error || ""; }
+    renderRank();
+  }
+
+  function renderRank() {
+    const me = state.user.points || 0;
+    const { cur, next } = levelOf(me);
+    const pct = next ? Math.min(100, Math.round(((me - cur.min) / (next.min - cur.min)) * 100)) : 100;
+    const rows = state.rankRows || [];
+    const myRow = rows.find((r) => r.me);
+
+    $("#rank-area").innerHTML = `
+      <div class="card rank-me">
+        <div class="rank-lv">${cur.ic} ${esc(cur.name)}</div>
+        <div class="rank-pt">${fmtNum(me)}P</div>
+        <div class="rank-bar"><span style="width:${pct}%"></span></div>
+        <div class="rank-next">${next
+          ? `다음 등급 <b>${esc(next.name)}</b>까지 ${fmtNum(next.min - me)}P`
+          : "최고 등급이에요. 👑"}</div>
+        ${myRow ? `<div class="rank-mine">전체 ${myRow.rank}위</div>` : ""}
+      </div>
+
+      <div class="card">
+        <h3 class="card-h">등급표</h3>
+        ${LEVELS.map((l) => `
+          <div class="card-row ${l.name === cur.name ? "on" : ""}">
+            <span class="card-k">${l.ic} ${esc(l.name)}</span>
+            <span class="card-v">${fmtNum(l.min)}P~</span>
+          </div>`).join("")}
+      </div>
+
+      ${state.rankState === "loading" ? '<div class="empty-state">순위를 불러오는 중이에요…</div>' : ""}
+      ${state.rankState === "off" ? `
+        <div class="card">
+          <h3 class="card-h">전체 순위</h3>
+          <p class="sheet-note" style="text-align:left;margin:0">
+            아직 서버에 순위 기능이 올라가지 않았어요.<br>
+            운영자가 <b>supabase/ranking.sql</b> 을 실행하면 여기에 전체 순위가 나옵니다.
+            그 전까지는 내 기록만 쌓여요.
+          </p>
+        </div>` : ""}
+      ${state.rankState === "error" ? `
+        <div class="card">
+          <h3 class="card-h">전체 순위</h3>
+          <p class="sheet-note" style="text-align:left;margin:0">불러오지 못했어요.<br>${esc(state.rankError)}</p>
+          <button class="big-btn outline" id="rank-retry" style="margin-top:10px">다시 시도</button>
+        </div>` : ""}
+      ${state.rankState === "ok" ? (rows.length ? `
+        <div class="card">
+          <h3 class="card-h">전체 순위 · 상위 ${rows.length}명</h3>
+          ${rows.map((r) => `
+            <div class="rank-row ${r.me ? "me" : ""}">
+              <span class="rank-no ${r.rank <= 3 ? "top" : ""}">${r.rank <= 3 ? ["🥇", "🥈", "🥉"][r.rank - 1] : r.rank}</span>
+              <span class="avatar" style="background:${COLORS[r.color % COLORS.length]}"></span>
+              <span class="rank-nick">${esc(r.nick)}${r.me ? ' <span class="me-tag">나</span>' : ""}</span>
+              <span class="rank-lvsm">${levelOf(r.points).cur.ic}</span>
+              <span class="rank-pts">${fmtNum(r.points)}P</span>
+            </div>`).join("")}
+        </div>` : '<div class="empty-state">아직 순위에 오른 사람이 없어요.</div>') : ""}
+
+      <p class="sheet-note" style="margin:2px 20px 24px">
+        포인트는 글·댓글·리뷰·도감 등록처럼 커뮤니티에 남는 활동에서 쌓여요.
+        출석만으로는 크게 오르지 않습니다.
+      </p>
+      <div style="height:16px"></div>`;
+
+    const retry = $("#rank-retry");
+    if (retry) retry.addEventListener("click", () => loadRank(true));
+    if (state.rankState === "idle") loadRank();
+  }
+
+  /* ============================================================
+   *  재고 · 발주
+   *
+   *  근무일지 옆에 붙는 실무 도구입니다. 이 기기에만 저장돼요.
+   * ============================================================ */
+  function stockLow(it) { return Number(it.qty) <= Number(it.min); }
+
+  function renderStock() {
+    const items = state.stock;
+    const low = items.filter(stockLow);
+
+    if (!items.length) {
+      $("#stock-area").innerHTML = `
+        <div class="card" style="padding:28px 20px;text-align:center">
+          <div style="font-size:44px;margin-bottom:10px">📦</div>
+          <h3 style="font-size:17px;margin-bottom:8px">재고를 등록해보세요</h3>
+          <p class="sheet-note" style="text-align:center;margin:0 0 18px">
+            품목과 최소 수량을 넣어두면 부족한 것만 모아<br>발주서로 만들어 드려요.
+          </p>
+          <button class="big-btn accent ready" id="stock-first">첫 품목 추가</button>
+          <button class="text-btn muted" id="stock-sample" style="width:100%;padding:14px 0 0">기본 품목 10개 넣기</button>
+        </div>`;
+      $("#stock-first").addEventListener("click", () => openStockSheet(null));
+      $("#stock-sample").addEventListener("click", () => {
+        state.stock = [
+          { id: newId(), name: "고든스 진 700ml", cat: "스피릿", qty: 2, min: 2, unit: "병", price: 18000, vendor: "" },
+          { id: newId(), name: "앱솔루트 보드카 700ml", cat: "스피릿", qty: 3, min: 2, unit: "병", price: 21000, vendor: "" },
+          { id: newId(), name: "바카디 화이트 럼 750ml", cat: "스피릿", qty: 1, min: 2, unit: "병", price: 23000, vendor: "" },
+          { id: newId(), name: "버팔로 트레이스 750ml", cat: "스피릿", qty: 2, min: 1, unit: "병", price: 52000, vendor: "" },
+          { id: newId(), name: "쿠앵트로 700ml", cat: "리큐르", qty: 1, min: 1, unit: "병", price: 38000, vendor: "" },
+          { id: newId(), name: "앙고스투라 비터 200ml", cat: "리큐르", qty: 1, min: 1, unit: "병", price: 16000, vendor: "" },
+          { id: newId(), name: "설탕시럽 1L", cat: "시럽/주스", qty: 2, min: 2, unit: "병", price: 8000, vendor: "" },
+          { id: newId(), name: "레몬", cat: "가니시", qty: 8, min: 10, unit: "개", price: 900, vendor: "" },
+          { id: newId(), name: "라임", cat: "가니시", qty: 5, min: 10, unit: "개", price: 1200, vendor: "" },
+          { id: newId(), name: "가니시 픽 100입", cat: "소모품", qty: 1, min: 1, unit: "팩", price: 5000, vendor: "" },
+        ];
+        saveStock();
+        renderStock();
+        toast("기본 품목을 넣었어요. 수량만 맞춰주세요.");
+      });
+      return;
+    }
+
+    const byCat = {};
+    items.forEach((it) => { (byCat[it.cat] || (byCat[it.cat] = [])).push(it); });
+    const order = STOCK_CATS.filter((c) => byCat[c]).concat(Object.keys(byCat).filter((c) => !STOCK_CATS.includes(c)));
+
+    $("#stock-area").innerHTML = `
+      <div class="card stock-top">
+        <div>
+          <div class="stock-top-n">${items.length}품목 · <b class="${low.length ? "warn" : ""}">부족 ${low.length}</b></div>
+          <div class="market-meta">현재 수량이 최소 수량 이하면 부족으로 봅니다.</div>
+        </div>
+        <button class="host-chat-btn ${low.length ? "" : "outline"}" id="stock-order" style="width:auto;padding:10px 16px;margin:0">발주서</button>
+      </div>
+      ${order.map((cat) => `
+        <div class="card">
+          <h3 class="card-h">${esc(cat)}</h3>
+          ${byCat[cat].map((it) => `
+            <div class="stock-item ${stockLow(it) ? "low" : ""}" data-id="${it.id}">
+              <div class="stock-info">
+                <div class="stock-name">${esc(it.name)}${stockLow(it) ? ' <span class="stock-warn">부족</span>' : ""}</div>
+                <div class="stock-sub">최소 ${it.min}${esc(it.unit || "")}${it.vendor ? " · " + esc(it.vendor) : ""}${it.price ? " · " + fmtNum(it.price) + "원" : ""}</div>
+              </div>
+              <div class="stock-qty">
+                <button class="qty-btn" data-dec="${it.id}" aria-label="빼기">−</button>
+                <span class="qty-n">${it.qty}</span>
+                <button class="qty-btn" data-inc="${it.id}" aria-label="더하기">+</button>
+              </div>
+            </div>`).join("")}
+        </div>`).join("")}
+      <p class="sheet-note" style="margin:2px 20px 24px">
+        품목을 길게 누르지 않아도 됩니다 — 이름을 탭하면 수정·삭제할 수 있어요.
+      </p>
+      <div style="height:16px"></div>`;
+
+    $$("#stock-area [data-inc]").forEach((b) => b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const it = state.stock.find((x) => x.id === +b.dataset.inc);
+      if (it) { it.qty = Number(it.qty) + 1; saveStock(); renderStock(); }
+    }));
+    $$("#stock-area [data-dec]").forEach((b) => b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const it = state.stock.find((x) => x.id === +b.dataset.dec);
+      if (it && Number(it.qty) > 0) { it.qty = Number(it.qty) - 1; saveStock(); renderStock(); }
+    }));
+    $$("#stock-area .stock-info").forEach((el) => el.addEventListener("click", () => {
+      const id = +el.closest(".stock-item").dataset.id;
+      openStockSheet(state.stock.find((x) => x.id === id));
+    }));
+    $("#stock-order").addEventListener("click", openOrderSheet);
+  }
+
+  function openStockSheet(it) {
+    const edit = !!it;
+    const v = it || { name: "", cat: STOCK_CATS[0], qty: 0, min: 1, unit: "병", price: "", vendor: "" };
+    let cat = v.cat;
+
+    openSheetHTML(`
+      <h3>${edit ? "품목 수정" : "📦 품목 추가"}</h3>
+      <label class="form-label">품목명</label>
+      <input type="text" class="input" data-f="name" maxlength="40" value="${esc(v.name)}" placeholder="예: 고든스 진 700ml">
+      <label class="form-label">분류</label>
+      <div class="chip-wrap" id="stock-cats" style="padding:0 0 4px"></div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1">
+          <label class="form-label">현재 수량</label>
+          <input type="number" class="input" data-f="qty" min="0" value="${esc(String(v.qty))}">
+        </div>
+        <div style="flex:1">
+          <label class="form-label">최소 수량</label>
+          <input type="number" class="input" data-f="min" min="0" value="${esc(String(v.min))}">
+        </div>
+        <div style="width:76px">
+          <label class="form-label">단위</label>
+          <input type="text" class="input" data-f="unit" maxlength="4" value="${esc(v.unit || "")}">
+        </div>
+      </div>
+      <label class="form-label">단가 (선택)</label>
+      <input type="number" class="input" data-f="price" min="0" value="${esc(String(v.price || ""))}" placeholder="원">
+      <label class="form-label">거래처 (선택)</label>
+      <input type="text" class="input" data-f="vendor" maxlength="30" value="${esc(v.vendor || "")}" placeholder="예: ○○주류">
+      <button class="big-btn accent ready" id="stock-save" style="margin-top:14px">${edit ? "저장하기" : "추가하기"}</button>
+      ${edit ? '<button class="text-btn muted" id="stock-del" style="width:100%;padding:14px 0 4px">이 품목 삭제</button>' : ""}`);
+
+    const bd = document.querySelector(".sheet-backdrop");
+    const paint = () => {
+      bd.querySelector("#stock-cats").innerHTML = STOCK_CATS.map((c) =>
+        `<button class="chip ${c === cat ? "active" : ""}" data-c="${esc(c)}">${esc(c)}</button>`).join("");
+      bd.querySelectorAll("#stock-cats .chip").forEach((ch) =>
+        ch.addEventListener("click", () => { cat = ch.dataset.c; paint(); }));
+    };
+    paint();
+
+    bd.querySelector("#stock-save").addEventListener("click", () => {
+      const f = {};
+      bd.querySelectorAll("[data-f]").forEach((el) => { f[el.dataset.f] = el.value.trim(); });
+      if (!f.name) { toast("품목명을 적어주세요."); return; }
+      const next = {
+        name: f.name, cat,
+        qty: Math.max(0, Number(f.qty) || 0),
+        min: Math.max(0, Number(f.min) || 0),
+        unit: f.unit || "", price: Number(f.price) || 0, vendor: f.vendor || "",
+      };
+      if (edit) Object.assign(it, next);
+      else state.stock.push(Object.assign({ id: newId() }, next));
+      saveStock();
+      bd.remove();
+      renderStock();
+      toast(edit ? "저장했어요." : "추가했어요. 📦");
+    });
+
+    const del = bd.querySelector("#stock-del");
+    if (del) del.addEventListener("click", async () => {
+      if (!await btConfirm(`'${it.name}' 을 삭제할까요?`, { yes: "삭제" })) return;
+      state.stock = state.stock.filter((x) => x.id !== it.id);
+      saveStock();
+      bd.remove();
+      renderStock();
+      toast("삭제했어요.");
+    });
+  }
+
+  function orderText() {
+    const low = state.stock.filter(stockLow);
+    if (!low.length) return "";
+    const byVendor = {};
+    low.forEach((it) => { (byVendor[it.vendor || "거래처 미지정"] || (byVendor[it.vendor || "거래처 미지정"] = [])).push(it); });
+    const L = [`[발주 요청] ${new Date().toLocaleDateString("ko-KR")}`];
+    let total = 0;
+    Object.keys(byVendor).forEach((ven) => {
+      L.push("", `■ ${ven}`);
+      byVendor[ven].forEach((it) => {
+        const need = Math.max(1, Number(it.min) - Number(it.qty) + Number(it.min));
+        const sum = need * (Number(it.price) || 0);
+        total += sum;
+        L.push(`- ${it.name} : ${need}${it.unit || ""}` + (it.price ? ` (예상 ${fmtNum(sum)}원)` : ""));
+      });
+    });
+    if (total) L.push("", `예상 합계 약 ${fmtNum(total)}원`);
+    return L.join("\n");
+  }
+
+  function openOrderSheet() {
+    const low = state.stock.filter(stockLow);
+    if (!low.length) {
+      toast("부족한 품목이 없어요. 👍");
+      return;
+    }
+    const text = orderText();
+    openSheetHTML(`
+      <h3>🧾 발주서</h3>
+      <p class="sheet-note" style="text-align:left;margin:0 0 12px">
+        최소 수량 이하인 ${low.length}개 품목입니다.
+        발주 수량은 <b>최소 수량의 두 배에서 현재고를 뺀 값</b>으로 잡았어요.
+      </p>
+      <textarea class="input textarea" id="order-text" rows="12" readonly>${esc(text)}</textarea>
+      <button class="big-btn accent ready" id="order-copy" style="margin-top:12px">복사하기</button>
+      <button class="big-btn outline" id="order-share" style="margin-top:8px">공유하기</button>`);
+
+    const bd = document.querySelector(".sheet-backdrop");
+    bd.querySelector("#order-copy").addEventListener("click", () => copyText(text, "발주서를 복사했어요. 🧾"));
+    bd.querySelector("#order-share").addEventListener("click", async () => {
+      if (navigator.share) {
+        try { await navigator.share({ title: "발주 요청", text }); return; } catch (_) { /* 취소 */ }
+      }
+      copyText(text, "공유를 지원하지 않아 복사했어요.");
+    });
+  }
+
+  /* 클립보드는 권한이 막힐 때가 있어 예비 경로를 둡니다. */
+  function copyText(text, okMsg) {
+    const done = () => toast(okMsg || "복사했어요.");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, () => fallback());
+      return;
+    }
+    fallback();
+    function fallback() {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch (_) {}
+      ta.remove();
+      toast(ok ? (okMsg || "복사했어요.") : "복사하지 못했어요. 직접 선택해 복사해주세요.");
+    }
+  }
+
+  /* ============================================================
+   *  내 레시피 노트
+   *
+   *  도감의 칵테일은 표준 스펙입니다. 실제 바에서는 저마다 조금씩
+   *  다르게 만들죠. 그 "내 배합"을 술마다 하나씩 적어둡니다.
+   * ============================================================ */
+  function myRecipeOf(id) { return state.user.myRecipes[String(id)] || null; }
+
+  function renderRecipes() {
+    const keys = Object.keys(state.user.myRecipes);
+    const rows = keys.map((k) => ({
+      sp: state.spirits.find((s) => String(s.id) === k),
+      r: state.user.myRecipes[k],
+    })).filter((x) => x.sp).sort((a, b) => (b.r.time || 0) - (a.r.time || 0));
+
+    $("#recipes-area").innerHTML = rows.length ? `
+      <p class="sheet-note" style="text-align:left;margin:14px 20px 4px">
+        도감에서 칵테일을 열면 맨 아래에 <b>내 배합</b> 칸이 있어요.
+        거기 적은 것이 여기 모입니다.
+      </p>
+      ${rows.map(({ sp, r }) => `
+        <button class="card recipe-item pressable" data-id="${sp.id}">
+          <div class="recipe-name">🍸 ${esc(sp.name)}</div>
+          <p class="recipe-spec">${escMsg(r.spec)}</p>
+          <div class="recipe-time">${fmtTime(r.time)}</div>
+        </button>`).join("")}
+      <div style="height:24px"></div>`
+      : `<div class="card" style="padding:28px 20px;text-align:center">
+          <div style="font-size:44px;margin-bottom:10px">📓</div>
+          <h3 style="font-size:17px;margin-bottom:8px">아직 적어둔 배합이 없어요</h3>
+          <p class="sheet-note" style="text-align:center;margin:0 0 18px">
+            도감에서 칵테일을 열면 맨 아래에 <b>내 배합</b> 칸이 있어요.<br>
+            표준 스펙과 다르게 만드는 부분을 적어두면 여기 모입니다.
+          </p>
+          <button class="big-btn accent ready" data-go="dogam">도감으로 가기</button>
+        </div>`;
+
+    $$("#recipes-area .recipe-item").forEach((el) =>
+      el.addEventListener("click", () => openSpirit(+el.dataset.id)));
+    $$("#recipes-area [data-go]").forEach((el) =>
+      el.addEventListener("click", () => { state.dogamKind = "cocktail"; show("dogam"); }));
+  }
+
+  function openRecipeEdit(sp) {
+    const cur = myRecipeOf(sp.id);
+    openSheetHTML(`
+      <h3>📓 내 배합 — ${esc(sp.name)}</h3>
+      <p class="sheet-note" style="text-align:left;margin:0 0 12px">
+        표준 스펙과 다르게 만드는 부분만 적어두면 충분해요.
+        용량, 바꾼 재료, 손님 반응 같은 것들.
+      </p>
+      <textarea class="input textarea" id="rc-spec" rows="8" maxlength="1000"
+        placeholder="예:&#10;진 45 → 50 (탱커레이)&#10;라임 20, 시럽 12 — 우리 라임이 신 편&#10;셰이크 12초, 더블 스트레인&#10;단골 김선생님은 시럽 8로">${esc(cur ? cur.spec : "")}</textarea>
+      <button class="big-btn accent ready" id="rc-save" style="margin-top:12px">저장하기</button>
+      ${cur ? '<button class="text-btn muted" id="rc-del" style="width:100%;padding:14px 0 4px">지우기</button>' : ""}`);
+
+    const bd = document.querySelector(".sheet-backdrop");
+    bd.querySelector("#rc-save").addEventListener("click", () => {
+      const spec = bd.querySelector("#rc-spec").value.trim();
+      if (!spec) { toast("내용을 적어주세요."); return; }
+      const first = !cur;
+      state.user.myRecipes[String(sp.id)] = { spec, time: Date.now() };
+      saveUser();
+      bd.remove();
+      renderSpiritDetail();
+      toast("저장했어요. 📓");
+      if (first) addPoints(20, "내 배합 기록");
+    });
+    const del = bd.querySelector("#rc-del");
+    if (del) del.addEventListener("click", async () => {
+      if (!await btConfirm("내 배합을 지울까요?", { yes: "삭제" })) return;
+      delete state.user.myRecipes[String(sp.id)];
+      saveUser();
+      bd.remove();
+      renderSpiritDetail();
+      toast("지웠어요.");
+    });
+  }
+
+  /* ============================================================
    *  서버 동기화
    *  js/config.js 가 비어 있으면 아래 호출은 전부 아무 일도 하지 않아요.
    *  즉 서버 없이도 앱은 지금까지와 똑같이 동작합니다.
@@ -6577,6 +7585,7 @@
   const Sync = window.BarTalkSync || {
     enabled: false, status: "off", uid: null, queued: 0,
     ready: () => false, init: async () => false, refresh: NOOP, refreshView: NOOP,
+    topBartenders: async () => ({ ok: false, error: "not-installed" }), pushPoints: async () => false,
     savePushSub: async () => false, removePushSub: NOOP,
     uploadPhoto: async () => null,
     saveProfile: NOOP, savePost: NOOP, deletePost: NOOP, bumpViews: NOOP, saveComment: NOOP,
