@@ -876,7 +876,7 @@
   state.user.hiddenSpirits = state.user.hiddenSpirits || [];
 
   /* ---------- 시드 병합 (앱 업데이트 시 새 데이터 추가) ---------- */
-  const SEED_V = 7;
+  const SEED_V = 8;
   if (store.get("seedv", 1) < SEED_V) {
     const mergeSeed = (arr, seed) => {
       const ids = new Set(arr.map((x) => x.id));
