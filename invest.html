@@ -239,6 +239,32 @@ details.tbl th { color: var(--muted); font-weight: 600; }
 .plan-card li::before { content: "—"; position: absolute; left: 0; color: var(--accent-deep); }
 .plan-note { font-size: 13px; color: var(--muted); margin-top: 18px; }
 
+/* ---------- 실행 계획 ---------- */
+.exec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.exec-card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 26px 24px; }
+.exec-card .who { font-size: 12.5px; color: var(--muted); margin-bottom: 2px; }
+.exec-card h3 { font-size: 18px; font-weight: 800; margin-bottom: 16px; }
+.exec-card h3 i { font-style: normal; margin-right: 8px; }
+.exec-step { margin-bottom: 14px; }
+.exec-step .when {
+  display: inline-block; font-size: 11.5px; font-weight: 700; letter-spacing: .08em;
+  color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 99px; padding: 1px 9px; margin-bottom: 6px;
+}
+.exec-step p { font-size: 13.8px; color: var(--sub); }
+.exec-step p b { color: var(--ink); }
+.exec-kpi {
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line-soft);
+  font-size: 12.5px; color: var(--muted);
+}
+.exec-kpi b { color: var(--sub); font-weight: 700; }
+.exec-math {
+  background: var(--surface2); border: 1px solid var(--line-soft); border-radius: 12px;
+  padding: 12px 16px; margin-top: 20px; font-size: 13.5px; color: var(--sub);
+  font-variant-numeric: tabular-nums;
+}
+.exec-math b { color: var(--ink); }
+
 /* ---------- 투자 요청 ---------- */
 .ask { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
 .use-row { display: flex; justify-content: space-between; font-size: 14px; color: var(--sub); padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
@@ -602,6 +628,73 @@ function App() {
       <${YearPlan} />
     </div></section>
 
+    <section id="calc"><div className="wrap">
+      <${Eyebrow}>Appendix — 검증용 계산기</${Eyebrow}>
+      <h2>위 목표가 어떻게 나왔는지, 직접 검증해 보세요.</h2>
+      <p className="lede">슬라이더를 움직이면 세 시나리오가 실시간으로 다시 계산됩니다. 우리가 맞다고 우기는 숫자가 아니라, 검증하실 수 있는 모델입니다. 로드맵의 연도별 매출은 이 모델의 Base 가정에 각 연도의 가입 목표를 넣은 값입니다.</p>
+      <${FinanceModel} />
+    </div></section>
+
+    <section><div className="wrap">
+      <${Eyebrow}>Execution</${Eyebrow}>
+      <h2>목표는 계획이 아니라 루틴으로 이룹니다.</h2>
+      <p className="lede">두 명의 창업자가 네 기능을 나눠 잡고, 채용은 매출이 생기는 순서대로 합니다. 각 기능마다 "지금 → 6개월 → 12개월"이 정해져 있습니다.</p>
+
+      <div className="exec-grid">
+        <div className="exec-card">
+          <div className="who">공동창업자 리드 · 2027 지역 매니저 1명 채용</div>
+          <h3><i>🤝</i>영업</h3>
+          <div className="exec-step"><span className="when">지금 — 허브 바 전략</span>
+            <p>도시마다 바텐더들이 모이는 <b>허브 바 10곳</b>을 먼저 잡습니다. 명함을 두고 오는 영업이 아니라 <b>그 자리에서 설치·가입까지 확인</b>하는 것이 완료 기준입니다.</p></div>
+          <div className="exec-step"><span className="when">~6개월 — 파일럿 3건</span>
+            <p>수입사·국산 크래프트 브랜드에 첫 캠페인 3건을 <b>원가로</b> 돌립니다. 도달·참여·리뷰 수가 찍힌 결과지가 곧 영업 자료가 됩니다.</p></div>
+          <div className="exec-step"><span className="when">~12개월 — 유료 전환</span>
+            <p>파일럿 결과지로 <b>유료 캠페인 전환</b>. 코디얼 초도 물량을 허브 바부터 입점시켜 유통 레퍼런스를 만듭니다.</p></div>
+          <div className="exec-kpi"><b>주간 KPI</b> — 신규 설치 수 · 도시별 활성률 · 파일럿→유료 전환율</div>
+        </div>
+
+        <div className="exec-card">
+          <div className="who">창업자 겸임 · 2027 콘텐츠 담당 1명 채용</div>
+          <h3><i>📣</i>마케팅</h3>
+          <div className="exec-step"><span className="when">지금 — 커뮤니티가 콘텐츠 공장</span>
+            <p>앱의 인기 글을 익명 큐레이션해 <b>"이번 주 바텐더들이 싸운 주제"</b>로 인스타·쇼츠에 올립니다. 콘텐츠 제작비가 들지 않고, 보는 사람이 곧 타겟입니다.</p></div>
+          <div className="exec-step"><span className="when">~6개월 — 시험 캘린더</span>
+            <p>조주기능사 시험은 <b>연 4회</b>, 응시자는 검색을 합니다. 시험 전후로 실기 정보 콘텐츠를 집중 배치하고 학원과 제휴합니다.</p></div>
+          <div className="exec-step"><span className="when">~12개월 — 오프라인 순환</span>
+            <p>앱의 모임 기능에 <b>장소비를 지원</b>해 지역 정기 모임을 만들고, 모임 사진이 다시 콘텐츠가 되는 순환을 돌립니다.</p></div>
+          <div className="exec-kpi"><b>주간 KPI</b> — 설치 수보다 <b>업계인 인증률</b> · 콘텐츠 도달 · 모임 개설 수</div>
+        </div>
+
+        <div className="exec-card">
+          <div className="who">창업자 리드 · 외주 없이 내재화</div>
+          <h3><i>⚙️</i>개발</h3>
+          <div className="exec-step"><span className="when">지금 — 이미 완성</span>
+            <p>커뮤니티·도감·모임·채용·1:1 채팅·푸시까지 배포 완료. 서버리스 구조라 <b>1만 명까지 인프라 고정비가 월 십수만 원</b>대입니다.</p></div>
+          <div className="exec-step"><span className="when">~6개월 — 신뢰와 도구</span>
+            <p>Play Store 출시, <b>바텐더 인증</b>(근무지 확인), 브랜드 캠페인 집행 도구(타겟팅·결과 리포트) 개발.</p></div>
+          <div className="exec-step"><span className="when">~12개월 — 셀프서브</span>
+            <p>브랜드가 직접 캠페인을 여는 <b>셀프서브 대시보드</b>와 코디얼 주문·재고 관리. 영업 없이도 매출이 들어오는 구조를 만듭니다.</p></div>
+          <div className="exec-kpi"><b>주간 KPI</b> — 주간 재방문율 · 푸시 수신 동의율 · 장애 없는 날</div>
+        </div>
+        <div className="exec-card">
+          <div className="who">공동 책임 · 2028 전담 1명 채용</div>
+          <h3><i>🛡️</i>관리·운영</h3>
+          <div className="exec-step"><span className="when">지금 — 커뮤니티 질서</span>
+            <p>신고는 <b>24시간 안에 처리</b>합니다. 익명 커뮤니티는 첫 악성 이용자를 방치하는 순간 무너져요. 운영자 도구(삭제·정지·감사 로그)는 이미 앱에 들어 있습니다.</p></div>
+          <div className="exec-step"><span className="when">~6개월 — 돈과 규정</span>
+            <p>월 결산·런웨이 리포트를 투자자에게 <b>월 1회</b> 공유합니다. 개인정보 처리방침·이용약관은 변호사 검토를 받아 Play Store 심사 기준을 맞춥니다.</p></div>
+          <div className="exec-step"><span className="when">~12개월 — 유통 준비</span>
+            <p>코디얼 유통에 필요한 <b>주류 관련 인허가·세무</b>를 정리하고, 정산·재고 프로세스를 문서화해 사람이 바뀌어도 돌아가게 합니다.</p></div>
+          <div className="exec-kpi"><b>주간 KPI</b> — 신고 처리 시간 · 월 비용 대비 런웨이 · 정산 오차 0</div>
+        </div>
+      </div>
+
+      <div className="exec-math">
+        로드맵의 숫자는 이 루틴의 산수입니다 — 2026년 목표 <b>500명</b> = 5개 도시 × 허브 바 10곳 × 바당 바텐더 약 10명.
+        2027년 <b>5,000명</b> = 12개 도시 확장 + 시험 캘린더 유입 + 모임 추천 순환.
+      </div>
+    </div></section>
+
     <section><div className="wrap">
       <${Eyebrow}>The Ask</${Eyebrow}>
       <h2>투자 요청</h2>
@@ -648,13 +741,6 @@ function App() {
           <p>전화: <a href="tel:01056041996">010-5604-1996</a></p>
         </div>
       </div>
-    </div></section>
-
-    <section id="calc"><div className="wrap">
-      <${Eyebrow}>Appendix — 검증용 계산기</${Eyebrow}>
-      <h2>위 목표가 어떻게 나왔는지, 직접 검증해 보세요.</h2>
-      <p className="lede">슬라이더를 움직이면 세 시나리오가 실시간으로 다시 계산됩니다. 우리가 맞다고 우기는 숫자가 아니라, 검증하실 수 있는 모델입니다. 로드맵의 연도별 매출은 이 모델의 Base 가정에 각 연도의 가입 목표를 넣은 값입니다.</p>
-      <${FinanceModel} />
     </div></section>
 
     <footer><div className="wrap">
