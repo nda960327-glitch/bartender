@@ -1547,3 +1547,6 @@ textarea.input { height: auto; }
   text-align: right; padding: 2px 6px 6px;
   font-size: 11px; color: var(--text-muted);
 }
+
+/* 질문 알림의 캐릭터 얼굴 */
+.noti-ic svg { width: 30px; height: 30px; display: block; }

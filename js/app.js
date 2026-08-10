@@ -1114,6 +1114,8 @@
     } else if (to.view === "spirit") {
       if (!state.spirits.some((s) => s.id === to.id)) { toast("삭제된 항목이에요."); return; }
       openSpirit(to.id);
+    } else if (to.view === "ask-write") {
+      openQuestionWrite(to.q, to.who);
     } else if (to.view === "chat") {
       if (!state.chats.some((c) => c.id === to.id)) { toast("사라진 대화예요."); return; }
       openChat(to.id);
@@ -1321,6 +1323,124 @@
     kwSeen.add(kind + ":" + item.id);
     const label = (item.title || item.name || "").slice(0, 18);
     addNoti("🔔", `키워드 '${hit}' — ${label}`, { view: kind, id: item.id });
+  }
+
+  /* ---------- 오늘의 질문 ----------
+   * 바텡이와 술꼬가 하루에 하나, 생각해볼 만한 질문을 던집니다.
+   * 네이버 블로그씨처럼 — 답하고 싶으면 그 질문으로 바로 글을 써요.
+   *
+   * 텅 빈 글쓰기 화면 앞에서는 아무도 첫 글을 못 씁니다.
+   * 질문이 있으면 "나도 한마디"가 쉬워지고, 날짜 기반이라
+   * 모두가 같은 날 같은 질문을 받아 답끼리 모입니다.
+   */
+  const DAILY_QUESTIONS = [
+    "처음으로 만들었던 칵테일, 기억나요? 맛은 어땠나요?",
+    "단골이 생겼다고 처음 느낀 순간은 언제였나요?",
+    "내 인생 최고의 한 잔은 어디서 마신 무엇이었나요?",
+    "\"아무거나 주세요\"에 내놓는 나만의 정답 한 잔이 있나요?",
+    "마감 끝나고 혼자 마시는 술, 뭐가 제일 좋아요?",
+    "무인도에 술 한 병만 가져간다면 뭘 고를래요?",
+    "이 일 하면서 가장 뿌듯했던 순간 하나만 꼽는다면?",
+    "나만의 셰이킹 루틴이나 징크스가 있나요?",
+    "손님한테 들은 말 중에 아직도 기억나는 한마디는?",
+    "처음 위스키를 마셨던 날, 어땠어요?",
+    "바에서 틀기 제일 좋은 음악은 뭐라고 생각해요?",
+    "얼음에 진심인 편인가요? 나만의 얼음 철학 있으면 공유해줘요.",
+    "지금까지 만든 시그니처 중 제일 아끼는 이름은?",
+    "바텐더 안 했으면 뭘 하고 있을 것 같아요?",
+    "첫 출근 날 기억나요? 뭐가 제일 어려웠나요?",
+    "진 · 럼 · 보드카 · 위스키, 평생 하나만 쓴다면?",
+    "요즘 눈여겨보는 술이나 재료가 있나요?",
+    "비 오는 날 어울리는 한 잔을 추천한다면?",
+    "내가 생각하는 좋은 바의 조건 딱 하나는?",
+    "실패했던 레시피 중에 아까운 것 있나요?",
+    "술 못 마시는 친구에게 내주고 싶은 무알콜 한 잔은?",
+    "바텐더의 손님 기억법, 나만의 요령이 있나요?",
+    "지금 백바에서 한 병만 살린다면 어떤 병이에요?",
+    "여름 하면 떠오르는 칵테일은 뭐예요?",
+    "처음 사장님(또는 선배)한테 배운 것 중 지금도 지키는 게 있나요?",
+    "손님이 준 팁 중에 돈보다 기억에 남는 게 있다면?",
+    "쉬는 날엔 어떤 술집에 가고 싶어요? 아니면 집?",
+    "칵테일 이름 중에 제일 아름답다고 생각하는 건?",
+    "내 취향을 한 잔으로 표현한다면 어떤 잔일까요?",
+    "바에서 겪은 제일 훈훈했던 장면은?",
+    "숙취에 듣는 나만의 비법 있어요?",
+    "안주 없이 마시기 제일 좋은 술은 뭐라고 생각해요?",
+    "처음 가본 바에서 뭘 시키면 그 집을 알 수 있을까요?",
+    "올드패션드는 어떻게 만드는 게 정답이라고 생각해요?",
+    "가장 기억에 남는 실수담, 이제는 웃으며 말할 수 있나요?",
+    "우리 동네에서 제일 좋아하는 술집은 어디예요? (광고 아님)",
+    "겨울 밤에 어울리는 따뜻한 한 잔을 추천한다면?",
+    "바텐더에게 체력이란? 다들 관리 어떻게 해요?",
+    "술장에 꼭 있어야 한다고 생각하는 기본 병 5개는?",
+    "손님과의 적당한 거리, 어디까지라고 생각해요?",
+    "내가 마셔본 가장 비싼 술, 그만한 가치가 있었나요?",
+    "칵테일에서 가니시는 얼마나 중요할까요?",
+    "일 시작 전 나만의 준비 의식이 있나요?",
+    "누군가에게 술을 처음 가르친다면 뭐부터 알려줄래요?",
+    "토닉워터 브랜드, 차이가 느껴지나요?",
+    "생일에 스스로에게 내주고 싶은 한 잔은?",
+    "바텐더끼리만 아는 은어나 습관이 있다면?",
+    "지금 일하는(다니는) 바의 자랑거리 하나만 해줘요.",
+    "술 취한 손님을 젠틀하게 보내는 나만의 방법은?",
+    "인생 첫 알바가 뭐였어요? 지금 일에 도움이 됐나요?",
+    "레시피 노트 어떻게 정리해요? 종이? 폰?",
+    "내가 만든 술을 마셔줬으면 하는 사람이 있나요?",
+    "혼술할 때 뭐 보면서 마셔요?",
+    "바 인테리어에서 제일 중요한 건 조명? 의자? 음악?",
+    "손님이 두고 간 물건 중 제일 황당했던 것은?",
+    "5년 뒤의 나는 어디서 뭘 하고 있을까요?",
+    "처음으로 맛있다고 느낀 술은 뭐였어요?",
+    "휴가 간다면 어느 나라 바에 가보고 싶어요?",
+    "오늘 하루를 칵테일 이름으로 표현한다면?",
+    "바텐더라서 좋은 점 딱 하나만 꼽는다면?",
+  ];
+
+  /* 날짜 기반이라 모두가 같은 날 같은 질문을 받습니다.
+     자정이 지나면 다음 질문으로 넘어가요. */
+  function todaysQuestion() {
+    const day = Math.floor((Date.now() + new Date().getTimezoneOffset() * -60000) / 86400000);
+    return {
+      day,
+      who: day % 2 ? "술꼬" : "바텡이",
+      text: DAILY_QUESTIONS[day % DAILY_QUESTIONS.length],
+    };
+  }
+
+  /* 하루 한 번만 알림에 얹습니다. 앱을 여러 번 열어도 또 오지 않아요. */
+  /* 질문 알림에는 이모지 대신 캐릭터 얼굴.
+     저장은 이모지로 하고 그릴 때만 바꿉니다 — 알림마다 SVG 를
+     저장하면 저장소가 금방 붑니다. */
+  function notiIcon(x) {
+    if (x.to && x.to.view === "ask-write" && window.BTChar) {
+      const key = x.to.who === "술꼬" ? "wwow" : "think";
+      try { return window.BTChar.svg(key, 30, false); } catch (e) {}
+    }
+    return x.ic;
+  }
+
+  function maybeAskDaily() {
+    if (state.user.dailyQ === false) return;
+    const q = todaysQuestion();
+    if (store.get("dailyq_day", -1) === q.day) return;
+    store.set("dailyq_day", q.day);
+    // 어제 질문이나 껐다 켠 중복이 쌓이지 않게, 질문 알림은 늘 한 줄만 둡니다.
+    state.noti = state.noti.filter((x) => !(x.to && x.to.view === "ask-write"));
+    addNoti("💭", q.who + "의 질문 — " + q.text, { view: "ask-write", q: q.text, who: q.who });
+  }
+
+  /* 질문으로 글쓰기. 쓰던 글이 있으면 지우지 않습니다. */
+  function openQuestionWrite(q, who) {
+    state.writeCat = "free";
+    show("write");
+    const t = $("#write-title"), b = $("#write-body");
+    if (!t.value.trim() && !b.value.trim()) {
+      t.value = q;
+      b.focus();
+      toast((who || "바텡이") + "의 질문에 답해보세요 ✍️");
+    } else {
+      toast("쓰던 글이 있어서 그대로 뒀어요. 질문: " + q.slice(0, 24) + "…");
+    }
   }
 
   /* ---------- 테마 ---------- */
@@ -4920,7 +5040,7 @@
       ${state.noti.length
         ? state.noti.map((x, i) => `
           <div class="noti-item${x.to ? " tappable" : ""}" data-go="${i}">
-            <span class="noti-ic">${x.ic}</span>
+            <span class="noti-ic">${notiIcon(x)}</span>
             <div class="noti-body">
               <div class="noti-text">${esc(x.text)}</div>
               <div class="noti-time">${fmtRel(x.time)}</div>
@@ -5108,6 +5228,9 @@
     const sfxOn = !window.BTSfx || window.BTSfx.enabled;
     $("#toggle-sfx").classList.toggle("on", sfxOn);
     $("#toggle-sfx").setAttribute("aria-checked", sfxOn);
+    const dqOn = state.user.dailyQ !== false;
+    $("#toggle-dailyq").classList.toggle("on", dqOn);
+    $("#toggle-dailyq").setAttribute("aria-checked", dqOn);
   }
 
   /* ---------- 계정설정 ---------- */
@@ -6355,6 +6478,20 @@
     renderMyPage();
     toast(window.BTSfx.enabled ? "효과음을 켰어요. 🔊" : "효과음을 껐어요. 🔇");
   });
+  $("#toggle-dailyq").addEventListener("click", () => {
+    sfx("toggle");
+    state.user.dailyQ = state.user.dailyQ === false;   // false ↔ true
+    saveUser();
+    renderMyPage();
+    if (state.user.dailyQ !== false) {
+      store.set("dailyq_day", -1);   // 방금 켰으면 오늘 질문부터 바로
+      maybeAskDaily();
+      toast("바텡이와 술꼬가 매일 질문 하나씩 드릴게요. 💭");
+    } else {
+      toast("오늘의 질문을 껐어요.");
+    }
+  });
+
   $("#toggle-push").addEventListener("click", () => {
     sfx("toggle");
     state.push = !state.push;
@@ -6966,6 +7103,10 @@
   /* ---------- 초기화 ---------- */
   applyTheme();
   updateBadge();
+  // 오늘의 질문 — 화면이 자리 잡은 뒤에. 온보딩 중이면 다음 접속에 물어요.
+  setTimeout(() => {
+    if (state.view !== "onboard" && state.view !== "login") maybeAskDaily();
+  }, 1500);
   // 브라우저/안드로이드 뒤로가기 지원
   window.addEventListener("popstate", (e) => {
     if (state.view === "onboard" || state.view === "login") { history.forward(); return; }
