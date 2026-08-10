@@ -753,6 +753,22 @@
     myPostIds: [], mySpiritIds: [], favJobs: [], keywords: [], pointLog: [],
     blocked: [], hiddenPosts: [], hiddenSpirits: [],
   };
+  /* ---------- 초기 시드 ----------
+   * 앱이 텅 비어 있으면 아무도 첫 글을 쓰지 않습니다. 그래서 7~8월치
+   * 글·모임을 미리 담아두고 시작해요.
+   *
+   * 예전 샘플은 "몇 분 전"으로 뜨는 상대 시각이라 실제 날짜가 박힌 새
+   * 시드와 섞이면 앞뒤가 안 맞습니다. 그래서 더하지 않고 통째로 바꿉니다.
+   * seed 표시를 달아두는 이유는 아래 mergeRemote 주석에 있어요.
+   */
+  if (window.BARTALK_SEED) {
+    const S = window.BARTALK_SEED;
+    SEED_POSTS.length = 0;
+    S.posts.forEach((p) => SEED_POSTS.push(Object.assign({ seed: true }, p)));
+    SEED_MEETS.length = 0;
+    S.meets.forEach((m) => SEED_MEETS.push(Object.assign({ seed: true }, m)));
+  }
+
   let state = {
     user: Object.assign({}, DEFAULT_USER, store.get("user", {})),
     posts: store.get("posts", SEED_POSTS),
@@ -860,12 +876,26 @@
   state.user.hiddenSpirits = state.user.hiddenSpirits || [];
 
   /* ---------- 시드 병합 (앱 업데이트 시 새 데이터 추가) ---------- */
-  const SEED_V = 5;
+  const SEED_V = 6;
   if (store.get("seedv", 1) < SEED_V) {
     const mergeSeed = (arr, seed) => {
       const ids = new Set(arr.map((x) => x.id));
       seed.forEach((s) => { if (!ids.has(s.id)) arr.push(s); });
     };
+
+    /* 예전 샘플 글을 걷어냅니다.
+       내 글과 서버 글은 절대 건드리면 안 되고, 진짜 이용자가 쓴 글의
+       번호는 시각 기반이라 어마어마하게 큽니다. 그래서 "작은 번호이면서
+       내 것도 서버 것도 아닌 것"이 곧 예전 샘플입니다. */
+    const dropOldSeed = (arr) => {
+      for (let i = arr.length - 1; i >= 0; i--) {
+        const x = arr[i];
+        if (x.id < 1000 && !x.mine && !x.remote) arr.splice(i, 1);
+      }
+    };
+    dropOldSeed(state.posts);
+    dropOldSeed(state.meets);
+
     mergeSeed(state.posts, SEED_POSTS);
     mergeSeed(state.spirits, SEED_SPIRITS);
     mergeSeed(state.meets, SEED_MEETS);
@@ -6395,11 +6425,14 @@
     saveSpirit: NOOP, saveReview: NOOP, saveReport: NOOP, setBlock: NOOP,
   };
 
-  // 서버에 아직 못 올린 내 글이 화면에서 사라지지 않도록 남겨둬요.
+  /* 서버 것으로 갈아끼우되 두 가지는 남겨둡니다.
+       · 아직 못 올린 내 글 — 지금 화면에서 사라지면 날아간 줄 압니다
+       · 앱에 내장된 시드 — 서버에 없는 글이라 그냥 두면 매번 지워집니다
+     둘 다 서버에 같은 번호가 있으면 서버 것이 이깁니다. */
   function mergeRemote(remote, local) {
     const ids = new Set(remote.map((x) => x.id));
-    const pendingMine = local.filter((x) => x.mine && x.remote !== true && !ids.has(x.id));
-    return remote.concat(pendingMine);
+    const keep = local.filter((x) => (x.mine || x.seed) && x.remote !== true && !ids.has(x.id));
+    return remote.concat(keep);
   }
 
   function applyRemote(data) {
