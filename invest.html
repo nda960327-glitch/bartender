@@ -217,6 +217,28 @@ details.tbl th, details.tbl td { text-align: right; padding: 7px 10px; border-bo
 details.tbl th:first-child, details.tbl td:first-child { text-align: left; }
 details.tbl th { color: var(--muted); font-weight: 600; }
 
+/* ---------- 연도별 계획 ---------- */
+.yearchart { display: flex; align-items: flex-end; gap: 18px; height: 190px; margin: 8px 0 26px; }
+.ybar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
+.ybar .amt { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ybar .col {
+  width: 100%; max-width: 92px; border-radius: 6px 6px 0 0;
+  background: var(--s1); min-height: 6px;
+  transition: height .3s ease;
+}
+.ybar .yr { font-size: 13px; color: var(--muted); }
+.plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.plan-card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 24px 22px; }
+.plan-card .yr { font-family: "Noto Serif KR", serif; font-weight: 700; font-size: 18px; color: var(--accent); }
+.plan-card .theme { font-size: 13px; color: var(--muted); margin: 2px 0 14px; }
+.plan-kv { display: flex; justify-content: space-between; font-size: 13.5px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
+.plan-kv span { color: var(--sub); }
+.plan-kv b { font-variant-numeric: tabular-nums; }
+.plan-card ul { list-style: none; margin-top: 12px; }
+.plan-card li { font-size: 13.5px; color: var(--sub); padding: 4px 0 4px 18px; position: relative; }
+.plan-card li::before { content: "—"; position: absolute; left: 0; color: var(--accent-deep); }
+.plan-note { font-size: 13px; color: var(--muted); margin-top: 18px; }
+
 /* ---------- 투자 요청 ---------- */
 .ask { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
 .use-row { display: flex; justify-content: space-between; font-size: 14px; color: var(--sub); padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
@@ -425,6 +447,52 @@ function FinanceModel() {
     </div>`;
 }
 
+/* ---------- 연도별 계획 ----------
+   계산기(위)가 "구조"라면 이 표는 "일정표"입니다.
+   매출은 위 모델의 Base 단가 가정(활성 1인당 연 약 21만 원)에
+   연도별 가입 목표를 넣어 낸 값 — 두 화면의 숫자가 서로 맞습니다. */
+const YEARS = [
+  { yr: "2026", theme: "출시 반기 — 씨앗", users: "1,000명", rev: 0.2,
+    ms: ["Play Store 정식 출시", "5개 도시 바텐더 500명 시딩", "브랜드 캠페인 파일럿 1건", "코디얼 레시피 개발 착수"] },
+  { yr: "2027", theme: "전국 확장 — 검증", users: "5,000명", rev: 2.2,
+    ms: ["12개 도시로 확장", "브랜드 파트너 5개사 확보", "코디얼 초도 생산 · 회원 바 100곳 입점", "채용판 유료화 개시"] },
+  { yr: "2028", theme: "수익화 — 손익분기 목표", users: "12,000명", rev: 6.2,
+    ms: ["브랜드 상시 캠페인 10개사", "코디얼 라인업 3종 · 200곳 공급", "채용 매칭 수수료 모델 전환", "월 단위 손익분기 도달 목표"] },
+  { yr: "2029", theme: "표준 — 업계 기본 채널", users: "25,000명", rev: 13,
+    ms: ["신제품 출시 = 바텐톡 캠페인이 업계 표준", "코디얼 B2C 채널 검토", "다음 라운드 또는 흑자 확장 선택"] },
+];
+
+function YearPlan() {
+  const max = Math.max(...YEARS.map((y) => y.rev));
+  return html`
+    <div className="panel" style=${{ marginBottom: 16 }}>
+      <h4>연 매출 목표 (억 원)</h4>
+      <div className="yearchart">
+        ${YEARS.map((y) => html`
+          <div className="ybar" key=${y.yr}>
+            <span className="amt">${y.rev}억</span>
+            <div className="col" style=${{ height: Math.max(4, (y.rev / max) * 130) + "px" }}></div>
+            <span className="yr">${y.yr}</span>
+          </div>`)}
+      </div>
+      <div className="plan-grid">
+        ${YEARS.map((y) => html`
+          <div className="plan-card" key=${y.yr}>
+            <div className="yr">${y.yr}</div>
+            <div className="theme">${y.theme}</div>
+            <div className="plan-kv"><span>연말 가입 바텐더</span><b>${y.users}</b></div>
+            <div className="plan-kv"><span>연 매출 목표</span><b>₩${y.rev}억</b></div>
+            <ul>${y.ms.map((m, i) => html`<li key=${i}>${m}</li>`)}</ul>
+          </div>`)}
+      </div>
+      <p className="plan-note">
+        매출 목표는 위 모델의 Base 단가 가정(활성 1인당 연 약 21만 원)에 각 연도의
+        평균 가입자 × 활성률 35%를 넣어 계산한 값입니다. 가정이 바뀌면 함께 움직이는
+        "목표"이지, 확정된 예측이 아닙니다.
+      </p>
+    </div>`;
+}
+
 /* ---------- 폰 목업 ---------- */
 function Phone() {
   const post = (t, m, c) => html`
@@ -532,6 +600,12 @@ function App() {
       <h2>숫자를 던지지 않고, 계산식을 보여드립니다.</h2>
       <p className="lede">슬라이더를 움직이면 세 시나리오가 실시간으로 다시 계산됩니다. 우리가 맞다고 우기는 숫자가 아니라, 검증하실 수 있는 모델입니다.</p>
       <${FinanceModel} />
+
+      <div style=${{ height: 34 }}></div>
+      <${Eyebrow}>Roadmap<//>
+      <h2>3년, 어디까지 가는가</h2>
+      <p className="lede">계산식은 구조를 보여주고, 이 표는 일정을 보여줍니다. 연도마다 "그 해의 승부처"가 하나씩 있습니다 — 2026 씨앗, 2027 검증, 2028 수익화, 2029 표준.</p>
+      <${YearPlan} />
     </div></section>
 
     <section><div className="wrap">
