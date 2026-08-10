@@ -68,6 +68,11 @@
     { id: 22, cat: "소모품", emoji: "🧻", name: "칵테일 냅킨 250매", price: 6500, desc: "정사각 칵테일 냅킨 250매. 로고 없는 무지." },
   ];
 
+  /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
+     화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
+     물어보지 않고도 구분됩니다. */
+  const APP_BUILD = "2.18.1";
+
   /* ---------- 저장소 ---------- */
   const store = {
     get(key, fallback) {
@@ -6503,6 +6508,27 @@
   );
   $("#post-search").addEventListener("input", renderPosts);
   $("#rules-banner").addEventListener("click", openRulesSheet);
+  // 지금 돌아가는 파일 번호를 버전 문구에 붙입니다.
+  $("#app-ver").insertAdjacentHTML("afterbegin", `빌드 ${APP_BUILD}<br>`);
+
+  /* 새 파일이 있으면 받아서 바로 갈아끼웁니다.
+     안드로이드 앱(TWA)은 한 번 뜬 뒤로는 스스로 다시 받지 않을 때가 있어서,
+     "왜 새 기능이 안 보이지" 의 대부분이 여기서 풀립니다. */
+  $("#btn-update").addEventListener("click", async () => {
+    if (!("serviceWorker" in navigator)) { location.reload(); return; }
+    toast("확인하는 중이에요…");
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) { location.reload(); return; }
+      await reg.update();
+      if (reg.waiting) reg.waiting.postMessage("skip-waiting");
+    } catch (e) { /* 실패해도 아래에서 새로고침은 합니다 */ }
+    // 캐시를 건너뛰도록 주소에 표식을 붙여 다시 엽니다.
+    const u = new URL(location.href);
+    u.searchParams.set("v", Date.now());
+    location.replace(u.toString());
+  });
+
   // 관리자 진입: 버전 문구 7연타 → PIN
   let verTaps = 0, verTapTimer;
   $("#app-ver").addEventListener("click", () => {
