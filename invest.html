@@ -524,7 +524,7 @@ function App() {
         </p>
         <div className="cta-row">
           <a className="btn primary" href="https://barapp.kr" target="_blank" rel="noopener">완성된 앱 보기 →</a>
-          <a className="btn" href="#finance">재무 모델 직접 만져보기</a>
+          <a className="btn" href="#finance">연도별 목표 보기</a>
         </div>
         <p className="hero-note">barapp.kr · PWA 출시 완료 · Play Store 등록 준비 중</p>
       </div>
@@ -597,14 +597,8 @@ function App() {
 
     <section id="finance"><div className="wrap">
       <${Eyebrow}>Financials</${Eyebrow}>
-      <h2>숫자를 던지지 않고, 계산식을 보여드립니다.</h2>
-      <p className="lede">슬라이더를 움직이면 세 시나리오가 실시간으로 다시 계산됩니다. 우리가 맞다고 우기는 숫자가 아니라, 검증하실 수 있는 모델입니다.</p>
-      <${FinanceModel} />
-
-      <div style=${{ height: 34 }}></div>
-      <${Eyebrow}>Roadmap<//>
       <h2>3년, 어디까지 가는가</h2>
-      <p className="lede">계산식은 구조를 보여주고, 이 표는 일정을 보여줍니다. 연도마다 "그 해의 승부처"가 하나씩 있습니다 — 2026 씨앗, 2027 검증, 2028 수익화, 2029 표준.</p>
+      <p className="lede">연도마다 "그 해의 승부처"가 하나씩 있습니다 — 2026 씨앗, 2027 검증, 2028 수익화, 2029 표준. 이 숫자들이 어떻게 나왔는지는 <a href="#calc">맨 아래 계산기</a>에서 직접 검증하실 수 있습니다.</p>
       <${YearPlan} />
     </div></section>
 
@@ -654,6 +648,13 @@ function App() {
           <p>전화: <a href="tel:01056041996">010-5604-1996</a></p>
         </div>
       </div>
+    </div></section>
+
+    <section id="calc"><div className="wrap">
+      <${Eyebrow}>Appendix — 검증용 계산기</${Eyebrow}>
+      <h2>위 목표가 어떻게 나왔는지, 직접 검증해 보세요.</h2>
+      <p className="lede">슬라이더를 움직이면 세 시나리오가 실시간으로 다시 계산됩니다. 우리가 맞다고 우기는 숫자가 아니라, 검증하실 수 있는 모델입니다. 로드맵의 연도별 매출은 이 모델의 Base 가정에 각 연도의 가입 목표를 넣은 값입니다.</p>
+      <${FinanceModel} />
     </div></section>
 
     <footer><div className="wrap">
