@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>바텐톡 — 투자 소개</title>
+<meta name="description" content="국내 최초 전국 단위 바텐더 전용 커뮤니티. 제품은 완성되어 있습니다.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;700;900&display=swap">
+<style>
+/* ============================================================
+   바텐톡 투자 원페이지 — 위스키 바의 어두운 무드
+   배경은 검정이 아니라 오크통 쪽으로 기운 갈색 근처 검정.
+   앰버(위스키색) 하나만 힘을 주고 나머지는 전부 조용하게.
+   ============================================================ */
+:root {
+  --bg: #0f0c09;
+  --surface: #171310;
+  --surface2: #1e1813;
+  --line: #2b2219;
+  --line-soft: #241d15;
+  --ink: #ece3d4;
+  --sub: #a5977f;
+  --muted: #6f6353;
+  --accent: #e0a94f;        /* UI 강조 (제목·버튼) */
+  --accent-deep: #b98428;
+  /* 차트 계열색 — 검증 통과 (다크 표면 대비 CVD ΔE 11.7 / 대비 3:1 이상) */
+  --s1: #ba8426;            /* 브랜드 제휴 */
+  --s2: #3fa98e;            /* 코디얼 유통 */
+  --s3: #6b8de8;            /* 채용 매칭 */
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg); color: var(--ink);
+  word-break: keep-all;   /* 한국어 단어 중간에서 줄이 꺾이지 않게 */
+  font-family: "Pretendard Variable", Pretendard, -apple-system, "Noto Sans KR", sans-serif;
+  line-height: 1.65; -webkit-font-smoothing: antialiased;
+}
+.serif { font-family: "Noto Serif KR", serif; }
+.wrap { max-width: 1060px; margin: 0 auto; padding: 0 22px; }
+section { padding: 88px 0; border-top: 1px solid var(--line-soft); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.eyebrow {
+  font-size: 12.5px; font-weight: 700; letter-spacing: .22em;
+  color: var(--accent); text-transform: uppercase; margin-bottom: 14px;
+}
+h2 {
+  font-family: "Noto Serif KR", serif; font-weight: 700;
+  font-size: clamp(24px, 3.6vw, 34px); line-height: 1.35;
+  text-wrap: balance; margin-bottom: 14px;
+}
+.lede { color: var(--sub); font-size: 16.5px; max-width: 640px; margin-bottom: 40px; }
+
+/* [입력필요] 자리 — 지어내지 않고 비워둔 곳 */
+.todo {
+  display: inline-block; padding: 1px 9px; border-radius: 7px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--accent); font-size: .82em; font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  white-space: nowrap;
+}
+
+/* ---------- 히어로 ---------- */
+.hero { border-top: 0; padding: 96px 0 84px; position: relative; overflow: hidden; }
+.hero::before {  /* 잔 위에 떨어지는 조명 한 줄 */
+  content: ""; position: absolute; top: -220px; left: 50%; transform: translateX(-62%);
+  width: 720px; height: 480px; pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(224,169,79,.13), transparent 62%);
+}
+.hero-grid { display: flex; gap: 56px; align-items: center; flex-wrap: wrap; position: relative; }
+.hero-copy { flex: 1 1 420px; min-width: 300px; }
+.brand-row { display: flex; align-items: center; gap: 10px; margin-bottom: 34px; }
+.brand-row img { width: 30px; height: 30px; border-radius: 8px; }
+.brand-row b { font-size: 17px; letter-spacing: -.01em; }
+.brand-row span { color: var(--muted); font-size: 12.5px; border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; }
+h1 {
+  font-family: "Noto Serif KR", serif; font-weight: 900;
+  font-size: clamp(30px, 5vw, 46px); line-height: 1.32; letter-spacing: -.01em;
+  text-wrap: balance; margin-bottom: 20px;
+}
+h1 em { font-style: normal; color: var(--accent); }
+.hero-sub { color: var(--sub); font-size: 17px; max-width: 480px; margin-bottom: 34px; }
+.cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 13px 22px; border-radius: 12px; font-size: 15px; font-weight: 700;
+  border: 1px solid var(--line); color: var(--ink); background: var(--surface);
+  cursor: pointer; transition: transform .12s ease, background .12s ease;
+}
+.btn:hover { text-decoration: none; transform: translateY(-1px); background: var(--surface2); }
+.btn.primary {
+  background: linear-gradient(135deg, #e8b45c, #c08a2e);
+  color: #241703; border: 0;
+}
+.hero-note { margin-top: 18px; font-size: 13px; color: var(--muted); }
+
+/* 폰 목업 — 실제 앱의 홈을 단순화해 그린 것 */
+.phone-slot { flex: 0 1 300px; margin: 0 auto; }
+.phone {
+  width: 272px; height: 556px; border-radius: 40px; padding: 10px;
+  background: #060504; border: 1px solid #322a20;
+  box-shadow: 0 40px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(224,169,79,.06);
+  transform: rotate(-2.2deg);
+}
+.screen {
+  width: 100%; height: 100%; border-radius: 31px; overflow: hidden;
+  background: #fdf9f4; color: #1c1712; font-size: 11px;
+  display: flex; flex-direction: column;
+}
+.m-top { display: flex; align-items: center; gap: 5px; padding: 14px 14px 8px; font-weight: 800; font-size: 14px; }
+.m-drop { width: 13px; height: 13px; background: linear-gradient(135deg,#ff5c35,#ff8ad4); clip-path: path("M6.5 0 C6.5 0 12.6 6.4 12.6 9.4 A6.1 6.1 0 1 1 .4 9.4 C.4 6.4 6.5 0 6.5 0 Z"); }
+.m-greet { padding: 4px 14px 10px; font-size: 12.5px; font-weight: 700; }
+.m-greet small { display: block; font-weight: 500; color: #8b7f70; font-size: 10px; }
+.m-quick { display: flex; gap: 6px; padding: 0 14px 10px; }
+.m-quick i { flex: 1; height: 44px; border-radius: 10px; background: #f2ece4; display: flex; align-items: center; justify-content: center; font-style: normal; font-size: 15px; }
+.m-post { margin: 0 14px 8px; padding: 9px 11px; border: 1px solid #eee5da; border-radius: 12px; background: #fff; }
+.m-post b { display: block; font-size: 11px; margin-bottom: 2px; }
+.m-post span { color: #97897a; font-size: 9.5px; }
+.m-meta { display: flex; gap: 8px; margin-top: 5px; color: #b3a696; font-size: 9px; }
+.m-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: -1px; }
+
+/* ---------- 카드 공통 ---------- */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+  padding: 26px 24px;
+}
+.card h3 { font-size: 17px; font-weight: 800; margin: 12px 0 8px; letter-spacing: -.01em; }
+.card p { color: var(--sub); font-size: 14.5px; }
+.card .num {
+  font-family: "Noto Serif KR", serif; font-weight: 700; font-size: 15px;
+  color: var(--muted); letter-spacing: .08em;
+}
+.tag { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px; }
+
+/* 시장 스탯 타일 */
+.stat-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+.stat-tile { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 26px 24px; }
+.stat-tile .v { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; margin: 6px 0 2px; }
+.stat-tile .l { color: var(--sub); font-size: 14px; }
+.stat-tile .src { color: var(--muted); font-size: 12px; margin-top: 10px; }
+
+/* ---------- 재무 모델 ---------- */
+.disclaimer {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  border-radius: 14px; padding: 15px 18px; margin-bottom: 30px;
+  color: var(--ink); font-size: 14px; font-weight: 600;
+}
+.disclaimer small { display: block; font-weight: 500; color: var(--sub); margin-top: 3px; font-size: 12.5px; }
+
+.model { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
+@media (max-width: 860px) { .model { grid-template-columns: 1fr; } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 24px; }
+.panel h4 { font-size: 13px; letter-spacing: .16em; color: var(--muted); text-transform: uppercase; margin-bottom: 18px; }
+
+.slider-row { margin-bottom: 20px; }
+.slider-row label { display: flex; justify-content: space-between; font-size: 13.5px; color: var(--sub); margin-bottom: 8px; }
+.slider-row label b { color: var(--ink); font-variant-numeric: tabular-nums; font-size: 14.5px; }
+input[type="range"] { width: 100%; accent-color: var(--accent); height: 22px; cursor: pointer; }
+
+.assump { border-top: 1px solid var(--line-soft); padding-top: 16px; margin-top: 4px; }
+.assump-title { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.assump-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--sub); margin-bottom: 8px; }
+.assump-row input {
+  width: 86px; padding: 6px 8px; text-align: right;
+  background: var(--surface2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px;
+  font: inherit; font-variant-numeric: tabular-nums;
+}
+.assump-row input:focus { outline: 1px solid var(--accent-deep); }
+
+.formula {
+  background: var(--surface2); border: 1px solid var(--line-soft); border-radius: 12px;
+  padding: 14px 16px; margin-bottom: 14px;
+  font-size: 13.5px; color: var(--sub);
+  font-variant-numeric: tabular-nums; overflow-x: auto; white-space: nowrap;
+}
+.formula b { color: var(--ink); font-weight: 700; }
+.formula .k { display: inline-block; min-width: 86px; color: var(--muted); }
+.formula .sw { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 7px; }
+
+/* KPI */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.kpi { background: var(--surface2); border: 1px solid var(--line-soft); border-radius: 14px; padding: 16px 18px; }
+.kpi .v { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.kpi .l { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+/* 시나리오 바 차트 */
+.legend { display: flex; gap: 18px; flex-wrap: wrap; margin: 4px 0 14px; font-size: 13px; color: var(--sub); }
+.legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 6px; font-style: normal; }
+.scen { margin-bottom: 14px; }
+.scen-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.scen-head .n { font-size: 13.5px; font-weight: 700; }
+.scen-head .n small { color: var(--muted); font-weight: 500; margin-left: 6px; }
+.scen-head .t { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.bar { display: flex; height: 26px; border-radius: 6px; overflow: visible; }
+.seg {
+  height: 100%; min-width: 3px; cursor: default;
+  border-right: 2px solid var(--surface);   /* 조각 사이 2px 표면 간격 */
+  transition: width .25s ease;
+}
+.seg:first-child { border-radius: 6px 0 0 6px; }
+.seg:last-child { border-radius: 0 4px 4px 0; border-right: 0; }
+.chart-wrap { position: relative; }
+.tip {
+  position: absolute; z-index: 5; pointer-events: none;
+  background: #060504; border: 1px solid var(--line); border-radius: 10px;
+  padding: 8px 12px; font-size: 12.5px; color: var(--ink);
+  transform: translate(-50%, -110%); white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tip small { color: var(--sub); display: block; }
+details.tbl { margin-top: 16px; }
+details.tbl summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+details.tbl table { width: 100%; margin-top: 10px; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+details.tbl th, details.tbl td { text-align: right; padding: 7px 10px; border-bottom: 1px solid var(--line-soft); }
+details.tbl th:first-child, details.tbl td:first-child { text-align: left; }
+details.tbl th { color: var(--muted); font-weight: 600; }
+
+/* ---------- 투자 요청 ---------- */
+.ask { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.use-row { display: flex; justify-content: space-between; font-size: 14px; color: var(--sub); padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
+.mile { display: flex; gap: 14px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
+.mile b { color: var(--accent); font-family: "Noto Serif KR", serif; min-width: 46px; }
+.mile span { color: var(--sub); }
+
+/* ---------- 팀 ---------- */
+.team { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.avatar {
+  width: 46px; height: 46px; border-radius: 14px;
+  background: linear-gradient(135deg, #e8b45c, #c08a2e);
+  display: flex; align-items: center; justify-content: center;
+  color: #241703; font-weight: 800; font-size: 18px;
+}
+footer { padding: 46px 0 64px; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 12.5px; }
+footer .wrap { display: flex; flex-direction: column; gap: 8px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .btn, .seg { transition: none; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/htm@3.1.1/dist/htm.js"></script>
+<script>
+/* ============================================================
+   React 단일 파일. 빌드 없이 그대로 열립니다.
+   JSX 대신 htm(700바이트)을 써서 3MB짜리 바벨을 안 내려받아요.
+   ============================================================ */
+const { useState, useMemo, useEffect } = React;
+const html = htm.bind(React.createElement);
+
+/* 원화 표기: 2.4억 / 3,200만 */
+const won = (v) => {
+  if (!isFinite(v)) return "-";
+  if (v >= 1e8) { const a = v / 1e8; return (a >= 10 ? Math.round(a) : a.toFixed(1).replace(/\.0$/, "")) + "억"; }
+  if (v >= 1e4) return Math.round(v / 1e4).toLocaleString() + "만";
+  return Math.round(v).toLocaleString();
+};
+const num = (v) => (+v || 0).toLocaleString();
+
+const STREAMS = [
+  { key: "brand",   name: "브랜드 제휴", color: "var(--s1)", hex: "#ba8426" },
+  { key: "cordial", name: "코디얼 유통", color: "var(--s2)", hex: "#3fa98e" },
+  { key: "hire",    name: "채용 매칭",   color: "var(--s3)", hex: "#6b8de8" },
+];
+
+/* 시나리오 — 참여율·전환율과 단가를 따로 흔듭니다.
+   숫자는 배수라서 가정이 바뀌어도 의미가 유지돼요. */
+const SCEN = [
+  { key: "bear", name: "Bear", ko: "보수", rate: 0.6, price: 0.85 },
+  { key: "base", name: "Base", ko: "기본", rate: 1.0, price: 1.0 },
+  { key: "bull", name: "Bull", ko: "공격", rate: 1.4, price: 1.15 },
+];
+
+function Eyebrow({ children }) { return html`<div className="eyebrow">${children}</div>`; }
+function Todo({ w }) { return html`<span className="todo">${w || "입력필요"}</span>`; }
+
+/* ---------- 재무 모델 ---------- */
+function FinanceModel() {
+  const [users, setUsers] = useState(3000);     // 가입 바텐더
+  const [active, setActive] = useState(35);     // 월 활성률 %
+  const [priceX, setPriceX] = useState(100);    // 객단가 배율 %
+
+  /* 단가 가정 — 전부 수정할 수 있는 칸입니다. 사실이 아니라 가정. */
+  const [seedWon, setSeedWon] = useState(3);    // 캠페인당 활성 1인 시딩 단가 (만원)
+  const [campaigns, setCampaigns] = useState(6);// 연간 캠페인 수
+  const [conv, setConv] = useState(12);         // 코디얼 연 구매 전환 %
+  const [aov, setAov] = useState(5.5);          // 코디얼 연 객단가 (만원)
+  const [postRate, setPostRate] = useState(4);  // 활성 100명당 월 공고 수
+  const [fee, setFee] = useState(5);            // 공고당 이용료 (만원)
+
+  const calc = (s) => {
+    const act = users * (active / 100) * s.rate;
+    const m = (priceX / 100) * s.price;
+    const brand = act * (seedWon * 1e4) * campaigns * m;
+    const cordial = act * (conv / 100) * s.rate * (aov * 1e4) * m;
+    const hire = (act / 100) * postRate * (fee * 1e4) * 12 * m;
+    return { act, brand, cordial, hire, total: brand + cordial + hire };
+  };
+  const R = useMemo(() => Object.fromEntries(SCEN.map((s) => [s.key, calc(s)])),
+    [users, active, priceX, seedWon, campaigns, conv, aov, postRate, fee]);
+  const max = R.bull.total || 1;
+
+  const [tip, setTip] = useState(null);
+  const showTip = (e, name, v, total) => {
+    const box = e.currentTarget.closest(".chart-wrap").getBoundingClientRect();
+    const r = e.currentTarget.getBoundingClientRect();
+    setTip({ x: r.left - box.left + r.width / 2, y: r.top - box.top,
+      name, v, pct: Math.round((v / total) * 100) });
+  };
+
+  /* 휠 스크롤이 슬라이더 위를 지나가며 가정을 바꿔버리는 것을 막습니다.
+     투자자가 페이지를 내리다가 모델이 몰래 바뀌면 신뢰가 깨져요. */
+  useEffect(() => {
+    const stop = (e) => e.preventDefault();
+    const els = document.querySelectorAll('input[type=range]');
+    els.forEach((el) => el.addEventListener('wheel', stop, { passive: false }));
+    return () => els.forEach((el) => el.removeEventListener('wheel', stop));
+  }, []);
+
+  const base = R.base;
+  const Slider = (label, val, set, min, max2, step, fmt) => html`
+    <div className="slider-row">
+      <label><span>${label}</span><b>${fmt}</b></label>
+      <input type="range" min=${min} max=${max2} step=${step} value=${val}
+        aria-label=${label} onInput=${(e) => set(+e.target.value)} />
+    </div>`;
+  const Assump = (label, val, set, step) => html`
+    <div className="assump-row"><span>${label}</span>
+      <input type="number" value=${val} step=${step || 1} min="0"
+        aria-label=${label} onInput=${(e) => set(+e.target.value || 0)} />
+    </div>`;
+
+  return html`
+    <div className="disclaimer">
+      <span aria-hidden="true">⚠️</span>
+      <div>본 재무 전망은 아래 가정에 따른 추정치이며, 실제 실적을 보장하지 않습니다.
+        <small>모든 단가·비율은 조정 가능한 가정 초기값입니다. 확정 견적·실측치가 나오는 대로 교체됩니다.</small>
+      </div>
+    </div>
+
+    <div className="model">
+      <div className="panel">
+        <h4>가정 — 직접 움직여 보세요</h4>
+        ${Slider("가입 바텐더", users, setUsers, 500, 30000, 100, num(users) + "명")}
+        ${Slider("월 활성률", active, setActive, 5, 80, 1, active + "%")}
+        ${Slider("객단가 배율", priceX, setPriceX, 50, 150, 5, priceX + "%")}
+        <div className="assump">
+          <div className="assump-title">단가 가정 (만원 단위 · 수정 가능)</div>
+          ${Assump("캠페인당 인당 시딩 단가", seedWon, setSeedWon, 0.5)}
+          ${Assump("연간 브랜드 캠페인 수", campaigns, setCampaigns)}
+          ${Assump("코디얼 연 구매 전환 %", conv, setConv)}
+          ${Assump("코디얼 연 객단가", aov, setAov, 0.5)}
+          ${Assump("활성 100명당 월 채용공고", postRate, setPostRate)}
+          ${Assump("공고당 이용료", fee, setFee)}
+        </div>
+      </div>
+
+      <div className="panel">
+        <h4>계산식이 그대로 보이는 전망 (연 매출)</h4>
+
+        <div className="kpis">
+          <div className="kpi"><div className="v">${num(Math.round(base.act))}명</div><div className="l">월 활성 바텐더 (Base)</div></div>
+          <div className="kpi"><div className="v">₩${won(base.total)}</div><div className="l">연 매출 합계 (Base)</div></div>
+          <div className="kpi"><div className="v">₩${won(base.total / Math.max(1, base.act))}</div><div className="l">활성 1인당 연 매출</div></div>
+        </div>
+
+        <div className="formula">
+          <span className="k">활성</span>${num(users)}명 × ${active}% = <b>${num(Math.round(base.act))}명</b>
+        </div>
+        <div className="formula">
+          <span className="sw" style=${{ background: "var(--s1)" }}></span><span className="k">브랜드 제휴</span>
+          ${num(Math.round(base.act))}명 × ₩${seedWon}만 × 연 ${campaigns}회 = <b>₩${won(base.brand)}</b>
+        </div>
+        <div className="formula">
+          <span className="sw" style=${{ background: "var(--s2)" }}></span><span className="k">코디얼 유통</span>
+          ${num(Math.round(base.act))}명 × ${conv}% × ₩${aov}만 = <b>₩${won(base.cordial)}</b>
+        </div>
+        <div className="formula">
+          <span className="sw" style=${{ background: "var(--s3)" }}></span><span className="k">채용 매칭</span>
+          월 ${num(Math.round(base.act / 100 * postRate))}건 × ₩${fee}만 × 12개월 = <b>₩${won(base.hire)}</b>
+        </div>
+
+        <p style=${{ fontSize: 12.5, color: "var(--muted)", margin: "2px 0 10px" }}>* 코디얼은 개발 예정 제품입니다. 해당 축의 매출은 제품 출시 이후를 가정합니다.</p>
+        <div className="legend" role="list">
+          ${STREAMS.map((s) => html`<span key=${s.key} role="listitem"><i style=${{ background: s.color }}></i>${s.name}</span>`)}
+        </div>
+
+        <div className="chart-wrap" onMouseLeave=${() => setTip(null)}>
+          ${SCEN.map((s) => {
+            const r = R[s.key];
+            return html`
+            <div className="scen" key=${s.key}>
+              <div className="scen-head">
+                <span className="n">${s.name}<small>${s.ko} · 참여율 ×${s.rate} · 단가 ×${s.price}</small></span>
+                <span className="t">₩${won(r.total)}</span>
+              </div>
+              <div className="bar" style=${{ width: Math.max(8, (r.total / max) * 100) + "%" }}>
+                ${STREAMS.map((st) => html`
+                  <div className="seg" key=${st.key}
+                    style=${{ width: (r[st.key === "brand" ? "brand" : st.key === "cordial" ? "cordial" : "hire"] / r.total) * 100 + "%", background: st.color }}
+                    onMouseEnter=${(e) => showTip(e, st.name, r[st.key === "brand" ? "brand" : st.key === "cordial" ? "cordial" : "hire"], r.total)}
+                  ></div>`)}
+              </div>
+            </div>`;
+          })}
+          ${tip && html`<div className="tip" style=${{ left: tip.x, top: tip.y }}>
+            <b>₩${won(tip.v)}</b> · ${tip.pct}%<small>${tip.name}</small></div>`}
+        </div>
+
+        <details className="tbl">
+          <summary>표로 보기</summary>
+          <table>
+            <thead><tr><th>시나리오</th>${STREAMS.map((s) => html`<th key=${s.key}>${s.name}</th>`)}<th>합계</th></tr></thead>
+            <tbody>
+              ${SCEN.map((s) => { const r = R[s.key]; return html`
+                <tr key=${s.key}><td>${s.name} (${s.ko})</td>
+                  <td>₩${won(r.brand)}</td><td>₩${won(r.cordial)}</td><td>₩${won(r.hire)}</td>
+                  <td><b>₩${won(r.total)}</b></td></tr>`; })}
+            </tbody>
+          </table>
+        </details>
+      </div>
+    </div>`;
+}
+
+/* ---------- 폰 목업 ---------- */
+function Phone() {
+  const post = (t, m, c) => html`
+    <div className="m-post"><b><span className="m-dot" style=${{ background: c }}></span>${t}</b><span>${m}</span>
+      <div className="m-meta"><span>♡ 공감</span><span>💬 댓글</span></div></div>`;
+  return html`
+    <div className="phone-slot"><div className="phone" role="img" aria-label="바텐톡 앱 화면 미리보기"><div className="screen">
+      <div className="m-top"><span className="m-drop"></span>바텐톡</div>
+      <div className="m-greet">오늘도 마감까지 화이팅 🍸<small>바텐더 익명 커뮤니티</small></div>
+      <div className="m-quick"><i>💼</i><i>🥃</i><i>👥</i><i>🛒</i></div>
+      ${post("연차별 월급 현실 공개하고 가자", "익명이니까 편하게…", "#6b9fff")}
+      ${post("하이볼 유행 언제까지 갈 거라고 봄?", "백바 구성 고민 중", "#ffcb52")}
+      ${post("아무거나 맛있는 걸로 주세요", "대처법 공유함", "#7ed9a5")}
+      ${post("조주기능사 실기 드디어 붙었다", "3트 만에 ㅠㅠ", "#ff8ad4")}
+    </div></div></div>`;
+}
+
+/* ---------- 페이지 ---------- */
+function App() {
+  return html`
+  <main>
+    <section className="hero"><div className="wrap hero-grid">
+      <div className="hero-copy">
+        <div className="brand-row"><img src="icons/icon-192.png" alt="" /><b>바텐톡</b><span>투자 소개</span></div>
+        <h1 className="serif">손님은 "아무거나"를 시키고,<br /><em>바텐더가 브랜드를 고릅니다.</em></h1>
+        <p className="hero-sub">
+          주류 소비의 결정권자인 바텐더를 한곳에 모으는 전국 단위 전용 커뮤니티.
+          앱은 이미 완성되어 오늘 설치할 수 있습니다.
+        </p>
+        <div className="cta-row">
+          <a className="btn primary" href="https://barapp.kr" target="_blank" rel="noopener">완성된 앱 보기 →</a>
+          <a className="btn" href="#finance">재무 모델 직접 만져보기</a>
+        </div>
+        <p className="hero-note">barapp.kr · PWA 출시 완료 · Play Store 등록 준비 중</p>
+      </div>
+      <${Phone} />
+    </div></section>
+
+    <section><div className="wrap">
+      <${Eyebrow}>Problem</${Eyebrow}>
+      <h2>주류 소비를 움직이는 사람들이,<br />정작 모여 있는 곳이 없습니다.</h2>
+      <p className="lede">바 한 곳의 백바에 어떤 병이 오르는지는 바텐더가 정합니다. 그런데 이 직군에는 전용 채널이 없습니다.</p>
+      <div className="cards">
+        <div className="card"><div className="num">01</div><h3>흩어져 있는 결정권자</h3>
+          <p>바텐더는 매일 밤 손님에게 브랜드를 추천하는 사람입니다. 지금은 개인 인스타와 지인 단톡방에 흩어져 있어, 직군 전체에 닿는 방법이 없습니다.</p></div>
+        <div className="card"><div className="num">02</div><h3>비싼 신제품 유통 경로</h3>
+          <p>새 술이 백바에 오르려면 영업사원이 바를 한 곳씩 돌아야 합니다. 시음 한 번 시키는 데 드는 비용이 병값이 아니라 발품값입니다.</p></div>
+        <div className="card"><div className="num">03</div><h3>지인망에 갇힌 채용과 정보</h3>
+          <p>채용은 소개로, 시세·처우 정보는 어깨너머로 돕니다. 일반 알바 플랫폼은 이 직군의 언어를 모릅니다.</p></div>
+      </div>
+    </div></section>
+
+    <section><div className="wrap">
+      <${Eyebrow}>Product</${Eyebrow}>
+      <h2>바텐톡 — 이미 만들어져 있습니다.</h2>
+      <p className="lede">기획서가 아니라 배포된 제품입니다. 소셜 로그인, 실시간 동기화, 푸시 알림까지 운영 수준으로 갖췄습니다.</p>
+      <div className="cards">
+        <div className="card"><h3>🍸 익명 커뮤니티</h3><p>전원 로그인 기반의 익명. 월급·처우처럼 실명으론 못 하는 이야기가 오가는 구조입니다. 신고·차단·운영자 도구 포함.</p></div>
+        <div className="card"><h3>🥃 술도감</h3><p>칵테일·위스키 데이터베이스와 리뷰. 바텐더의 "무엇을 들여놓을까"가 데이터로 쌓입니다.</p></div>
+        <div className="card"><h3>👥 모임 · 채용</h3><p>지역별 시음회·스터디 모임과 채용 공고. 오프라인 네트워크가 앱 안으로 들어옵니다.</p></div>
+        <div className="card"><h3>🔔 1:1 채팅 · 푸시</h3><p>앱을 꺼둬도 오는 알림. 커뮤니티 앱의 재방문을 만드는 기본기가 갖춰져 있습니다.</p></div>
+      </div>
+    </div></section>
+
+    <section><div className="wrap">
+      <${Eyebrow}>Market</${Eyebrow}>
+      <h2>시장의 크기</h2>
+      <p className="lede">아래 수치는 공신력 있는 출처 확인 후 기입합니다. 추정치를 사실처럼 적지 않습니다.</p>
+      <div className="stat-tiles">
+        <div className="stat-tile"><div className="l">국내 바·주점 시장 규모</div><div className="v"><${Todo} /></div><div className="src">출처: <${Todo} w="출처 입력" /></div></div>
+        <div className="stat-tile"><div className="l">바텐더·바 종사자 수</div><div className="v"><${Todo} /></div><div className="src">출처: <${Todo} w="출처 입력" /></div></div>
+        <div className="stat-tile"><div className="l">주류 브랜드 연간 마케팅 집행</div><div className="v"><${Todo} /></div><div className="src">출처: <${Todo} w="출처 입력" /></div></div>
+      </div>
+    </div></section>
+
+    <section><div className="wrap">
+      <${Eyebrow}>Why us</${Eyebrow}>
+      <h2>우리가 이 시장의 내부자입니다.</h2>
+      <div className="cards">
+        <div className="card"><h3>업계에서 왔습니다</h3>
+          <p>창업자는 현직 바 운영자입니다. 첫 100명의 유저가 될 바텐더들을 이름으로 알고, 그들이 무엇에 반응하는지 매일 밤 목격합니다.</p></div>
+        <div className="card"><h3>제품 리스크가 이미 제거됨</h3>
+          <p>창업자가 직접 개발해 배포까지 마쳤습니다. 외주 환산 개발비 약 4~6천만 원. 투자금은 개발이 아니라 성장에 쓰입니다.</p></div>
+        <div className="card"><h3>전국 영업망</h3>
+          <p>공동창업자가 전국 단위 영업과 커뮤니티 운영을 맡습니다. 지역 바 신(scene)별 시딩을 사람이 직접 돌립니다.</p></div>
+      </div>
+    </div></section>
+
+    <section><div className="wrap">
+      <${Eyebrow}>Business</${Eyebrow}>
+      <h2>수익 모델 세 축</h2>
+      <p className="lede">셋 다 같은 자산에서 나옵니다 — "브랜드를 고르는 사람들이 모인 채널". 광고를 붙이는 게 아니라 유통 경로가 되는 모델입니다.</p>
+      <div className="cards">
+        <div className="card"><span className="tag" style=${{ borderColor: "var(--s1)", color: "var(--s1)" }}>축 1</span>
+          <h3>주류 브랜드 제휴</h3><p>신제품 시딩, 브랜드 세미나, 캠페인. 영업사원의 발품을 앱 안의 도달로 바꿉니다. 브랜드는 병당이 아니라 캠페인 단위로 지불합니다.</p></div>
+        <div className="card"><span className="tag" style=${{ borderColor: "var(--s2)", color: "var(--s2)" }}>축 2</span>
+          <h3>자체 코디얼 유통 <span className="tag">개발 예정</span></h3><p>커뮤니티가 곧 유통 채널입니다. 제품은 아직 없습니다 — 본 투자로 초도 생산합니다. 창업자가 바 운영에서 검증한 레시피로 만들어 회원 바에 직접 공급하므로 중간 유통 마진이 없습니다.</p></div>
+        <div className="card"><span className="tag" style=${{ borderColor: "var(--s3)", color: "var(--s3)" }}>축 3</span>
+          <h3>채용 · 구인 매칭</h3><p>바텐더의 언어로 된 채용판. 업장은 공고당 이용료를, 장기적으로는 매칭 수수료 모델로 확장합니다.</p></div>
+      </div>
+    </div></section>
+
+    <section id="finance"><div className="wrap">
+      <${Eyebrow}>Financials</${Eyebrow}>
+      <h2>숫자를 던지지 않고, 계산식을 보여드립니다.</h2>
+      <p className="lede">슬라이더를 움직이면 세 시나리오가 실시간으로 다시 계산됩니다. 우리가 맞다고 우기는 숫자가 아니라, 검증하실 수 있는 모델입니다.</p>
+      <${FinanceModel} />
+    </div></section>
+
+    <section><div className="wrap">
+      <${Eyebrow}>The Ask</${Eyebrow}>
+      <h2>투자 요청</h2>
+      <div className="ask">
+        <div className="card">
+          <h3>필요 금액</h3>
+          <div style=${{ fontSize: 34, fontWeight: 800, margin: "6px 0 14px" }}><${Todo} w="금액 입력필요" /></div>
+          <p>라운드 형태·밸류에이션은 미팅에서 논의합니다.</p>
+        </div>
+        <div className="card">
+          <h3>사용처</h3>
+          <div className="use-row"><span>전국 시딩·커뮤니티 운영</span><b><${Todo} w="%" /></b></div>
+          <div className="use-row"><span>코디얼 초도 생산·유통</span><b><${Todo} w="%" /></b></div>
+          <div className="use-row"><span>마케팅·브랜드 제휴 영업</span><b><${Todo} w="%" /></b></div>
+          <div className="use-row"><span>운영·예비비</span><b><${Todo} w="%" /></b></div>
+        </div>
+        <div className="card">
+          <h3>마일스톤</h3>
+          <div className="mile"><b>T+3M</b><span>Play Store 출시 · 핵심 지역 <${Todo} w="목표" /> 시딩</span></div>
+          <div className="mile"><b>T+6M</b><span>가입 바텐더 <${Todo} w="목표" /> · 첫 브랜드 캠페인 집행</span></div>
+          <div className="mile"><b>T+12M</b><span>코디얼 정식 유통 개시 · 월 매출 <${Todo} w="목표" /></span></div>
+        </div>
+      </div>
+    </div></section>
+
+    <section><div className="wrap">
+      <${Eyebrow}>Team</${Eyebrow}>
+      <h2>팀</h2>
+      <div className="team">
+        <div className="card" style=${{ display: "flex", gap: 16 }}>
+          <div className="avatar">C</div>
+          <div><h3 style=${{ margin: "0 0 4px" }}>창업자 — 개발 · 전략</h3>
+            <p>현직 바 운영자. 바텐톡을 직접 설계·개발·배포. 유저와 고객(브랜드) 양쪽의 언어를 씁니다.</p></div>
+        </div>
+        <div className="card" style=${{ display: "flex", gap: 16 }}>
+          <div className="avatar">C</div>
+          <div><h3 style=${{ margin: "0 0 4px" }}>공동창업자 — 영업 · 운영</h3>
+            <p>전국 단위 영업과 커뮤니티 운영 담당. 지역별 바 신 시딩과 브랜드 제휴 실행.</p></div>
+        </div>
+        <div className="card">
+          <h3>컨택</h3>
+          <p style=${{ marginBottom: 8 }}>제품: <a href="https://barapp.kr" target="_blank" rel="noopener">barapp.kr</a></p>
+          <p>이메일: <${Todo} w="이메일 입력필요" /></p>
+          <p>전화: <${Todo} w="전화 입력필요" /></p>
+        </div>
+      </div>
+    </div></section>
+
+    <footer><div className="wrap">
+      <div>본 페이지의 재무 전망은 명시된 가정에 기반한 추정치이며, 실제 결과를 보장하지 않습니다. 확정되지 않은 제휴·실적은 포함하지 않았습니다.</div>
+      <div>© 2026 바텐톡 (BarTalk)</div>
+    </div></footer>
+  </main>`;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(html`<${App} />`);
+</script>
+</body>
+</html>
