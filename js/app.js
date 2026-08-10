@@ -876,7 +876,7 @@
   state.user.hiddenSpirits = state.user.hiddenSpirits || [];
 
   /* ---------- 시드 병합 (앱 업데이트 시 새 데이터 추가) ---------- */
-  const SEED_V = 6;
+  const SEED_V = 7;
   if (store.get("seedv", 1) < SEED_V) {
     const mergeSeed = (arr, seed) => {
       const ids = new Set(arr.map((x) => x.id));
@@ -890,7 +890,9 @@
     const dropOldSeed = (arr) => {
       for (let i = arr.length - 1; i >= 0; i--) {
         const x = arr[i];
-        if (x.id < 1000 && !x.mine && !x.remote) arr.splice(i, 1);
+        // 예전 상대시각 샘플(작은 번호)과 이전 판 시드 둘 다 걷어냅니다.
+        // 시드 내용이 바뀌면 버전만 올려도 새것으로 갈립니다.
+        if ((x.id < 1000 || x.seed) && !x.mine && !x.remote) arr.splice(i, 1);
       }
     };
     dropOldSeed(state.posts);
