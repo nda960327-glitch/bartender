@@ -4,7 +4,7 @@
     appName: "바텐톡",
     version: "1.3.0",
     operator: "바텐톡 운영팀",
-    email: "3663hong@gmail.com",
+    email: "nda960327@naver.com",
     updated: "2026-08-09",
   };
   var SUPPORT_EMAIL = META.email, OPERATOR = META.operator, POLICY_UPDATED = META.updated;

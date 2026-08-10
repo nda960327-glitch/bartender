@@ -6,7 +6,7 @@
   /* ---------- 앱 메타 (js/legal.js 가 단일 원본) ---------- */
   const LEGAL_META = (window.BARTALK_LEGAL && window.BARTALK_LEGAL.meta) || {};
   const APP_VER = LEGAL_META.version || "1.0.0";
-  const SUPPORT_EMAIL = LEGAL_META.email || "3663hong@gmail.com";
+  const SUPPORT_EMAIL = LEGAL_META.email || "nda960327@naver.com";
   // 출시 시 기능 on/off. 스토어는 실제 판매/배송·PG 연동 전까지 "사전 오픈" 안내로 동작해요.
   // 결제 인프라 없이 실제 주문을 받으면 Play 심사에서 반려될 수 있으니, 정식 오픈 전엔 STORE_LIVE = false 를 유지하세요.
   const FEATURES = { STORE_LIVE: false };
