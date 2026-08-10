@@ -71,7 +71,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.18.2";
+  const APP_BUILD = "2.19.0";
 
   /* ---------- 저장소 ---------- */
   const store = {
@@ -104,48 +104,52 @@
 
   /* 업장(바) 목록.
      주소·전화번호는 일부러 넣지 않았어요. 확인되지 않은 정보를 앱이
-     사실처럼 보여주면 그 가게에 민폐가 됩니다. 동네와 분위기까지만. */
+     사실처럼 보여주면 그 가게에 민폐가 됩니다. 동네와 분위기까지만.
+
+     lat/lng 는 그 가게의 정확한 위치가 아니라 "그 동네의 중심"입니다.
+     소수점 둘째 자리까지만 두어 대략 1km 격자로 뭉갰어요. 거리를 "약 2km"
+     수준으로 보여주는 데는 충분하고, 없는 정보를 있는 척하지 않습니다. */
   const SEED_BARS = [
     { id: 1, name: "문라이트라운지", region: "서울", area: "서울 강남구", type: "칵테일바",
       hours: "19:00 ~ 03:00 · 일 휴무", sig: "무화과 올드패션드",
       note: "강남 뒷골목 지하. 조도가 낮고 스피커가 좋아서 혼자 오는 손님이 많아요.",
-      tags: ["클래식", "혼술", "심야"], seed: true },
+      tags: ["클래식", "혼술", "심야"], lat: 37.52, lng: 127.05, seed: true },
     { id: 2, name: "몰트하우스", region: "경기", area: "경기 수원시", type: "위스키바",
       hours: "18:00 ~ 01:00 · 월 휴무", sig: "글렌캐런 플라이트 3종",
       note: "싱글몰트 200병대. 사장님이 직접 테이스팅 노트를 붙여둡니다.",
-      tags: ["위스키", "플라이트", "조용함"], seed: true },
+      tags: ["위스키", "플라이트", "조용함"], lat: 37.26, lng: 127.03, seed: true },
     { id: 3, name: "바네온", region: "서울", area: "서울 마포구", type: "펍/호프",
       hours: "18:00 ~ 04:00 · 연중무휴", sig: "네온 하이볼",
       note: "홍대 한복판. 시끄럽고 빠르고 사람 많습니다. 주말 웨이팅 각오.",
-      tags: ["하이볼", "시끌", "주말"], seed: true },
+      tags: ["하이볼", "시끌", "주말"], lat: 37.56, lng: 126.91, seed: true },
     { id: 4, name: "비노쉐어", region: "서울", area: "서울 강남구", type: "와인바",
       hours: "17:00 ~ 24:00 · 일 휴무", sig: "글라스 와인 12종 로테이션",
       note: "내추럴 위주. 잔술 회전이 빨라 혼자 두세 잔 비교해보기 좋아요.",
-      tags: ["와인", "내추럴", "안주"], seed: true },
+      tags: ["와인", "내추럴", "안주"], lat: 37.52, lng: 127.05, seed: true },
     { id: 5, name: "그랜드바", region: "인천", area: "인천 중구", type: "호텔바",
       hours: "17:00 ~ 01:00 · 연중무휴", sig: "클래식 마티니",
       note: "호텔 라운지. 드레스코드는 없지만 분위기가 정중한 편입니다.",
-      tags: ["클래식", "뷰", "정장"], seed: true },
+      tags: ["클래식", "뷰", "정장"], lat: 37.47, lng: 126.62, seed: true },
     { id: 6, name: "서면비어", region: "부산", area: "부산 부산진구", type: "펍/호프",
       hours: "17:00 ~ 02:00 · 연중무휴", sig: "부산 페일에일 탭 6종",
       note: "크래프트 탭이 자주 바뀝니다. 바텐더가 시음잔을 잘 내줘요.",
-      tags: ["맥주", "탭", "가성비"], seed: true },
+      tags: ["맥주", "탭", "가성비"], lat: 35.16, lng: 129.05, seed: true },
     { id: 7, name: "달빛한잔", region: "서울", area: "서울 종로구", type: "전통주바",
       hours: "18:00 ~ 01:00 · 일·월 휴무", sig: "제철 과실 막걸리",
       note: "익선동 한옥. 전통주 베이스 칵테일을 계절마다 새로 짭니다.",
-      tags: ["전통주", "한옥", "데이트"], seed: true },
+      tags: ["전통주", "한옥", "데이트"], lat: 37.57, lng: 126.99, seed: true },
     { id: 8, name: "코너스툴", region: "서울", area: "서울 용산구", type: "칵테일바",
       hours: "20:00 ~ 03:00 · 화 휴무", sig: "바텐더 오마카세 3잔",
       note: "좌석 8개짜리 스탠딩 바. 취향만 말하면 알아서 만들어줍니다.",
-      tags: ["오마카세", "소규모", "취향"], seed: true },
+      tags: ["오마카세", "소규모", "취향"], lat: 37.53, lng: 126.99, seed: true },
     { id: 9, name: "하이볼공장", region: "경기", area: "경기 성남시", type: "하이볼바",
       hours: "17:00 ~ 02:00 · 연중무휴", sig: "산토리 가쿠 하이볼",
       note: "판교 직장인 밀집. 퇴근 직후 한 시간이 제일 붐빕니다.",
-      tags: ["하이볼", "퇴근", "빠름"], seed: true },
+      tags: ["하이볼", "퇴근", "빠름"], lat: 37.42, lng: 127.13, seed: true },
     { id: 10, name: "제주바람", region: "제주", area: "제주 제주시", type: "칵테일바",
       hours: "19:00 ~ 02:00 · 수 휴무", sig: "한라봉 진토닉",
       note: "제주 재료로만 짠 시그니처 메뉴가 다섯 개 있습니다.",
-      tags: ["로컬", "진", "여행"], seed: true },
+      tags: ["로컬", "진", "여행"], lat: 33.50, lng: 126.53, seed: true },
   ];
   const BAR_TYPES = ["칵테일바", "위스키바", "와인바", "펍/호프", "하이볼바", "전통주바", "호텔바", "이자카야", "기타"];
 
@@ -836,6 +840,8 @@
     stock: store.get("stock", []),
     barQ: "",
     barRegion: "전체",
+    barRadius: 0,          // 0 = 전체. 내 주변 모드에서만 씁니다
+    myLoc: null,           // 앱을 끄면 사라집니다 — 저장하지 않아요
     curBar: null,
     rankRows: null,        // 서버에서 받은 랭킹. null 이면 아직 안 받았어요
     rankState: "idle",     // idle | loading | ok | off | error
@@ -972,6 +978,27 @@
     savePosts(); saveSpirits(); saveMeets();
     store.set("seedv", SEED_V);
   }
+
+  /* 바 목록에 좌표를 뒤늦게 붙였습니다.
+     이미 앱을 쓰던 사람은 localStorage 에 좌표 없는 목록이 들어 있어서,
+     그대로 두면 "내 주변"이 전부 물음표로 나옵니다.
+     내가 등록한 곳은 건드리지 않고, 기본 제공 목록만 채워 넣어요. */
+  (() => {
+    let changed = false;
+    SEED_BARS.forEach((s) => {
+      const cur = state.bars.find((b) => b.id === s.id && !b.mine);
+      if (cur && typeof cur.lat !== "number" && typeof s.lat === "number") {
+        cur.lat = s.lat;
+        cur.lng = s.lng;
+        changed = true;
+      }
+    });
+    // 아예 목록에 없는 기본 바가 있으면 그것도 넣어줍니다.
+    const ids = new Set(state.bars.map((b) => b.id));
+    SEED_BARS.forEach((s) => { if (!ids.has(s.id)) { state.bars.push(s); changed = true; } });
+    if (changed) saveBars();
+  })();
+
   localStorage.removeItem("bartalk_market");
 
   /* ---------- 유틸 ---------- */
@@ -7097,27 +7124,124 @@
   /* ============================================================
    *  바 찾기 (업장)
    * ============================================================ */
+
+  /* 두 점 사이 거리(km). 하버사인 — 지구를 공으로 치고 잽니다.
+     동네 중심끼리 재는 것이라 소수점은 의미가 없어요. */
+  function distanceKm(a, b) {
+    const R = 6371;
+    const rad = (d) => (d * Math.PI) / 180;
+    const dLat = rad(b.lat - a.lat);
+    const dLng = rad(b.lng - a.lng);
+    const h = Math.sin(dLat / 2) ** 2 +
+      Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+  }
+
+  /* 동네 중심끼리의 거리라서 "1.2km" 처럼 말하면 거짓말이 됩니다.
+     대략만 알려줘요. */
+  function fmtKm(km) {
+    if (km < 1) return "1km 이내";
+    if (km < 10) return `약 ${Math.round(km)}km`;
+    if (km < 100) return `약 ${Math.round(km / 5) * 5}km`;
+    return `${Math.round(km / 10) * 10}km+`;
+  }
+
+  const BAR_RADIUS = [
+    { k: "전체", km: 0 },
+    { k: "5km", km: 5 },
+    { k: "20km", km: 20 },
+    { k: "50km", km: 50 },
+  ];
+
+  /* 현재 위치 잡기.
+     좌표는 소수점 둘째 자리까지만 남깁니다 (약 1km 격자). 어느 건물에
+     있는지까지 알 필요가 없고, 저장해두지도 않아요 — 앱을 끄면 사라집니다. */
+  function locateMe() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve({ ok: false, error: "이 기기는 위치를 알려주지 못해요." });
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({
+          ok: true,
+          lat: Math.round(pos.coords.latitude * 100) / 100,
+          lng: Math.round(pos.coords.longitude * 100) / 100,
+        }),
+        (err) => resolve({
+          ok: false,
+          error: err && err.code === 1
+            ? "위치 권한이 꺼져 있어요. 브라우저 주소창 옆 자물쇠 > 위치 에서 허용해주세요."
+            : "위치를 잡지 못했어요. 실내라면 창가에서 다시 해보세요.",
+        }),
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+      );
+    });
+  }
+
   function barRegions() {
     const set = new Set(state.bars.map((b) => b.region).filter(Boolean));
     return ["전체", ...[...set].sort((a, b) => a.localeCompare(b, "ko"))];
   }
 
   function renderBars() {
-    $("#bar-regions").innerHTML = barRegions().map((r) =>
-      `<button class="chip ${r === state.barRegion ? "active" : ""}" data-r="${esc(r)}">${esc(r)}</button>`).join("");
-    $$("#bar-regions .chip").forEach((ch) =>
+    const near = !!state.myLoc;
+
+    /* 위치를 잡았으면 지역 칩 대신 거리 칩을 보여줍니다.
+       내 주변을 보는 중에 "서울/경기"를 또 고르게 하면 서로 싸워요. */
+    $("#bar-regions").innerHTML = near
+      ? BAR_RADIUS.map((r) =>
+        `<button class="chip ${r.km === state.barRadius ? "active" : ""}" data-km="${r.km}">${r.k}</button>`).join("")
+        + '<button class="chip" id="bar-loc-off">✕ 내 주변 끄기</button>'
+      : barRegions().map((r) =>
+        `<button class="chip ${r === state.barRegion ? "active" : ""}" data-r="${esc(r)}">${esc(r)}</button>`).join("")
+        + '<button class="chip" id="bar-loc-on">📍 내 주변</button>';
+
+    $$("#bar-regions [data-r]").forEach((ch) =>
       ch.addEventListener("click", () => { state.barRegion = ch.dataset.r; renderBars(); }));
+    $$("#bar-regions [data-km]").forEach((ch) =>
+      ch.addEventListener("click", () => { state.barRadius = +ch.dataset.km; renderBars(); }));
+
+    const onBtn = $("#bar-loc-on");
+    if (onBtn) onBtn.addEventListener("click", async () => {
+      onBtn.textContent = "위치 잡는 중…";
+      const r = await locateMe();
+      if (!r.ok) { toast(r.error); renderBars(); return; }
+      state.myLoc = { lat: r.lat, lng: r.lng };
+      state.barRegion = "전체";
+      renderBars();
+      toast("가까운 순으로 정렬했어요. 📍");
+    });
+    const offBtn = $("#bar-loc-off");
+    if (offBtn) offBtn.addEventListener("click", () => {
+      state.myLoc = null;
+      renderBars();
+    });
 
     const q = state.barQ.trim().toLowerCase();
-    const list = state.bars.filter((b) => {
-      if (state.barRegion !== "전체" && b.region !== state.barRegion) return false;
+    let list = state.bars.filter((b) => {
+      if (!near && state.barRegion !== "전체" && b.region !== state.barRegion) return false;
       if (!q) return true;
       return [b.name, b.area, b.type, b.sig, b.note, (b.tags || []).join(" ")]
         .filter(Boolean).join(" ").toLowerCase().includes(q);
     });
 
+    // 거리 계산 → 가까운 순. 좌표가 없는 곳은 뒤로 미룹니다.
+    let noCoord = 0;
+    if (near) {
+      list = list.map((b) => {
+        const has = typeof b.lat === "number" && typeof b.lng === "number";
+        if (!has) noCoord++;
+        return { b, km: has ? distanceKm(state.myLoc, b) : Infinity };
+      });
+      if (state.barRadius) list = list.filter((x) => x.km <= state.barRadius || x.km === Infinity);
+      list.sort((x, y) => x.km - y.km);
+    } else {
+      list = list.map((b) => ({ b, km: null }));
+    }
+
     $("#bar-list").innerHTML = list.length
-      ? list.map((b) => `
+      ? list.map(({ b, km }) => `
         <button class="bar-item pressable" data-id="${b.id}">
           <div class="bar-main">
             <div class="bar-name">${esc(b.name)}${state.user.myBars.includes(b.id) ? ' <span class="me-tag">단골</span>' : ""}</div>
@@ -7125,11 +7249,18 @@
             ${b.sig ? `<div class="bar-sig">🍸 ${esc(b.sig)}</div>` : ""}
             ${(b.tags || []).length ? `<div class="bar-tags">${b.tags.map((t) => `<span>#${esc(t)}</span>`).join("")}</div>` : ""}
           </div>
+          ${km === null ? "" : `<span class="bar-km">${km === Infinity ? "?" : fmtKm(km)}</span>`}
           <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
         </button>`).join("")
-      : `<div class="empty-state">${q || state.barRegion !== "전체"
-        ? "조건에 맞는 바가 없어요."
-        : "아직 등록된 바가 없어요. 오른쪽 위 + 로 추가해보세요."}</div>`;
+        + (near ? `<p class="sheet-note" style="text-align:left;margin:14px 20px 24px">
+            거리는 <b>가게 위치가 아니라 그 동네 중심</b>까지의 대략적인 값이에요.
+            정확한 위치는 방문 전에 직접 확인해주세요.${noCoord ? `<br>동네를 안 적은 ${noCoord}곳은 맨 뒤에 뒀습니다.` : ""}
+          </p>` : "")
+      : `<div class="empty-state">${near
+        ? `${state.barRadius}km 안에는 등록된 바가 없어요.<br>범위를 넓혀보세요.`
+        : (q || state.barRegion !== "전체"
+          ? "조건에 맞는 바가 없어요."
+          : "아직 등록된 바가 없어요. 오른쪽 위 + 로 추가해보세요.")}</div>`;
 
     $$("#bar-list .bar-item").forEach((el) =>
       el.addEventListener("click", () => openBar(+el.dataset.id)));
@@ -7146,6 +7277,9 @@
     $("#bar-title").textContent = b.name;
     $("#bar-del").hidden = !b.mine;
     const fav = state.user.myBars.includes(b.id);
+    const dist = state.myLoc
+      ? (typeof b.lat === "number" && typeof b.lng === "number" ? distanceKm(state.myLoc, b) : Infinity)
+      : null;
 
     const row = (k, v) => v ? `<div class="card-row"><span class="card-k">${k}</span><span class="card-v">${esc(v)}</span></div>` : "";
 
@@ -7160,12 +7294,14 @@
         <h3 class="card-h">정보</h3>
         ${row("영업시간", b.hours)}
         ${row("시그니처", b.sig)}
+        ${dist === null ? "" : row("내 위치에서", dist === Infinity ? "동네 정보 없음" : fmtKm(dist))}
         ${row("등록", b.by || "바텐톡")}
       </div>
       <div class="card" style="padding:14px 16px">
         <button class="big-btn ${fav ? "outline" : "accent ready"}" id="bar-fav">
           ${fav ? "단골 해제" : "⭐ 단골로 저장"}
         </button>
+        <button class="big-btn outline" id="bar-map" style="margin-top:8px">🗺️ 지도에서 찾기</button>
         <button class="big-btn outline" id="bar-write" style="margin-top:8px">이 바 이야기 글쓰기</button>
       </div>
       <p class="sheet-note" style="margin:2px 20px 24px">
@@ -7180,6 +7316,13 @@
       saveUser();
       renderBarDetail();
       toast(i >= 0 ? "단골에서 뺐어요." : "단골로 저장했어요. ⭐");
+    });
+    /* 좌표로 핀을 찍지 않고 이름으로 검색만 걸어줍니다.
+       우리가 가진 좌표는 동네 중심이라, 그걸로 핀을 찍으면 엉뚱한 건물을
+       가리키게 돼요. 어디인지는 지도가 알려주게 둡니다. */
+    $("#bar-map").addEventListener("click", () => {
+      const q = encodeURIComponent(`${b.name} ${b.area || b.region || ""}`.trim());
+      window.open(`https://map.kakao.com/link/search/${q}`, "_blank", "noopener");
     });
     $("#bar-write").addEventListener("click", () => {
       state.writeCat = "free";
@@ -7206,6 +7349,11 @@
       <input type="text" class="input" data-f="region" maxlength="10" placeholder="예: 서울">
       <label class="form-label">동네</label>
       <input type="text" class="input" data-f="area" maxlength="30" placeholder="예: 서울 용산구">
+      <button class="text-btn" id="bar-here" style="width:100%;padding:8px 0;font-size:13px">📍 지금 있는 곳으로 잡기</button>
+      <p class="sheet-note" id="bar-here-note" style="text-align:left;margin:0 0 6px">
+        가게 앞에서 누르면 대략적인 위치가 함께 저장돼요. 건물 단위가 아니라
+        <b>동네 단위</b>로만 뭉개서 씁니다.
+      </p>
       <label class="form-label">종류</label>
       <div class="chip-wrap" id="bar-types" style="padding:0 0 4px"></div>
       <label class="form-label">영업시간</label>
@@ -7219,6 +7367,7 @@
       <button class="big-btn accent ready" id="bar-save" style="margin-top:14px">등록하기</button>`);
 
     const bd = document.querySelector(".sheet-backdrop");
+    let coord = null;
     const paint = () => {
       bd.querySelector("#bar-types").innerHTML = BAR_TYPES.map((t) =>
         `<button class="chip ${t === type ? "active" : ""}" data-t="${esc(t)}">${esc(t)}</button>`).join("");
@@ -7226,6 +7375,21 @@
         ch.addEventListener("click", () => { type = ch.dataset.t; paint(); }));
     };
     paint();
+
+    bd.querySelector("#bar-here").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      btn.textContent = "위치 잡는 중…";
+      const r = await locateMe();
+      if (!r.ok) {
+        btn.textContent = "📍 지금 있는 곳으로 잡기";
+        toast(r.error);
+        return;
+      }
+      coord = { lat: r.lat, lng: r.lng };
+      btn.textContent = "✅ 위치 잡았어요 (다시 잡으려면 누르세요)";
+      bd.querySelector("#bar-here-note").innerHTML =
+        "이 위치로 저장됩니다. 동네 이름은 위 칸에 직접 적어주세요.";
+    });
 
     bd.querySelector("#bar-save").addEventListener("click", () => {
       if (isBanned()) return;
@@ -7237,12 +7401,14 @@
         toast("같은 이름의 바가 이미 있어요.");
         return;
       }
-      state.bars.unshift({
+      const row = {
         id: newId(), name: v.name, region: v.region || "기타", area: v.area,
         type, hours: v.hours, sig: v.sig, note: v.note,
         tags: v.tags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 5),
         by: state.user.nick, time: Date.now(), mine: true,
-      });
+      };
+      if (coord) { row.lat = coord.lat; row.lng = coord.lng; }
+      state.bars.unshift(row);
       saveBars();
       bd.remove();
       renderBars();
