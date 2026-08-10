@@ -793,6 +793,8 @@
     filterRegion: "전체",
     filterJob: "전체",
     dogamKind: "spirit",
+    dogamMine: false,      // 내가 등록한 술만 보기
+    meetMine: false,       // 내가 참여한 모임만 보기
     dogamCat: "전체",
     meetRegion: "전체",
     swKind: "spirit",
@@ -1043,10 +1045,23 @@
   }
   const chatUnread = () => state.chats.reduce((a, c) => a + (c.unread || 0), 0);
   function updateBadge() {
-    const n = state.noti.filter((x) => !x.read).length + chatUnread();
+    const unreadNoti = state.noti.filter((x) => !x.read).length;
+    const unreadChat = chatUnread();
     const b = $("#bell-badge");
+    const n = unreadNoti + unreadChat;
     b.hidden = n === 0;
     b.textContent = n > 9 ? "9+" : n;
+
+    /* 종에는 합계만 뜹니다. 그것만 보고 들어오면 알림이 온 건지
+       채팅이 온 건지 알 수 없어서, 탭마다 따로 붙여줍니다. */
+    const mark = (sel, cnt) => {
+      const el = $(sel);
+      if (!el) return;
+      el.hidden = cnt === 0;
+      el.textContent = cnt > 99 ? "99+" : cnt;
+    };
+    mark("#noti-count", unreadNoti);
+    mark("#chat-count", unreadChat);
   }
   /* ---------- 채팅 알림 ----------
    * 종 배지에 숫자가 오르는 것만으로는 메시지가 온 줄 모릅니다.
@@ -3660,6 +3675,7 @@
       (!isWhisky || state.dogamRegion === "전체" || regionOfWhisky(sp) === state.dogamRegion) &&
       (state.dogamKind !== "spirit" || (abvOk(sp) && priceOk(sp))) &&
       (!state.dogamTag || tagsOf(sp).includes(state.dogamTag)) &&
+      (!state.dogamMine || (state.user.mySpiritIds || []).includes(sp.id)) &&
       (!q || has(searchText(sp), q))
     ).sort((a, b) => {
       // 검색 중이면 적합도(이름 > 태그 > 본문)를 먼저 봅니다.
@@ -3673,7 +3689,12 @@
     });
 
     // 점진 렌더: 필터가 바뀌면 100개부터 다시
-    const sig = [state.dogamKind, state.dogamCat, state.dogamRegion, state.dogamAbv, state.dogamPrice, state.dogamSort, state.dogamTag, q].join("|");
+    const dBar = $("#dogam-filter-bar");
+    if (dBar) {
+      dBar.hidden = !state.dogamMine;
+      dBar.textContent = "내가 등록한 것만 보는 중 · 전체 보기";
+    }
+    const sig = [state.dogamKind, state.dogamCat, state.dogamRegion, state.dogamAbv, state.dogamPrice, state.dogamSort, state.dogamTag, state.dogamMine, q].join("|");
     if (sig !== state._dogamSig) { state._dogamSig = sig; state.dogamLimit = 100; }
     const full = list.length;
     if (full > state.dogamLimit) list.length = state.dogamLimit;
@@ -4228,8 +4249,14 @@
 
     const isPast = (m) => m.date < Date.now();
     const list = state.meets
+      .filter((m) => !state.meetMine || m.isJoined)
       .filter((m) => state.meetRegion === "전체" || m.region === state.meetRegion)
       .sort((a, b) => (isPast(a) - isPast(b)) || (isPast(a) ? b.date - a.date : a.date - b.date));
+    const mBar = $("#meet-filter-bar");
+    if (mBar) {
+      mBar.hidden = !state.meetMine;
+      mBar.textContent = "참여한 모임만 보는 중 · 전체 보기";
+    }
     $("#meet-list").innerHTML = list.length
       ? list.map((m) => {
         const past = isPast(m);
@@ -4813,6 +4840,7 @@
     renderChatList();
   }
   function renderChatList() {
+    updateBadge();
     const list = [...state.chats].sort((a, b) => b.time - a.time);
     $("#chat-list").innerHTML = list.length
       ? list.map((c) => {
@@ -4861,6 +4889,7 @@
     if (!c || !c.unread) return;
     c.unread = 0;
     saveChats();
+    updateBadge();
     if (c.remote) Sync.markRead(c.id);
   }
   function openChat(id) {
@@ -5711,7 +5740,12 @@
   }
 
   /* ---------- 이벤트 바인딩 ---------- */
-  $$(".nav-btn").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
+  $$(".nav-btn").forEach((b) => b.addEventListener("click", () => {
+    // 걸러 보던 상태가 남아 있으면 "글이 사라졌다"고 오해합니다.
+    if (b.dataset.view === "dogam") state.dogamMine = false;
+    if (b.dataset.view === "meet") state.meetMine = false;
+    show(b.dataset.view);
+  }));
   $$("[data-go]").forEach((b) => b.addEventListener("click", () => show(b.dataset.go)));
   // 관리자 화면은 하위 관리 화면이 있어서, 뒤로가기가 먼저 그걸 닫아요.
   $$(".back-btn").forEach((b) => b.addEventListener("click", () => {
@@ -5984,6 +6018,30 @@
   };
   $("#write-title").addEventListener("input", saveDraft);
   $("#write-body").addEventListener("input", saveDraft);
+
+  /* 마이페이지의 숫자는 지금까지 그냥 글자였습니다.
+     눌러도 아무 일이 없으면 사람은 두 번 누르고 앱을 탓해요.
+     각자 그 목록으로 데려다줍니다. */
+  $("#stat-go-spirits").addEventListener("click", () => {
+    if (!(state.user.mySpiritIds || []).length) { toast("아직 등록한 술이 없어요."); return; }
+    state.dogamMine = true;
+    state.dogamKind = "spirit";
+    state.dogamCat = "전체";
+    show("dogam");
+  });
+
+  $("#stat-go-meets").addEventListener("click", () => {
+    if (!state.meets.some((m) => m.isJoined)) { toast("아직 참여한 모임이 없어요."); return; }
+    state.meetMine = true;
+    state.meetRegion = "전체";
+    show("meet");
+  });
+
+  $("#stat-go-posts").addEventListener("click", () => show("myposts"));
+
+  // 거르는 중이라는 띠를 누르면 전체로 돌아옵니다.
+  $("#meet-filter-bar").addEventListener("click", () => { state.meetMine = false; renderMeets(); });
+  $("#dogam-filter-bar").addEventListener("click", () => { state.dogamMine = false; renderDogam(); });
 
   // 알림 탭 — 관리자 화면도 data-atab 을 쓰기 때문에 반드시 이 탭바 안으로 범위를 좁혀야 해요.
   // (전역으로 잡으면 관리자 탭을 누를 때 알림·채팅 패널이 둘 다 숨겨집니다)

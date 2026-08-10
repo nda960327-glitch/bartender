@@ -295,6 +295,7 @@
         <input type="text" id="spirit-search" placeholder="이름 검색">
       </div>
       <div class="sort-row" id="dogam-sort"></div>
+      <button class="filter-bar" id="dogam-filter-bar" hidden></button>
       <div id="spirit-list"></div>
       <div style="height:88px"></div>
     </div>
@@ -409,6 +410,7 @@
         <span class="banner-ic">🤝</span>
         <span class="banner-txt">바텐더끼리 만나요! 매너있는 모임 문화</span>
       </div>
+      <button class="filter-bar" id="meet-filter-bar" hidden></button>
       <div id="meet-list"></div>
       <div style="height:88px"></div>
     </div>
@@ -579,8 +581,8 @@
         <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
       </button>
       <div class="tabbar inline" id="alerts-tabs">
-        <button class="tab active" data-atab="noti">알림</button>
-        <button class="tab" data-atab="chat">1:1 채팅</button>
+        <button class="tab active" data-atab="noti">알림<span class="tab-dot" id="noti-count" hidden></span></button>
+        <button class="tab" data-atab="chat">1:1 채팅<span class="tab-dot" id="chat-count" hidden></span></button>
       </div>
       <span class="topbar-spacer"></span>
     </header>
@@ -625,9 +627,9 @@
         <button class="text-btn strong" id="btn-settings">계정설정</button>
       </div>
       <div class="card stat-row">
-        <div class="stat"><b id="stat-spirits">0</b><span>등록한 술</span></div>
-        <div class="stat"><b id="stat-meets">0</b><span>참여 모임</span></div>
-        <div class="stat"><b id="stat-posts">0</b><span>작성 글</span></div>
+        <button class="stat" id="stat-go-spirits"><b id="stat-spirits">0</b><span>등록한 술</span></button>
+        <button class="stat" id="stat-go-meets"><b id="stat-meets">0</b><span>참여 모임</span></button>
+        <button class="stat" id="stat-go-posts"><b id="stat-posts">0</b><span>작성 글</span></button>
       </div>
       <div class="card badge-sec">
         <div class="badge-head"><h3>뱃지</h3><span id="badge-count"></span></div>
