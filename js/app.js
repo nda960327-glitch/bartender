@@ -25,6 +25,13 @@
   const USER_COLORS = COLORS.slice(0, METAL_FROM); // 사용자가 고를 수 있는 색
   const isMetal = (c) => +c >= METAL_FROM;
   // 금속색이면 테두리와 광택을 더해 한눈에 구분되게 합니다.
+  // 내 색이 바뀌면 내 글·댓글도 그 자리에서 따라 바뀌게 합니다.
+  function noteMyColor() {
+    if (!Sync.uid) return;
+    state.authorColors[Sync.uid] = state.user.color;
+    store.set("authorColors", state.authorColors);
+  }
+
   const avatarHTML = (color, cls) =>
     `<span class="avatar${cls ? " " + cls : ""}${isMetal(color) ? " metal" : ""}"` +
     ` style="background:${COLORS[color] || COLORS[0]}"></span>`;
@@ -792,6 +799,7 @@
     curChat: null,
     filterRegion: "전체",
     filterJob: "전체",
+    authorColors: store.get("authorColors", {}),   // 사람 uuid → 지금 색
     dogamKind: "spirit",
     dogamMine: false,      // 내가 등록한 술만 보기
     meetMine: false,       // 내가 참여한 모임만 보기
@@ -1374,6 +1382,7 @@
     state.user.onboarded = true;
     saveUser();
     startSync();
+    noteMyColor();
     Sync.saveProfile(state.user);
     if (first) {
       addPoints(500, "가입 축하");
@@ -1625,6 +1634,28 @@
     });
   }
   const hiddenSp = () => state.user.hiddenSpirits || [];
+
+  /* ---------- 물방울 색 ----------
+   * 색은 글이 아니라 사람에게 붙어 있습니다.
+   *
+   * 예전에는 글·댓글마다 쓴 순간의 색이 박제됐습니다. 프로필 색을
+   * 바꾸면 예전 글은 옛 색 그대로라, 같은 사람이 글마다 다른 색으로
+   * 보였어요. 익명 커뮤니티에서 색은 "누가 누구인지" 알아보는 유일한
+   * 단서인데 그게 어긋나 있던 겁니다.
+   *
+   * 이제 그 사람의 지금 색을 찾아 씁니다. 색을 바꾸면 예전 글·댓글·
+   * 리뷰·모임까지 전부 함께 바뀝니다.
+   * 서버를 못 만났거나 옛날 기기 데이터라면 글에 적힌 색으로 돌아갑니다.
+   */
+  function colorOf(x, fallback) {
+    if (!x) return fallback || 0;
+    const uid = x.authorId;
+    if (uid && state.authorColors && state.authorColors[uid] != null) {
+      return state.authorColors[uid];
+    }
+    if (uid && Sync.uid && uid === Sync.uid) return state.user.color;
+    return fallback != null ? fallback : (x.color || 0);
+  }
 
   /* ---------- 익명 이름 ----------
    * 모두 '술방울' 입니다. 물방울 아바타와 한 몸이 되도록.
@@ -4135,7 +4166,7 @@
       <div class="comment-sec-title">리뷰 ${sp.reviews.length}</div>
       ${sp.reviews.map((r, vi) => `
         <div class="review-item">
-          <span class="avatar" style="background:${COLORS[r.color]}"></span>
+          <span class="avatar" style="background:${COLORS[colorOf(r)]}"></span>
           <div class="review-body">
             <div class="review-head">
               <span class="review-nick">${esc(dropName(r.color))}${r.mine ? ' <span class="me-tag">나</span>' : ""}</span>
@@ -4319,7 +4350,7 @@
           <div class="meet-title">${esc(m.title)}</div>
           <div class="meet-info">📅 ${fmtDate(m.date)}<br>📍 ${esc(m.place)}</div>
           <div class="meet-foot">
-            <span class="avatar" style="background:${COLORS[m.hostColor]}"></span>
+            <span class="avatar" style="background:${COLORS[colorOf(m, m.hostColor)]}"></span>
             <span style="font-size:13.5px;color:var(--text-sub)">${esc(m.host)}</span>
             <span class="meet-people"><b>${m.joined}</b>/${m.max}명</span>
           </div>
@@ -4367,7 +4398,7 @@
       <div class="comment-sec-title">댓글 ${m.comments.length}</div>
       ${m.comments.map((c, mi) => `
         <div class="comment-item">
-          ${avatarHTML(c.color)}
+          ${avatarHTML(colorOf(c))}
           <div class="comment-body">
             <div class="comment-head"><span class="comment-nick">${speakerHTML(c, m, meetNums)}</span><span class="comment-time">${fmtTime(c.time)}</span>${c.mine ? `<button class="cmt-del" data-mi="${mi}">삭제</button>` : ""}</div>
             ${c.text ? `<div class="comment-text">${escMsg(c.text)}</div>` : ""}
@@ -4495,7 +4526,7 @@
       <div class="post-item" data-id="${p.id}">
         <div class="post-main">
           <div class="post-head">
-            ${avatarHTML(p.color)}
+            ${avatarHTML(colorOf(p))}
             ${p.boostUntil && p.boostUntil > Date.now() ? '<span class="boost-tag">📌 AD</span>' : ""}
             ${posterName(p) ? `<span class="post-nick${p.official ? " official" : ""}">${posterName(p)}</span>` : ""}${officialTag(p)}
             <span class="post-time">${posterName(p) ? "· " : ""}${fmtTime(p.time)}</span>
@@ -4583,7 +4614,7 @@
     $("#post-detail").innerHTML = `
       <div class="detail-wrap">
         <div class="detail-head">
-          ${avatarHTML(p.color, "md")}
+          ${avatarHTML(colorOf(p), "md")}
           <div><div class="detail-nick">${p.official ? `<span class="official">${esc(p.nick)}</span>` : p.cat === "promo" ? `<span class="biz-link" id="biz-link">${esc(p.nick)}</span>` : `<span class="op-name">글쓴이</span>`}${officialTag(p)}${p.cat === "promo" ? ` <span class="biz-tag">📢 ${esc(p.biz || "비즈니스")}</span>` : ""}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""} · 조회 ${p.views || 0}</div></div>
           <span class="cat-tag detail-cat">${CAT_LABEL[p.cat] || "자유"}</span>
         </div>
@@ -4604,7 +4635,7 @@
       <div class="comment-sec-title">댓글 ${p.comments.length}</div>
       ${p.comments.map((c, ci) => `
         <div class="comment-item">
-          ${avatarHTML(c.color)}
+          ${avatarHTML(colorOf(c))}
           <div class="comment-body">
             <div class="comment-head"><span class="comment-nick">${speakerHTML(c, p, nums)}</span><span class="comment-time">${fmtTime(c.time)}</span>
               ${c.mine ? `<button class="cmt-del" data-ci="${ci}">삭제</button>` : ""}</div>
@@ -4613,7 +4644,7 @@
             <div class="comment-acts">${heartHTML(c, ci)}<button class="reply-btn" data-ci="${ci}">답글쓰기</button></div>
             ${(c.replies || []).map((rp, ri) => `
               <div class="reply-item">
-                ${avatarHTML(rp.color)}
+                ${avatarHTML(colorOf(rp))}
                 <div class="comment-body">
                   <div class="comment-head"><span class="comment-nick">${speakerHTML(rp, p, nums)}</span><span class="comment-time">${fmtTime(rp.time)}</span>${rp.mine ? `<button class="cmt-del" data-ci="${ci}" data-ri="${ri}">삭제</button>` : ""}</div>
                   ${rp.text ? `<div class="comment-text">${escMsg(rp.text)}</div>` : ""}
@@ -6287,6 +6318,7 @@
     if (!v || v === state.user.nick) return;
     state.user.nick = v;
     saveUser();
+    noteMyColor();
     Sync.saveProfile(state.user);
     updateNickBtn();
     toast("닉네임이 변경되었어요.");
@@ -6299,6 +6331,7 @@
     if (!isClean(name)) return;
     state.user.bizProfile = { name, type: state.bizTypeSel, since: state.user.bizProfile ? state.user.bizProfile.since : Date.now() };
     saveUser();
+    noteMyColor();
     Sync.saveProfile(state.user);
     renderBizProfile();
     toast(`'${name}' 비즈니스 프로필이 등록됐어요. 📢 홍보 글은 이 이름으로 게시돼요.`);
@@ -6307,6 +6340,7 @@
     if (!await btConfirm("비즈니스 프로필을 해제할까요?\n홍보 글을 더 이상 쓸 수 없어요.", { yes: "해제" })) return;
     state.user.bizProfile = null;
     saveUser();
+    noteMyColor();
     Sync.saveProfile(state.user);
     renderBizProfile();
     toast("비즈니스 프로필을 해제했어요.");
@@ -6314,6 +6348,7 @@
   $("#btn-profile-save").addEventListener("click", () => {
     state.user.color = state.selColor;
     saveUser();
+    noteMyColor();
     Sync.saveProfile(state.user);
     $("#btn-profile-save").disabled = true;
     $("#btn-profile-save").classList.remove("ready");
@@ -6386,6 +6421,12 @@
       state.overrides = data.overrides;
       saveOverrides();
       applyOverrides();
+    }
+    if (data.authorColors) {
+      // 통째로 갈아끼우지 않고 덮어씁니다. 이번에 안 받아온 사람의
+      // 색까지 지워버리면 그 사람 글만 색이 튑니다.
+      state.authorColors = Object.assign({}, state.authorColors, data.authorColors);
+      store.set("authorColors", state.authorColors);
     }
     if (data.reports) state.serverReports = data.reports;
     if (data.chats) {
@@ -6591,6 +6632,12 @@
         break;
       }
 
+    } else if (p.kind === "profile") {
+      if (!p.item.id || p.item.color == null) return;
+      if (state.authorColors[p.item.id] === p.item.color) return;   // 달라진 게 없으면 그냥 둡니다
+      state.authorColors[p.item.id] = p.item.color;
+      store.set("authorColors", state.authorColors);
+
     } else if (p.kind === "convRead") {
       const c = state.chats.find((x) => x.id === p.conversationId);
       if (!c) return;
@@ -6734,7 +6781,8 @@
       onAuth: (identity) => onAuthChanged(identity),
     });
     if (result === "signed-in" && Sync.ready()) {
-      Sync.saveProfile(state.user);
+      noteMyColor();
+    Sync.saveProfile(state.user);
       backfillLocal();
       Sync.refresh("backfill");
     }

@@ -409,6 +409,46 @@
     };
   }
 
+  /* 화면에 뜬 글·댓글을 쓴 사람들의 "지금 색"을 받아옵니다.
+     색은 이제 사람에게 붙어 있어서, 글에 적힌 색이 아니라 이걸 씁니다.
+     전체 회원을 받지 않고 화면에 실제로 나온 사람만 물어봐요 —
+     회원이 10만이어도 한 화면에 뜨는 사람은 백 명 남짓입니다. */
+  async function pullAuthorColors(ids) {
+    var list = Object.keys(ids || {});
+    if (!list.length) return {};
+    var out = {};
+    // URL 이 너무 길어지지 않게 끊어서 물어봅니다.
+    for (var i = 0; i < list.length; i += 200) {
+      var res = await sb.from("profiles").select("id,color").in("id", list.slice(i, i + 200));
+      if (res.error) continue;
+      (res.data || []).forEach(function (r) { out[r.id] = r.color; });
+    }
+    return out;
+  }
+
+  /* 받아온 데이터에서 사람 uuid 를 긁어모읍니다. */
+  function collectAuthors(data) {
+    var ids = {};
+    var add = function (u) { if (u) ids[u] = 1; };
+    (data.posts || []).forEach(function (p) {
+      add(p.authorId);
+      (p.comments || []).forEach(function (c) {
+        add(c.authorId);
+        (c.replies || []).forEach(function (r) { add(r.authorId); });
+      });
+    });
+    (data.meets || []).forEach(function (m) {
+      add(m.authorId);
+      (m.comments || []).forEach(function (c) { add(c.authorId); });
+    });
+    (data.spirits || []).forEach(function (s) { add(s.authorId); });
+    Object.keys(data.reviewsBySpirit || {}).forEach(function (k) {
+      (data.reviewsBySpirit[k] || []).forEach(function (r) { add(r.authorId); });
+    });
+    (data.chats || []).forEach(function (c) { add(c.peerId); });
+    return ids;
+  }
+
   async function pullProfile() {
     var res = await sb.from("profiles").select("*").eq("id", S.uid).maybeSingle();
     if (res.error || !res.data) return null;
@@ -545,6 +585,7 @@
       Object.keys(r.value).forEach(function (k) { data[k] = r.value[k]; });
     });
     if (!Object.keys(data).length) return;
+    try { data.authorColors = await pullAuthorColors(collectAuthors(data)); } catch (e) {}
     setStatus("online");
     onData(data, reason || "view");
   }
@@ -575,6 +616,8 @@
       var failed = results.filter(function (r) { return r.status === "rejected"; });
       if (failed.length === results.length) { setStatus("offline"); return; }
 
+      try { data.authorColors = await pullAuthorColors(collectAuthors(data)); } catch (e) {}
+
       setStatus("online");
       var at = Date.now();
       Object.keys(PULLERS).forEach(function (k) { lastPull[k] = at; });
@@ -603,6 +646,7 @@
     posts: "post", comments: "comment", likes: "like",
     meets: "meet", meet_participants: "meetJoin", meet_comments: "meetComment",
     spirits: "spirit", reviews: "review", comment_likes: "commentLike",
+    profiles: "profile",
     conversations: "conversation", messages: "message", conversation_reads: "convRead",
     content_overrides: "override",
   };
@@ -681,6 +725,9 @@
         break;
       case "messages":
         emitPatch("message", "upsert", toAppMessage(row), { conversationId: Number(row.conversation_id) });
+        break;
+      case "profiles":
+        emitPatch("profile", "upsert", { id: row.id, color: row.color });
         break;
       case "conversation_reads":
         emitPatch("convRead", "upsert", {
