@@ -1513,6 +1513,16 @@
      * 앱에서 status 를 '발행됨' 으로 직접 바꾸거나 작성 계정을 갈아끼우는 건
      * 서버 트리거가 되돌립니다. */
 
+    /* 안드로이드 앱이 주소에 실어 보낸 FCM 토큰을 등록합니다.
+       supabase/fcm.sql 을 안 넣었으면 조용히 넘어가요. */
+    async saveFcmToken(token) {
+      if (!ready() || !token) return false;
+      try {
+        var res = await sb.rpc("save_fcm_token", { p_token: token, p_platform: "android" });
+        return !res.error;
+      } catch (e) { return false; }
+    },
+
     /* 자동 댓글이 어디서 막혔는지. 읽기만 하고 아무것도 바꾸지 않아요. */
     async autoCommentWhy() {
       if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };

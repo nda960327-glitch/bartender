@@ -7,3 +7,6 @@ local.properties
 *.jks
 *.keystore
 keystore.properties
+
+# 파이어베이스 설정 — 프로젝트마다 다르고 공개할 것이 아닙니다
+google-services.json
