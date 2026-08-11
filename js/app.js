@@ -71,7 +71,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.19.0";
+  const APP_BUILD = "2.19.1";
 
   /* ---------- 저장소 ---------- */
   const store = {
@@ -2755,6 +2755,18 @@
           <button class="chip ${cfg.quiet_from === 0 && cfg.quiet_to === 11 ? "active" : ""}" data-quiet="0-11">자정~11시</button>
         </div>
       </div>
+
+      ${acReady && !personas.length ? `
+      <div class="order-item" style="border:1.5px solid var(--accent)">
+        <div class="order-title">⚠️ 공식 계정이 없어 자동 댓글이 나가지 않습니다</div>
+        <div class="market-meta" style="line-height:1.7">
+          자동 댓글은 <b>공식 계정으로</b> 달립니다. 지금은 공식 계정이 하나도
+          지정돼 있지 않아서, 스위치를 켜도 아무 일이 일어나지 않아요.<br><br>
+          Supabase 대시보드 &gt; SQL Editor 에서 계정 하나를 공식으로 켜주세요.
+          앱에서는 일부러 막아뒀습니다.<br><br>
+          자세한 절차는 README 의 <b>"공식 계정 지정"</b> 항목에 있어요.
+        </div>
+      </div>` : ""}
 
       ${acReady ? `
       <div class="order-item">
