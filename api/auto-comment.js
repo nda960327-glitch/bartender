@@ -277,12 +277,27 @@ function buildPrompt(t) {
     `[본문]`,
     t.post_body || "(본문 없음)",
   ];
-  if (comments.length) {
+  const isReply = !!t.parent_id;
+
+  if (isReply) {
+    // 답글일 때는 그 스레드가 어떻게 흘러왔는지를 보여줍니다.
+    lines.push("", "[지금까지 오간 말]");
+    comments.forEach((c) => lines.push(`- ${c.nick === "나" ? "나" : "술방울"}: ${c.text}`));
+    lines.push(
+      "",
+      "[네가 답할 말]",
+      t.parent_text || "",
+      "",
+      "위 말에 답글을 단다. 글 전체가 아니라 저 말에 대한 반응이어야 한다.",
+      "이미 '나'라고 표시된 말이 있으면 그건 네가 아까 한 말이다. 같은 말을 되풀이하지 마라."
+    );
+  } else if (comments.length) {
     lines.push("", "[이미 달린 댓글]");
     comments.forEach((c, i) => lines.push(`- 술방울${i + 1}: ${c.text}`));
   } else {
     lines.push("", "[이미 달린 댓글] 없음");
   }
+
   lines.push(
     "",
     `[네 성격] ${p.label}`,
@@ -485,11 +500,13 @@ module.exports = async (req, res) => {
       });
     }
 
-    // 3. 등록.
+    // 3. 등록. (답글이면 붙을 곳과 답하는 대상을 같이 넘깁니다)
     const commentId = await rpc(env, "auto_comment_publish", {
       p_author: picked.author_id,
       p_post_id: picked.post_id,
       p_text: body,
+      p_parent: picked.parent_id || null,
+      p_reply_to: picked.reply_to || null,
     });
 
     if (!commentId) {

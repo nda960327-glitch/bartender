@@ -71,7 +71,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.24.0";
+  const APP_BUILD = "2.25.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -2814,6 +2814,11 @@
         <div class="sort-row" style="padding:0 0 8px">${chips("ac_cap_24h", [0, 1, 3, 6, 12, 24], cfg.ac_cap_24h, "개")}</div>
         <div class="market-meta" style="margin-bottom:6px">확률 — 10분마다 굴려서 이만큼만 답니다</div>
         <div class="sort-row" style="padding:0 0 8px">${chips("ac_chance_pct", [20, 40, 60, 80, 100], cfg.ac_chance_pct, "%")}</div>
+        ${typeof cfg.ac_reply_pct === "number" ? `
+          <div class="market-meta" style="margin-bottom:6px">
+            답글 비중 — 이만큼은 새 댓글 대신 <b>남의 댓글에 답글</b>을 답니다
+          </div>
+          <div class="sort-row" style="padding:0 0 8px">${chips("ac_reply_pct", [0, 30, 50, 70, 100], cfg.ac_reply_pct, "%")}</div>` : ""}
         <div class="market-meta" style="margin-bottom:6px">이보다 오래된 글에는 안 답니다</div>
         <div class="sort-row" style="padding:0 0 8px">${chips("ac_max_age_h", [6, 24, 72, 168], cfg.ac_max_age_h, "시간")}</div>
         ${typeof cfg.ac_ignore_quiet === "boolean" ? `
