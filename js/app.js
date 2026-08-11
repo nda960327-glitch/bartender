@@ -71,7 +71,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.27.0";
+  const APP_BUILD = "2.28.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -844,9 +844,10 @@
     cart: store.get("cart", []),
     orders: store.get("orders", []),
     worklog: store.get("worklog", []),
-    bars: store.get("bars", BASE_BARS),
+    bars: store.get("bars", []),        // 내가 등록한 곳만. 기본 목록은 barsAll() 이 합칩니다
     barQ: "",
     barRegion: "전체",
+    barShow: 60,           // 한 번에 그리는 개수. "더 보기"로 늘어납니다
     barRadius: 0,          // 0 = 전체. 내 주변 모드에서만 씁니다
     myLoc: null,           // 앱을 끄면 사라집니다 — 저장하지 않아요
     curBar: null,
@@ -987,10 +988,12 @@
   /* 기본 바 목록을 지어낸 것에서 실제 가게로 갈아끼웠습니다.
      이미 앱을 쓰던 사람의 localStorage 에는 옛 목록이 남아 있어요.
      기본 제공분(seed)만 통째로 바꾸고, 직접 등록한 곳(mine)은 그대로 둡니다. */
-  const BAR_SEED_V = 2;
+  /* 예전에는 기본 목록까지 localStorage 에 넣었습니다. 이제 4천 곳이라
+     그러면 저장 공간을 800KB 넘게 잡아먹고 한도를 칠 수 있어요.
+     내가 등록한 곳만 남기고, 기본 목록은 매번 파일에서 읽습니다. */
+  const BAR_SEED_V = 3;
   if (store.get("barseedv", 1) < BAR_SEED_V) {
-    const mine = state.bars.filter((b) => b.mine);
-    state.bars = BASE_BARS.concat(mine);
+    state.bars = state.bars.filter((b) => b.mine);
     saveBars();
     store.set("barseedv", BAR_SEED_V);
   }
@@ -6439,7 +6442,7 @@
 
   /* ---------- 새 화면들 ---------- */
   $("#bar-add").addEventListener("click", openBarSheet);
-  $("#bar-q").addEventListener("input", (e) => { state.barQ = e.target.value; renderBars(); });
+  $("#bar-q").addEventListener("input", (e) => { state.barQ = e.target.value; state.barShow = 60; renderBars(); });
   $("#bar-del").addEventListener("click", async () => {
     const b = state.bars.find((x) => x.id === state.curBar);
     if (!b || !b.mine) return;
@@ -7008,6 +7011,14 @@
    *  바 찾기 (업장)
    * ============================================================ */
 
+  /* 기본 목록(파일) + 내가 등록한 곳(localStorage).
+     기본 목록은 4천 곳이라 저장하지 않고 그때그때 읽습니다. */
+  function barsAll() {
+    const base = (window.BARTALK_BARS && window.BARTALK_BARS.length)
+      ? window.BARTALK_BARS : SEED_BARS;
+    return state.bars.length ? state.bars.concat(base) : base;
+  }
+
   /* 두 점 사이 거리(km). 하버사인 — 지구를 공으로 치고 잽니다.
      동네 중심끼리 재는 것이라 소수점은 의미가 없어요. */
   function distanceKm(a, b) {
@@ -7063,7 +7074,7 @@
   }
 
   function barRegions() {
-    const set = new Set(state.bars.map((b) => b.region).filter(Boolean));
+    const set = new Set(barsAll().map((b) => b.region).filter(Boolean));
     return ["전체", ...[...set].sort((a, b) => a.localeCompare(b, "ko"))];
   }
 
@@ -7081,9 +7092,9 @@
         + '<button class="chip" id="bar-loc-on">📍 내 주변</button>';
 
     $$("#bar-regions [data-r]").forEach((ch) =>
-      ch.addEventListener("click", () => { state.barRegion = ch.dataset.r; renderBars(); }));
+      ch.addEventListener("click", () => { state.barRegion = ch.dataset.r; state.barShow = 60; renderBars(); }));
     $$("#bar-regions [data-km]").forEach((ch) =>
-      ch.addEventListener("click", () => { state.barRadius = +ch.dataset.km; renderBars(); }));
+      ch.addEventListener("click", () => { state.barRadius = +ch.dataset.km; state.barShow = 60; renderBars(); }));
 
     const onBtn = $("#bar-loc-on");
     if (onBtn) onBtn.addEventListener("click", async () => {
@@ -7102,7 +7113,7 @@
     });
 
     const q = state.barQ.trim().toLowerCase();
-    let list = state.bars.filter((b) => {
+    let list = barsAll().filter((b) => {
       if (!near && state.barRegion !== "전체" && b.region !== state.barRegion) return false;
       if (!q) return true;
       return [b.name, b.area, b.addr, b.type, b.note, (b.tags || []).join(" ")]
@@ -7123,17 +7134,28 @@
       list = list.map((b) => ({ b, km: null }));
     }
 
+    /* 4천 곳을 한 번에 그리면 폰이 버팁니다. 끊어서 보여주고
+       "더 보기"로 늘려요. 검색·지역·거리로 좁히면 대개 여기 안 걸립니다. */
+    const total = list.length;
+    const shown = Math.min(total, state.barShow);
+    list = list.slice(0, shown);
+
     $("#bar-list").innerHTML = list.length
       ? list.map(({ b, km }) => `
         <button class="bar-item pressable" data-id="${b.id}">
+          <span class="bar-badge">${esc((b.type || "바").slice(0, 3))}</span>
           <div class="bar-main">
             <div class="bar-name">${esc(b.name)}${state.user.myBars.includes(b.id) ? ' <span class="me-tag">단골</span>' : ""}</div>
-            <div class="bar-meta">${esc(b.area || b.region || "")} · ${esc(b.type || "")}</div>
+            <div class="bar-addr-line">${esc(b.addr || b.area || b.region || "")}</div>
             ${(b.tags || []).length ? `<div class="bar-tags">${b.tags.map((t) => `<span>#${esc(t)}</span>`).join("")}</div>` : ""}
           </div>
           ${km === null ? "" : `<span class="bar-km">${km === Infinity ? "?" : fmtKm(km)}</span>`}
-          <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
         </button>`).join("")
+        + (shown < total
+          ? `<button class="text-btn" id="bar-more" style="width:100%;padding:16px 0">
+               ${fmtNum(total - shown)}곳 더 보기
+             </button>`
+          : "")
         + (near ? `<p class="sheet-note" style="text-align:left;margin:14px 20px 24px">
             거리는 <b>가게 위치가 아니라 그 동네 중심</b>까지의 대략적인 값이에요.
             정확한 위치는 방문 전에 직접 확인해주세요.${noCoord ? `<br>동네를 안 적은 ${noCoord}곳은 맨 뒤에 뒀습니다.` : ""}
@@ -7146,6 +7168,14 @@
 
     $$("#bar-list .bar-item").forEach((el) =>
       el.addEventListener("click", () => openBar(+el.dataset.id)));
+    const more = $("#bar-more");
+    if (more) more.addEventListener("click", () => {
+      state.barShow += 120;
+      const sa = $("#view-bars .scroll-area");
+      const keep = sa ? sa.scrollTop : 0;
+      renderBars();
+      if (sa) sa.scrollTop = keep;      // 누른 자리에 그대로 있게
+    });
   }
 
   function openBar(id) {
@@ -7153,8 +7183,64 @@
     show("bar");
   }
 
+  /* ---------- 지도 ----------
+   * 카카오맵 SDK 를 처음 필요할 때 한 번만 받아옵니다.
+   * js/config.js 의 KAKAO_JS_KEY 가 비어 있으면 지도 자리에 안내만 띄우고
+   * 나머지 화면은 그대로 동작해요.
+   *
+   * ⚠️ REST API 키가 아니라 JavaScript 키입니다. 그리고 카카오 콘솔의
+   *    플랫폼 > Web 에 도메인(https://barapp.kr)이 등록돼 있어야 합니다.
+   */
+  let kakaoMapState = "idle";        // idle | loading | ready | off
+  function loadKakaoMaps() {
+    return new Promise((resolve) => {
+      if (kakaoMapState === "ready") return resolve(true);
+      if (kakaoMapState === "off") return resolve(false);
+      const key = String(CFG.KAKAO_JS_KEY || "").trim();
+      if (!key) { kakaoMapState = "off"; return resolve(false); }
+      if (kakaoMapState === "loading") {
+        const wait = setInterval(() => {
+          if (kakaoMapState !== "loading") { clearInterval(wait); resolve(kakaoMapState === "ready"); }
+        }, 100);
+        return;
+      }
+      kakaoMapState = "loading";
+      const sc = document.createElement("script");
+      sc.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&autoload=false`;
+      sc.onload = () => {
+        try {
+          window.kakao.maps.load(() => { kakaoMapState = "ready"; resolve(true); });
+        } catch (e) { kakaoMapState = "off"; resolve(false); }
+      };
+      sc.onerror = () => { kakaoMapState = "off"; resolve(false); };
+      document.head.appendChild(sc);
+    });
+  }
+
+  async function drawBarMap(b) {
+    const ok = await loadKakaoMaps();
+    const canvas = $("#bar-map-canvas");
+    const off = $("#bar-map-off");
+    if (!canvas) return;                     // 그 사이 다른 화면으로 갔습니다
+    if (!ok) {
+      canvas.hidden = true;
+      if (off) off.hidden = false;
+      return;
+    }
+    try {
+      const pos = new window.kakao.maps.LatLng(b.lat, b.lng);
+      const map = new window.kakao.maps.Map(canvas, { center: pos, level: 4 });
+      new window.kakao.maps.Marker({ map, position: pos });
+      map.setDraggable(false);               // 스크롤 중에 지도가 끌려가지 않게
+      map.setZoomable(false);
+    } catch (e) {
+      canvas.hidden = true;
+      if (off) off.hidden = false;
+    }
+  }
+
   function renderBarDetail() {
-    const b = state.bars.find((x) => x.id === state.curBar);
+    const b = barsAll().find((x) => x.id === state.curBar);
     if (!b) { show("bars"); return; }
     $("#bar-title").textContent = b.name;
     $("#bar-del").hidden = !b.mine;
@@ -7165,33 +7251,73 @@
 
     const row = (k, v) => v ? `<div class="card-row"><span class="card-k">${k}</span><span class="card-v">${esc(v)}</span></div>` : "";
 
+    const hasLoc = typeof b.lat === "number" && typeof b.lng === "number";
+
     $("#bar-detail").innerHTML = `
-      <div class="card bcard">
-        <div class="bcard-nick" style="font-size:20px">${esc(b.name)}</div>
-        <div class="bcard-status">${esc(b.area || b.region || "")} · ${esc(b.type || "")}</div>
-        ${b.note ? `<p class="bcard-intro">${escMsg(b.note)}</p>` : ""}
+      <div class="bar-hero">
+        <div class="bar-hero-type">${esc(b.type || "바")}</div>
+        <h2 class="bar-hero-name">${esc(b.name)}</h2>
+        <div class="bar-hero-sub">
+          ${esc(b.area || b.region || "")}
+          ${dist !== null && dist !== Infinity ? `<span class="bar-hero-km">${fmtKm(dist)}</span>` : ""}
+        </div>
         ${(b.tags || []).length ? `<div class="bar-tags" style="margin-top:10px">${b.tags.map((t) => `<span>#${esc(t)}</span>`).join("")}</div>` : ""}
       </div>
+
+      ${hasLoc ? `
+        <div class="bar-map-wrap">
+          <div id="bar-map-canvas" class="bar-map"></div>
+          <div class="bar-map-off" id="bar-map-off" hidden>
+            <span>🗺️</span>
+            <p>지도를 보려면 <b>js/config.js</b> 의<br>KAKAO_JS_KEY 를 채워주세요.</p>
+          </div>
+        </div>` : ""}
+
+      ${b.addr ? `
+      <button class="card bar-addr pressable" id="bar-addr">
+        <span class="bar-addr-ic">📍</span>
+        <span class="bar-addr-body">
+          <span class="bar-addr-text">${esc(b.addr)}</span>
+          <span class="bar-addr-hint">눌러서 복사</span>
+        </span>
+      </button>` : ""}
+
+      ${(b.hours || b.note || b.by) ? `
       <div class="card">
         <h3 class="card-h">정보</h3>
-        ${row("주소", b.addr)}
         ${row("영업시간", b.hours)}
-        ${dist === null ? "" : row("내 위치에서", dist === Infinity ? "동네 정보 없음" : fmtKm(dist))}
+        ${b.note ? `<div class="card-row col"><span class="card-k">소개</span><p class="card-multi">${escMsg(b.note)}</p></div>` : ""}
         ${row("등록", b.by || "바텐톡")}
-      </div>
-      <div class="card" style="padding:14px 16px">
-        <button class="big-btn ${fav ? "outline" : "accent ready"}" id="bar-fav">
-          ${fav ? "단골 해제" : "⭐ 단골로 저장"}
+      </div>` : ""}
+
+      <div class="bar-acts">
+        <button class="bar-act ${fav ? "on" : ""}" id="bar-fav">
+          <span>${fav ? "⭐" : "☆"}</span>${fav ? "단골" : "단골 저장"}
         </button>
-        <button class="big-btn outline" id="bar-map" style="margin-top:8px">🗺️ 지도에서 찾기</button>
-        <button class="big-btn outline" id="bar-write" style="margin-top:8px">이 바 이야기 글쓰기</button>
+        <button class="bar-act" id="bar-route"><span>🧭</span>길찾기</button>
+        <button class="bar-act" id="bar-map-open"><span>🗺️</span>지도앱</button>
+        <button class="bar-act" id="bar-write"><span>✍️</span>글쓰기</button>
       </div>
-      <p class="sheet-note" style="margin:2px 20px 24px">
+
+      <p class="sheet-note" style="margin:14px 20px 24px">
         ${b.seed
-          ? "기본 목록에 있는 곳이에요. 바는 자주 닫고 옮기니 <b>방문 전에 꼭 확인</b>해주세요. 영업시간은 넣지 않았습니다 — 확인되지 않은 정보가 퍼지면 그 가게에 폐가 되니까요."
+          ? "바는 자주 닫고 옮깁니다. <b>방문 전에 꼭 확인</b>해주세요. 영업시간은 넣지 않았어요 — 확인되지 않은 정보가 퍼지면 그 가게에 폐가 되니까요."
           : "이용자가 올린 정보라 틀릴 수 있어요. 방문 전에 확인해주세요."}
       </p>
       <div style="height:16px"></div>`;
+
+    if (hasLoc) drawBarMap(b);
+
+    const addrBtn = $("#bar-addr");
+    if (addrBtn) addrBtn.addEventListener("click", () => copyText(b.addr, "주소를 복사했어요. 📍"));
+
+    $("#bar-route").addEventListener("click", () => {
+      // 카카오맵 길찾기. 좌표가 동네 중심이라 이름도 같이 넘겨 보정되게 합니다.
+      const u = hasLoc
+        ? `https://map.kakao.com/link/to/${encodeURIComponent(b.name)},${b.lat},${b.lng}`
+        : `https://map.kakao.com/link/search/${encodeURIComponent(b.name + " " + (b.area || ""))}`;
+      window.open(u, "_blank", "noopener");
+    });
 
     $("#bar-fav").addEventListener("click", () => {
       const i = state.user.myBars.indexOf(b.id);
@@ -7200,10 +7326,10 @@
       renderBarDetail();
       toast(i >= 0 ? "단골에서 뺐어요." : "단골로 저장했어요. ⭐");
     });
-    /* 좌표로 핀을 찍지 않고 이름으로 검색만 걸어줍니다.
-       우리가 가진 좌표는 동네 중심이라, 그걸로 핀을 찍으면 엉뚱한 건물을
-       가리키게 돼요. 어디인지는 지도가 알려주게 둡니다. */
-    $("#bar-map").addEventListener("click", () => {
+    /* 지도앱은 이름으로 검색을 겁니다. 우리 좌표는 동네 중심이라
+       그걸로 핀을 찍으면 엉뚱한 건물을 가리켜요. 정확한 위치는
+       카카오맵이 알려주게 둡니다. */
+    $("#bar-map-open").addEventListener("click", () => {
       const q = encodeURIComponent(`${b.name} ${b.area || b.region || ""}`.trim());
       window.open(`https://map.kakao.com/link/search/${q}`, "_blank", "noopener");
     });
@@ -7280,7 +7406,7 @@
       bd.querySelectorAll("[data-f]").forEach((el) => { v[el.dataset.f] = el.value.trim(); });
       if (v.name.length < 2) { toast("이름을 2자 이상 적어주세요."); return; }
       if (!isClean(v.name + " " + v.note)) return;
-      if (state.bars.some((b) => b.name === v.name && b.area === v.area)) {
+      if (barsAll().some((b) => b.name === v.name && b.area === v.area)) {
         toast("같은 이름의 바가 이미 있어요.");
         return;
       }

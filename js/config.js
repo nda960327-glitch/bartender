@@ -25,6 +25,13 @@ window.BARTALK_CONFIG = {
   //    Site URL 과 Redirect URLs 에도 같은 주소가 등록돼 있어야 링크가 여기로 옵니다.
   SITE_URL: "https://barapp.kr",
 
+  // 바 상세에 지도를 띄우는 데 씁니다.
+  // 카카오 개발자 > 내 애플리케이션 > 앱 키 > "JavaScript 키"
+  //   ⚠️ 바 목록을 받아올 때 쓰는 REST API 키와 다른 값입니다.
+  //   ⚠️ 같은 앱의 [플랫폼 > Web] 에 https://barapp.kr 을 등록해야 동작해요.
+  // 비워두면 지도 자리에 안내만 뜨고 나머지는 그대로 동작합니다.
+  KAKAO_JS_KEY: "",
+
   // 안드로이드 앱 내려받는 곳.
   // 비워두면 "앱으로 받기" 버튼이 아예 안 나옵니다.
   //   · 스토어 출시 후 → "https://play.google.com/store/apps/details?id=kr.barapp.bartalk"
