@@ -1550,9 +1550,16 @@
           return { ok: false, error: "supabase/official.sql 을 아직 실행하지 않았어요." };
         }
 
+        // 공식(뱃지) 계정과 봇 계정을 함께 가져옵니다. is_bot 컬럼이 아직
+        // 없는 곳(auto-comment-2.sql 미실행)에서는 공식만 가져와요.
         var pRes = await sb.from("profiles")
-          .select("id,nick,color,official_label")
-          .eq("is_official", true).order("nick");
+          .select("id,nick,color,official_label,is_official,is_bot")
+          .or("is_official.is.true,is_bot.is.true").order("nick");
+        if (pRes.error && /is_bot/.test(pRes.error.message || "")) {
+          pRes = await sb.from("profiles")
+            .select("id,nick,color,official_label,is_official")
+            .eq("is_official", true).order("nick");
+        }
         if (pRes.error) throw pRes.error;
 
         var qRes = await sb.from("content_queue")

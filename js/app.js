@@ -71,7 +71,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.19.1";
+  const APP_BUILD = "2.20.0";
 
   /* ---------- 저장소 ---------- */
   const store = {
@@ -2758,12 +2758,12 @@
 
       ${acReady && !personas.length ? `
       <div class="order-item" style="border:1.5px solid var(--accent)">
-        <div class="order-title">⚠️ 공식 계정이 없어 자동 댓글이 나가지 않습니다</div>
+        <div class="order-title">⚠️ 댓글 달 계정이 없어 아무것도 나가지 않습니다</div>
         <div class="market-meta" style="line-height:1.7">
-          자동 댓글은 <b>공식 계정으로</b> 달립니다. 지금은 공식 계정이 하나도
-          지정돼 있지 않아서, 스위치를 켜도 아무 일이 일어나지 않아요.<br><br>
-          Supabase 대시보드 &gt; SQL Editor 에서 계정 하나를 공식으로 켜주세요.
-          앱에서는 일부러 막아뒀습니다.<br><br>
+          자동 댓글은 지정된 계정으로만 달립니다. 지금은 하나도 없어서
+          스위치를 켜도 아무 일이 일어나지 않아요.<br><br>
+          Supabase 대시보드 &gt; SQL Editor 에서 켜주세요. 앱에서는 일부러
+          막아뒀습니다 — 아무나 봇 계정을 만들면 곤란하니까요.<br><br>
           자세한 절차는 README 의 <b>"공식 계정 지정"</b> 항목에 있어요.
         </div>
       </div>` : ""}
@@ -2791,7 +2791,13 @@
         <div class="market-meta" style="margin-bottom:6px">확률 — 10분마다 굴려서 이만큼만 답니다</div>
         <div class="sort-row" style="padding:0 0 8px">${chips("ac_chance_pct", [20, 40, 60, 80, 100], cfg.ac_chance_pct, "%")}</div>
         <div class="market-meta" style="margin-bottom:6px">이보다 오래된 글에는 안 답니다</div>
-        <div class="sort-row" style="padding:0">${chips("ac_max_age_h", [6, 24, 72, 168], cfg.ac_max_age_h, "시간")}</div>
+        <div class="sort-row" style="padding:0 0 8px">${chips("ac_max_age_h", [6, 24, 72, 168], cfg.ac_max_age_h, "시간")}</div>
+        ${typeof cfg.ac_ignore_quiet === "boolean" ? `
+          <div class="market-meta" style="margin-bottom:6px">쉬는 시간</div>
+          <div class="sort-row" style="padding:0">
+            <button class="chip ${cfg.ac_ignore_quiet ? "active" : ""}" data-quietac="1">24시간 답니다</button>
+            <button class="chip ${cfg.ac_ignore_quiet ? "" : "active"}" data-quietac="0">위 발행 설정을 따름</button>
+          </div>` : ""}
         ${acRecent.length ? `
           <div class="market-meta" style="margin-top:14px">최근 자동 댓글</div>
           ${acRecent.map((q) => `<div class="bot-next">${fmtWhen(q.published_at)} · ${esc(q.text || "")} <span class="bot-by">${esc(nickOf(q.author_id))}</span></div>`).join("")}
@@ -2833,7 +2839,9 @@
         <button class="row-link pressable card bot-row" data-bot="${esc(p.id)}">
           ${avatarHTML(p.color, "md")}
           <span class="flex-1" style="text-align:left">
-            <span class="bot-name">${esc(p.nick)}<span class="official-tag">${esc(p.official_label || "공식")}</span></span>
+            <span class="bot-name">${esc(p.nick)}${p.is_official === false
+            ? '<span class="official-tag" style="background:var(--chip-bg);color:var(--text-sub)">뱃지 없음</span>'
+            : `<span class="official-tag">${esc(p.official_label || "공식")}</span>`}</span>
             <span class="market-meta">발행 ${c("published")} · 예약 ${c("approved")} · 초안 ${c("draft")}</span>
           </span>
           <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
@@ -2866,6 +2874,10 @@
       b.addEventListener("click", async () => {
         const patch = {}; patch[b.dataset.set] = +b.dataset.val;
         await botAfter(await Sync.botSaveSettings(patch), "저장했어요.");
+      }));
+    $$("#admin-area [data-quietac]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        await botAfter(await Sync.botSaveSettings({ ac_ignore_quiet: b.dataset.quietac === "1" }), "저장했어요.");
       }));
     $$("#admin-area [data-quiet]").forEach((b) =>
       b.addEventListener("click", async () => {
