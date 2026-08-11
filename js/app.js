@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.33.0";
+  const APP_BUILD = "2.34.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -7275,6 +7275,7 @@
               state.myLocLabel = d.name;
               state.barRegion = "전체";
               state.barShow = 60;
+              state.barSort = "auto";
               // 다음에 들어올 때도 이 동네 기준으로 바로 보여줍니다
               store.set("barNear", { mode: "district", label: d.name, lat: state.myLoc.lat, lng: state.myLoc.lng });
               bd.remove();
@@ -7320,6 +7321,7 @@
         state.myLocLabel = "내 위치";
         state.barRegion = "전체";
         state.barShow = 60;
+        state.barSort = "auto";
         store.set("barNear", { mode: "gps" });
         renderBars();
         return;
@@ -7347,6 +7349,9 @@
       state.myLocLabel = "내 위치";
       state.barRegion = "전체";
       state.barShow = 60;
+      /* 버튼에 "가까운 순"이라고 써놓고 정렬이 안 바뀌면 고장으로 보입니다.
+         전에 다른 정렬을 골라뒀더라도 여기서는 되돌립니다. */
+      state.barSort = "auto";
       store.set("barNear", { mode: "gps" });
       renderBars();
       toast("가까운 순으로 정렬했어요. 📍");
@@ -7395,37 +7400,44 @@
 
     // 거리 계산. 좌표가 없는 곳은 뒤로 미룹니다.
     let noCoord = 0;
-    if (near) {
-      list = list.map((b) => {
-        const has = typeof b.lat === "number" && typeof b.lng === "number";
-        if (!has) noCoord++;
-        return { b, km: has ? distanceKm(state.myLoc, b) : Infinity };
-      });
-      if (state.barRadius) list = list.filter((x) => x.km <= state.barRadius || x.km === Infinity);
-    } else {
-      list = list.map((b) => ({ b, km: null }));
-    }
+    /* 열쇠(이름+주소)와 합계는 여기서 한 번만 구합니다.
+       비교 함수 안에서 만들면 3천 곳 정렬에 4만 번씩 문자열을 새로 만들어요.
+       그것 때문에 별점 정렬이 100ms 씩 걸렸습니다. */
+    const social = barSocial.ready;
+    list = list.map((b) => {
+      const has = near && typeof b.lat === "number" && typeof b.lng === "number";
+      if (near && !has) noCoord++;
+      const key = social ? barKey(b) : "";
+      const s = social ? barStat(key) : null;
+      return {
+        b, key,
+        km: near ? (has ? distanceKm(state.myLoc, b) : Infinity) : null,
+        likes: s ? s.likes : 0,
+        cmts: s ? s.comments : 0,
+        avg: s && s.rated ? s.stars_sum / s.rated : 0,
+      };
+    });
+    if (near && state.barRadius) list = list.filter((x) => x.km <= state.barRadius || x.km === Infinity);
 
     /* ---- 정렬 ----
        별점·좋아요·댓글이 하나도 없는 곳이 위로 올라오면 안 됩니다.
        "별점 낮은 순" 은 평가가 나쁜 곳이지, 평가가 없는 곳이 아니에요. */
     const sort = state.barSort === "auto" ? (near ? "dist" : "name") : state.barSort;
     const byName = (x, y) => x.b.name.localeCompare(y.b.name, "ko");
-    const st = (x) => barStat(barKey(x.b));
     if (sort === "dist" && near) {
       list.sort((x, y) => x.km - y.km);
     } else if (sort === "stars" || sort === "starsLow") {
       const dir = sort === "stars" ? -1 : 1;
       list.sort((x, y) => {
-        const a = barAvg(barKey(x.b)), b2 = barAvg(barKey(y.b));
-        if (!a && !b2) return byName(x, y);
-        if (!a) return 1;                    // 별점 없는 곳은 항상 뒤로
-        if (!b2) return -1;
-        return (a - b2) * dir || byName(x, y);
+        if (!x.avg && !y.avg) return byName(x, y);
+        if (!x.avg) return 1;                  // 별점 없는 곳은 항상 뒤로
+        if (!y.avg) return -1;
+        return (x.avg - y.avg) * dir || byName(x, y);
       });
-    } else if (sort === "likes" || sort === "comments") {
-      const f = sort === "likes" ? (x) => st(x).likes : (x) => st(x).comments;
-      list.sort((x, y) => f(y) - f(x) || byName(x, y));
+    } else if (sort === "likes") {
+      list.sort((x, y) => y.likes - x.likes || byName(x, y));
+    } else if (sort === "comments") {
+      list.sort((x, y) => y.cmts - x.cmts || byName(x, y));
     } else {
       list.sort(byName);
     }
@@ -7435,11 +7447,11 @@
        "아직 없어요" 라고 말해주는 게 맞아요. */
     let sortEmpty = "";
     if (sort === "stars" || sort === "starsLow") {
-      if (!list.some((x) => barAvg(barKey(x.b)))) sortEmpty = "아직 별점이 매겨진 바가 없어요. 첫 별점을 남겨보세요.";
+      if (!list.some((x) => x.avg)) sortEmpty = "아직 별점이 매겨진 바가 없어요. 첫 별점을 남겨보세요.";
     } else if (sort === "likes") {
-      if (!list.some((x) => st(x).likes)) sortEmpty = "아직 좋아요를 받은 바가 없어요.";
+      if (!list.some((x) => x.likes)) sortEmpty = "아직 좋아요를 받은 바가 없어요.";
     } else if (sort === "comments") {
-      if (!list.some((x) => st(x).comments)) sortEmpty = "아직 댓글이 달린 바가 없어요.";
+      if (!list.some((x) => x.cmts)) sortEmpty = "아직 댓글이 달린 바가 없어요.";
     }
 
     const total = list.length;
@@ -7526,19 +7538,17 @@
     $("#bar-list").innerHTML = (sortEmpty
       ? `<p class="bar-sort-empty">${esc(sortEmpty)}</p>` : "")
       + (list.length
-      ? list.map(({ b, km }) => {
-        const st = barStat(barKey(b));
-        const avg = barAvg(barKey(b));
+      ? list.map(({ b, km, key, avg, likes, cmts }) => {
         const meta = [
           avg ? `<span class="bar-meta-i">★ ${avg.toFixed(1)}</span>` : "",
-          st.likes ? `<span class="bar-meta-i">♥ ${fmtNum(st.likes)}</span>` : "",
-          st.comments ? `<span class="bar-meta-i">💬 ${fmtNum(st.comments)}</span>` : "",
+          likes ? `<span class="bar-meta-i">♥ ${fmtNum(likes)}</span>` : "",
+          cmts ? `<span class="bar-meta-i">💬 ${fmtNum(cmts)}</span>` : "",
         ].filter(Boolean).join("");
         return `
         <button class="bar-item pressable" data-id="${b.id}">
           <span class="bar-badge">${esc((b.type || "바").replace(/바$/, "") || "바")}</span>
           <div class="bar-main">
-            <div class="bar-name">${esc(b.name)}${state.user.myBars.includes(barKey(b)) ? ' <span class="me-tag">단골</span>' : ""}</div>
+            <div class="bar-name">${esc(b.name)}${state.user.myBars.includes(key || barKey(b)) ? ' <span class="me-tag">단골</span>' : ""}</div>
             <div class="bar-addr-line">${esc(b.addr || b.area || b.region || "")}</div>
             ${meta ? `<div class="bar-meta">${meta}</div>` : ""}
             ${(b.tags || []).length ? `<div class="bar-tags">${b.tags.map((t) => `<span>#${esc(t)}</span>`).join("")}</div>` : ""}
