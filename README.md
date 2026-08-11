@@ -387,17 +387,20 @@ node tools/queue.mjs settings --daily-cap 2 --min-gap 180 --quiet 1-10
 
 **1. SQL** — `supabase/auto-comment.sql` 을 SQL Editor 에 붙여넣고 실행 (`official.sql` 먼저).
 
-**2. 환경변수** — Vercel 에 `ANTHROPIC_API_KEY` 를 추가. 나머지(`SUPABASE_URL`,
-`SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`)는 예약 발행과 같은 값을 씁니다.
+**2. 환경변수** — Vercel 에 아래 <b>둘 중 하나</b>를 추가하세요. 나머지
+(`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`)는 예약 발행과 같은 값을 씁니다.
 
-키는 [console.anthropic.com](https://console.anthropic.com) > API keys 에서 만듭니다.
-넣기 전까지는 크론이 돌아도 `{"reason":"no_api_key"}` 만 돌려주고 아무 일도 하지
-않아요 (에러가 아니라 정상 응답입니다 — 로그가 빨개지지 않습니다).
+| 변수 | 발급처 | 기본 모델 |
+|---|---|---|
+| `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com) | `gpt-4o-mini` |
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) | `claude-opus-5` |
 
-**비용** — 댓글 한 개에 대략 **20~40원** (Claude Opus 5 기준, 글 길이에 따라 다름).
-기본값인 하루 1개면 월 1,000원 안팎, 하루 12개로 올리면 월 1만원 안팎입니다.
-더 싸게 쓰려면 `api/auto-comment.js` 의 `MODEL` 을 `claude-haiku-4-5` 로 바꾸세요 —
-5분의 1 수준이고, 한두 줄짜리 댓글에는 큰 차이가 없습니다.
+둘 다 있으면 OpenAI 를 씁니다. 모델을 바꾸려면 `AI_MODEL` 을 넣으세요.
+넣기 전까지는 크론이 돌아도 `{"reason":"no_api_key"}` 만 돌려주고 아무 일도
+하지 않아요 (에러가 아니라 정상 응답입니다).
+
+**비용** — 댓글 한 개에 `gpt-4o-mini` 는 1원 안팎, `claude-opus-5` 는 20~40원
+정도입니다. 한두 줄짜리 댓글이라 싼 모델로도 충분해요.
 
 **3. 크론** — 예약 발행과 똑같이 GitHub Actions 를 씁니다 (Vercel Hobby 는 크론이
 하루 1회라서요). `.github/workflows/auto-comment.yml` 이 10분마다 노크합니다.

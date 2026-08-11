@@ -15,16 +15,18 @@
  *     SUPABASE_URL
  *     SUPABASE_SERVICE_ROLE_KEY   ← 이 함수 안에서만 쓰입니다
  *     CRON_SECRET                 ← publish.js 와 같은 값
- *     ANTHROPIC_API_KEY
+ *
+ *     그리고 아래 둘 중 아무거나 하나:
+ *       OPENAI_API_KEY      (ChatGPT)   · 모델 기본값 gpt-4o-mini
+ *       ANTHROPIC_API_KEY   (Claude)    · 모델 기본값 claude-opus-5
+ *
+ *     둘 다 있으면 OPENAI 를 씁니다. 모델을 바꾸려면 AI_MODEL 을 넣으세요.
  *
  *  수동 테스트:
  *     curl -H "x-cron-key: $CRON_SECRET" https://barapp.kr/api/auto-comment
  * ============================================================ */
 
 const crypto = require("crypto");
-const Anthropic = require("@anthropic-ai/sdk");
-
-const MODEL = "claude-opus-5";
 
 /* 길이가 달라도 타이밍 정보가 새지 않도록 해시로 맞춘 뒤 비교합니다. */
 function secretMatches(given, expected) {
@@ -167,9 +169,108 @@ const SCHEMA = {
   additionalProperties: false,
 };
 
+/* ---------- 문구 만들기 ----------
+ * 어느 쪽 키를 넣었든 돌아가게 했습니다. 키를 바꿔 끼우고 재배포만 하면
+ * 나머지는 그대로예요. 돌려주는 값은 둘 다 { skip, comment } 로 같습니다.
+ *
+ * 돌려주는 값:
+ *   { ok: true, out: {skip, comment} }
+ *   { ok: false, reason: "..." }
+ */
+function whichProvider() {
+  if ((process.env.OPENAI_API_KEY || "").trim()) return "openai";
+  if ((process.env.ANTHROPIC_API_KEY || "").trim()) return "anthropic";
+  return null;
+}
+
+async function writeComment(prompt) {
+  const provider = whichProvider();
+  if (provider === "openai") return writeWithOpenAI(prompt);
+  if (provider === "anthropic") return writeWithClaude(prompt);
+  return { ok: false, reason: "no_api_key" };
+}
+
+async function writeWithOpenAI(prompt) {
+  const model = (process.env.AI_MODEL || "gpt-4o-mini").trim();
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + process.env.OPENAI_API_KEY.trim(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: model,
+      messages: [
+        { role: "system", content: SYSTEM },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 300,
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "bartender_comment", strict: true, schema: SCHEMA },
+      },
+    }),
+  });
+
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const msg = (j && j.error && j.error.message) || ("HTTP " + r.status);
+    console.error("[auto-comment] OpenAI 오류:", msg);
+    // 키가 틀렸을 때가 제일 흔합니다. 로그에서 바로 알아보게 구분해둬요.
+    return { ok: false, reason: r.status === 401 ? "bad_api_key" : "model_error" };
+  }
+
+  const choice = j.choices && j.choices[0];
+  if (choice && choice.message && choice.message.refusal) {
+    return { ok: false, reason: "refusal" };
+  }
+  const text = choice && choice.message && choice.message.content;
+  try {
+    return { ok: true, out: JSON.parse(text) };
+  } catch (e) {
+    console.error("[auto-comment] OpenAI 응답을 해석하지 못했습니다:", String(text).slice(0, 200));
+    return { ok: false, reason: "bad_model_output" };
+  }
+}
+
+async function writeWithClaude(prompt) {
+  const Anthropic = require("@anthropic-ai/sdk");
+  const model = (process.env.AI_MODEL || "claude-opus-5").trim();
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY.trim() });
+
+  let message;
+  try {
+    message = await client.messages.create({
+      model: model,
+      max_tokens: 2000,
+      system: SYSTEM,
+      output_config: {
+        effort: "low",           // 댓글 한 줄에 깊은 사고는 필요 없습니다
+        format: { type: "json_schema", schema: SCHEMA },
+      },
+      messages: [{ role: "user", content: prompt }],
+    });
+  } catch (e) {
+    console.error("[auto-comment] Claude 오류:", (e && e.message) || e);
+    return { ok: false, reason: (e && e.status === 401) ? "bad_api_key" : "model_error" };
+  }
+
+  // 안전 분류기가 거절하면 이 글은 그냥 건너뜁니다.
+  // 여기서는 거절이 곧 "이 글에는 달지 마라"라서 다른 모델로 우회할 이유가 없어요.
+  if (message.stop_reason === "refusal") return { ok: false, reason: "refusal" };
+
+  const block = message.content.find((b) => b.type === "text");
+  try {
+    return { ok: true, out: JSON.parse(block ? block.text : "") };
+  } catch (e) {
+    console.error("[auto-comment] Claude 응답을 해석하지 못했습니다:", block && block.text);
+    return { ok: false, reason: "bad_model_output" };
+  }
+}
+
 module.exports = async (req, res) => {
   const env = process.env;
-  const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET, ANTHROPIC_API_KEY } = env;
+  const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET } = env;
 
   // 이 셋이 없으면 설정이 잘못된 겁니다. 크론 로그에 빨갛게 남아야 해요.
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !CRON_SECRET) {
@@ -188,8 +289,8 @@ module.exports = async (req, res) => {
   /* API 키만 없는 건 "고장"이 아니라 "아직 안 켬"입니다.
      500 으로 떨어뜨리면 크론 로그가 빨개져서 배포가 망가진 것처럼 보여요.
      조용히 아무것도 안 하고 정상 응답합니다. */
-  if (!ANTHROPIC_API_KEY) {
-    console.log("[auto-comment] ANTHROPIC_API_KEY 가 없어 이번엔 넘어갑니다.");
+  if (!whichProvider()) {
+    console.log("[auto-comment] OPENAI_API_KEY / ANTHROPIC_API_KEY 둘 다 없어 넘어갑니다.");
     return send(res, 200, { ok: true, posted: false, reason: "no_api_key" });
   }
 
@@ -219,36 +320,12 @@ module.exports = async (req, res) => {
       });
     }
 
-    // 2. 문구를 씁니다.
-    const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
-    const message = await client.messages.create({
-      model: MODEL,
-      max_tokens: 2000,
-      system: SYSTEM,
-      output_config: {
-        effort: "low",           // 댓글 한 줄에 깊은 사고는 필요 없습니다
-        format: { type: "json_schema", schema: SCHEMA },
-      },
-      messages: [{ role: "user", content: buildPrompt(picked) }],
-    });
-
-    // 안전 분류기가 거절하면 이번 글은 그냥 건너뜁니다.
-    // 이 기능에서는 거절이 곧 "이 글에는 달지 마라"라서, 다른 모델로
-    // 우회할 이유가 없어요.
-    if (message.stop_reason === "refusal") {
-      console.warn("[auto-comment] 모델이 거절했습니다. post", picked.post_id);
-      return send(res, 200, { ok: true, posted: false, dry, reason: "refusal" });
+    // 2. 문구를 씁니다. (OPENAI / ANTHROPIC 중 넣어둔 키로)
+    const written = await writeComment(buildPrompt(picked));
+    if (!written.ok) {
+      return send(res, 200, { ok: true, posted: false, dry, reason: written.reason });
     }
-
-    const block = message.content.find((b) => b.type === "text");
-    let out = null;
-    try {
-      out = JSON.parse(block ? block.text : "");
-    } catch (_) {
-      console.error("[auto-comment] 응답을 해석하지 못했습니다:", block && block.text);
-      return send(res, 200, { ok: true, posted: false, dry, reason: "bad_model_output" });
-    }
-
+    const out = written.out;
     const body = String((out && out.comment) || "").trim();
     if (!out || out.skip || !body) {
       return send(res, 200, { ok: true, posted: false, dry, reason: "model_skipped" });

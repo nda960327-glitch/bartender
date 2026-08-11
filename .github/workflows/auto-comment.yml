@@ -75,7 +75,9 @@ jobs:
             REASON=$(jsonval reason)
             case "${REASON}" in
               no_target)        WHY="달 곳 없음 (꺼짐·쉬는 시간·상한·주사위)" ;;
-              no_api_key)       WHY="ANTHROPIC_API_KEY 없음 — 건너뜀" ;;
+              no_api_key)       WHY="API 키 없음 (OPENAI_API_KEY 또는 ANTHROPIC_API_KEY) — 건너뜀" ;;
+              bad_api_key)      WHY="API 키가 거부됨 — 키를 다시 확인하세요" ;;
+              model_error)      WHY="모델 호출 실패 — Vercel 로그를 보세요" ;;
               model_skipped)    WHY="쓸 말이 마땅치 않아 건너뜀" ;;
               refusal)          WHY="모델이 거절" ;;
               duplicate)        WHY="이미 달려 있음" ;;
