@@ -1691,6 +1691,26 @@ textarea.input { height: auto; }
   flex: none; padding: 0 17px; border: none; border-radius: 12px;
   background: var(--accent); color: #fff; font-size: 13.5px; font-weight: 700; cursor: pointer;
 }
+.bar-write-box .cmt-img-btn {
+  flex: none; width: 42px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--bg-card); font-size: 17px; cursor: pointer;
+}
+.bar-cmt-attach {
+  position: relative; display: inline-flex; align-items: flex-end; gap: 8px; margin-top: 10px;
+}
+.bar-cmt-attach img {
+  width: 76px; height: 76px; object-fit: cover; border-radius: 10px; display: block;
+}
+.bar-cmt-attach .cmt-attach-rm {
+  position: absolute; top: -6px; left: 60px;
+  width: 22px; height: 22px; border-radius: 50%; border: none;
+  background: rgba(0, 0, 0, .6); color: #fff; font-size: 11px; cursor: pointer;
+}
+.bar-cmt-attach-kb { font-size: 11.5px; color: var(--text-muted); padding-bottom: 4px; }
+.bar-cmt-img {
+  margin-top: 8px; max-width: 200px; width: auto; height: auto;
+  border-radius: 10px; display: block; cursor: zoom-in;
+}
 
 .bar-cmt-h { font-size: 14px; font-weight: 800; padding: 4px 20px 10px; }
 .bar-cmts { padding: 0 20px 4px; }

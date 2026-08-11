@@ -23,9 +23,15 @@ create table if not exists public.bar_reviews (
   author_id  uuid not null references auth.users(id) on delete cascade,
   stars      smallint check (stars between 1 and 5),
   text       text not null default '' check (char_length(text) <= 1000),
+  -- 사진은 앱이 420px 이하로 줄여서 보냅니다 (보통 20~50KB).
+  -- 원본 사진은 절대 올라오지 않아요. 200KB 넘는 건 서버가 거부합니다.
+  img        text check (img is null or char_length(img) <= 200000),
   color      smallint not null default 2,
   created_at timestamptz not null default now()
 );
+
+-- 예전에 만들어둔 표에도 사진 칸을 더합니다
+alter table public.bar_reviews add column if not exists img text;
 
 create index if not exists bar_reviews_key_idx    on public.bar_reviews (bar_key, created_at desc);
 create index if not exists bar_reviews_author_idx on public.bar_reviews (author_id);

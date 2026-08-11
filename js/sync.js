@@ -1613,7 +1613,7 @@
           ok: true,
           rows: (res.data || []).map(function (r) {
             return {
-              id: Number(r.id), stars: r.stars, text: r.text || "",
+              id: Number(r.id), stars: r.stars, text: r.text || "", img: r.img || null,
               color: r.color, authorId: r.author_id,
               mine: r.author_id === me, time: t(r.created_at),
             };
@@ -1630,7 +1630,7 @@
         var res = await sb.from("bar_reviews").insert({
           id: rv.id, bar_key: barKey, bar_name: String(barName || "").slice(0, 80),
           author_id: S.uid, stars: rv.stars || null,
-          text: rv.text || "", color: rv.color,
+          text: rv.text || "", img: rv.img || null, color: rv.color,
         });
         if (res.error) return { ok: false, error: notInstalled(res.error) };
         return { ok: true };

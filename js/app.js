@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.30.0";
+  const APP_BUILD = "2.31.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -5285,6 +5285,48 @@
     img.onerror = () => { URL.revokeObjectURL(url); toast("이미지를 불러올 수 없어요."); };
     img.src = url;
   }
+  /* 댓글에 붙이는 사진은 아주 작게 줄입니다.
+   *
+   * 왜 이렇게까지 하냐면 — 요즘 폰 사진은 한 장에 4~8MB 입니다.
+   * 그걸 그대로 올리면 (1) 댓글 하나 여는 데 몇 초씩 걸리고
+   * (2) 데이터 요금이 나가고 (3) 저장 공간이 금방 찹니다.
+   * 댓글 사진은 "이런 느낌이었어요" 를 보여주는 용도라 크게 필요 없어요.
+   *
+   * 가로세로 420px 안쪽으로 줄이고, 70KB 를 넘으면 될 때까지 더 줄입니다.
+   * 결과는 대개 20~50KB — 원본의 1/100 수준입니다.
+   */
+  function compressThumb(file, cb) {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const draw = (max, q) => {
+        let { width: w, height: h } = img;
+        if (w > max || h > max) {
+          const r = Math.min(max / w, max / h);
+          w = Math.max(1, Math.round(w * r));
+          h = Math.max(1, Math.round(h * r));
+        }
+        const cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        const ctx = cv.getContext("2d");
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, w, h);
+        return cv.toDataURL("image/jpeg", q);
+      };
+      // 크기가 목표를 넘으면 계단식으로 더 줄입니다. 마지막 칸까지 가면 그걸로 끝.
+      const steps = [[420, 0.55], [360, 0.5], [300, 0.45], [240, 0.4], [180, 0.4]];
+      let out = "";
+      for (const [max, q] of steps) {
+        out = draw(max, q);
+        if (out.length <= 96000) break;          // base64 96,000자 ≈ 70KB
+      }
+      cb(out);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); toast("이미지를 불러올 수 없어요."); };
+    img.src = url;
+  }
+
   async function submitPost() {
     const title = $("#write-title").value.trim();
     const body = $("#write-body").value.trim();
@@ -6729,11 +6771,11 @@
       const f = e.target.files[0];
       if (!f) return;
       if (!f.type.startsWith("image/")) { toast("이미지 파일만 첨부할 수 있어요."); e.target.value = ""; return; }
-      compressImage(f, (d) => {
+      compressThumb(f, (d) => {
         pendingImg[CMT_KEY[prefix]] = d;
         $("#" + prefix + "-attach-img").src = d;
         $("#" + prefix + "-attach").hidden = false;
-      }, 640, 0.6);
+      });
     });
     $("#" + prefix + "-attach-rm").addEventListener("click", () => clearCmtAttach(prefix));
   });
@@ -6933,6 +6975,7 @@
     reviewsKey: "",
     reviewsState: "idle",  // idle | loading | ok | off
     stars: 0,              // 지금 고른 별점
+    img: null,             // 붙일 사진 (이미 작게 줄인 것)
   };
   function barStat(key) {
     return barSocial.stats.get(key) || { likes: 0, rated: 0, stars_sum: 0, comments: 0 };
@@ -6998,11 +7041,12 @@
     const input = $("#bar-cmt-input");
     const text = input ? input.value.trim() : "";
     const stars = barSocial.stars;
-    if (!text && !stars) { toast("별점을 주거나 한마디 남겨주세요."); return; }
+    const img = barSocial.img;
+    if (!text && !stars && !img) { toast("별점을 주거나 한마디 남겨주세요."); return; }
     if (!Sync.enabled) { toast("로그인하면 댓글을 남길 수 있어요."); return; }
     if (isBanned() || !isClean(text)) return;
 
-    const rv = { id: newId(), stars, text, color: state.user.color, mine: true, time: Date.now() };
+    const rv = { id: newId(), stars, text, img, color: state.user.color, mine: true, time: Date.now() };
     const key = barKey(b);
     const r = await Sync.barAddReview(key, b.name, rv);
     if (!r.ok) {
@@ -7019,6 +7063,7 @@
       comments: s.comments + (text ? 1 : 0),
     });
     barSocial.stars = 0;
+    barSocial.img = null;
     if (input) input.value = "";
     renderBarDetail();
     addPoints(20, "바 후기 작성");
@@ -7505,6 +7550,7 @@
   function openBar(id) {
     state.curBar = id;
     barSocial.stars = 0;
+    barSocial.img = null;
     show("bar");
     const b = barsAll().find((x) => x.id === id);
     if (b && Sync.enabled) { loadBarSocial(); loadBarReviews(b); }
@@ -7607,10 +7653,18 @@
             ${barSocial.stars ? '<button class="star-clear" id="bar-star-clear">지우기</button>' : ""}
           </div>
           <div class="cmt-row">
+            <input type="file" id="bar-cmt-file" accept="image/*" hidden>
+            <button class="cmt-img-btn" id="bar-cmt-img" aria-label="사진 첨부">📷</button>
             <input type="text" id="bar-cmt-input" maxlength="300"
                    placeholder="다녀온 소감을 남겨보세요" autocomplete="off">
             <button class="cmt-send" id="bar-cmt-send">등록</button>
           </div>
+          ${barSocial.img ? `
+            <div class="bar-cmt-attach">
+              <img src="${barSocial.img}" alt="">
+              <button class="cmt-attach-rm" id="bar-cmt-img-rm" aria-label="사진 빼기">✕</button>
+              <span class="bar-cmt-attach-kb">${Math.round(barSocial.img.length * 0.73 / 1024)}KB 로 줄여서 올라가요</span>
+            </div>` : ""}
         </div>
 
         <h3 class="bar-cmt-h">댓글 ${fmtNum(rows.filter((r) => r.text).length)}</h3>
@@ -7631,7 +7685,8 @@
                       ? `<button class="cmt-del" data-del="${r.id}">삭제</button>`
                       : (isAdmin() ? `<button class="cmt-del admin" data-del="${r.id}" data-adm="1">🛡️ 삭제</button>` : "")}
                   </div>
-                  ${r.text ? `<p class="bar-cmt-txt">${escMsg(r.text)}</p>` : '<p class="bar-cmt-txt muted">별점만 남겼어요</p>'}
+                  ${r.text ? `<p class="bar-cmt-txt">${escMsg(r.text)}</p>` : (r.img ? "" : '<p class="bar-cmt-txt muted">별점만 남겼어요</p>')}
+                  ${r.img ? `<img class="bar-cmt-img" src="${r.img}" alt="" loading="lazy">` : ""}
                 </div>
               </div>`).join("")}</div>`
           : '<p class="sheet-note" style="margin:0 20px 8px">첫 댓글을 남겨보세요.</p>'}
@@ -7757,6 +7812,38 @@
     if (send) send.addEventListener("click", () => addBarReview(b));
     const cin = $("#bar-cmt-input");
     if (cin) cin.addEventListener("keydown", (e) => { if (e.key === "Enter") addBarReview(b); });
+
+    /* 사진 첨부 — 고르는 즉시 아주 작게 줄여서 들고 있습니다.
+       원본은 어디에도 남기지 않아요. */
+    const imgBtn = $("#bar-cmt-img");
+    const imgFile = $("#bar-cmt-file");
+    if (imgBtn && imgFile) {
+      imgBtn.addEventListener("click", () => imgFile.click());
+      imgFile.addEventListener("change", (e) => {
+        const f = e.target.files[0];
+        e.target.value = "";
+        if (!f) return;
+        if (!f.type.startsWith("image/")) { toast("이미지 파일만 붙일 수 있어요."); return; }
+        const keep = cin ? cin.value : "";
+        compressThumb(f, (d) => {
+          barSocial.img = d;
+          renderBarDetail();
+          const again = $("#bar-cmt-input");
+          if (again) again.value = keep;          // 다시 그리면서 지워지지 않게
+        });
+      });
+    }
+    const imgRm = $("#bar-cmt-img-rm");
+    if (imgRm) imgRm.addEventListener("click", () => {
+      const keep = cin ? cin.value : "";
+      barSocial.img = null;
+      renderBarDetail();
+      const again = $("#bar-cmt-input");
+      if (again) again.value = keep;
+    });
+
+    $$("#bar-detail .bar-cmt-img").forEach((el) =>
+      el.addEventListener("click", () => openLightbox(el.src)));
 
     $$("#bar-detail [data-del]").forEach((el) =>
       el.addEventListener("click", () => delBarReview(b, +el.dataset.del, el.dataset.adm === "1")));
