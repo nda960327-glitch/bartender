@@ -126,8 +126,6 @@
         <button class="quick-item pressable" data-go="market"><span class="quick-ic">🛒</span><span>스토어</span></button>
         <button class="quick-item pressable" data-go="bars"><span class="quick-ic">📍</span><span>바 찾기</span></button>
         <button class="quick-item pressable" data-go="rank"><span class="quick-ic">🏆</span><span>랭킹</span></button>
-        <button class="quick-item pressable" data-go="card"><span class="quick-ic">🪪</span><span>내 프로필</span></button>
-        <button class="quick-item pressable" data-go="stock"><span class="quick-ic">📦</span><span>재고관리</span></button>
       </div>
 
       <div class="home-sec">
@@ -654,10 +652,8 @@
         <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
       </div>
       <div class="card menu-list">
-        <button class="row-link pressable" data-go="card"><span class="row-label">내 바텐더 프로필</span><span class="flex-1"></span><span class="row-badge" id="card-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" data-go="recipes"><span class="row-label">내 레시피 노트</span><span class="flex-1"></span><span class="row-badge" id="recipe-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" data-go="rank"><span class="row-label">랭킹</span><span class="flex-1"></span><span class="row-badge" id="rank-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
-        <button class="row-link pressable" data-go="stock"><span class="row-label">재고 · 발주</span><span class="flex-1"></span><span class="row-badge" id="stock-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-taste"><span class="row-label">내 취향 리포트</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-cellar"><span class="row-label">내 술장</span><span class="flex-1"></span><span class="row-badge" id="cellar-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-favjobs"><span class="row-label">관심알바</span><span class="flex-1"></span><span class="row-badge" id="favjob-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
@@ -1030,19 +1026,6 @@
     <div class="scroll-area" id="admin-area"></div>
   </section>
 
-  <!-- ===================== 내 바텐더 프로필 ===================== -->
-  <section class="view" id="view-card" hidden>
-    <header class="topbar">
-      <button class="icon-btn back-btn" data-back="mypage">
-        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
-      </button>
-      <h1 class="topbar-title">내 바텐더 프로필</h1>
-      <button class="icon-btn" id="card-copy" aria-label="텍스트로 복사">
-        <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
-      </button>
-    </header>
-    <div class="scroll-area gray-bg" id="card-area"></div>
-  </section>
 
   <!-- ===================== 근처 바 찾기 ===================== -->
   <section class="view" id="view-bars" hidden>
@@ -1089,19 +1072,6 @@
     <div class="scroll-area gray-bg" id="rank-area"></div>
   </section>
 
-  <!-- ===================== 재고 · 발주 ===================== -->
-  <section class="view" id="view-stock" hidden>
-    <header class="topbar">
-      <button class="icon-btn back-btn" data-back="home">
-        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
-      </button>
-      <h1 class="topbar-title">재고 · 발주</h1>
-      <button class="icon-btn" id="stock-add" aria-label="품목 추가">
-        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-      </button>
-    </header>
-    <div class="scroll-area gray-bg" id="stock-area"></div>
-  </section>
 
   <!-- ===================== 내 레시피 노트 ===================== -->
   <section class="view" id="view-recipes" hidden>
@@ -1158,6 +1128,8 @@
 <script src="js/sfx.js"></script>
 <script src="js/char.js"></script>
 <script src="js/seed-content.js"></script>
+<!-- 실제 바 목록. tools/fetch-bars.mjs 로 만듭니다. 없어도 앱은 돕니다. -->
+<script src="js/seed-bars.js" onerror="void 0"></script>
 <script src="js/seed-content.js"></script>
 <!-- 심층 도감 데이터(약 500KB)는 여기서 불러오지 않습니다.
      app.js 가 첫 화면을 그린 뒤 한가할 때, 또는 도감에 들어갈 때 받아와요.

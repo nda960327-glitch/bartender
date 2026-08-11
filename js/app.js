@@ -71,7 +71,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.26.0";
+  const APP_BUILD = "2.27.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -125,58 +125,44 @@
   ];
 
   /* 업장(바) 목록.
-     주소·전화번호는 일부러 넣지 않았어요. 확인되지 않은 정보를 앱이
-     사실처럼 보여주면 그 가게에 민폐가 됩니다. 동네와 분위기까지만.
 
-     lat/lng 는 그 가게의 정확한 위치가 아니라 "그 동네의 중심"입니다.
-     소수점 둘째 자리까지만 두어 대략 1km 격자로 뭉갰어요. 거리를 "약 2km"
-     수준으로 보여주는 데는 충분하고, 없는 정보를 있는 척하지 않습니다. */
+     실제로 있는 곳들입니다. 다만 제가 아는 것은 어느 동네의 어떤 성격의
+     가게인가까지예요. 영업시간·시그니처·분위기 설명은 넣지 않았습니다 —
+     확인되지 않은 정보를 앱이 사실처럼 보여주면 그 가게에 민폐가 됩니다.
+     주소와 전화번호를 안 받는 것도 같은 이유예요.
+
+     ⚠️ 바는 자주 닫고 옮깁니다. 이 목록도 언젠가는 틀려요.
+        그래서 상세 화면에 "방문 전에 확인해달라"는 안내를 붙였습니다.
+
+     lat/lng 는 가게 위치가 아니라 "그 동네의 중심"입니다. 소수점 둘째
+     자리까지만 두어 대략 1km 격자로 뭉갰어요. "약 5km" 수준으로 거리를
+     보여주는 데는 충분하고, 없는 정보를 있는 척하지 않습니다. */
   const SEED_BARS = [
-    { id: 1, name: "문라이트라운지", region: "서울", area: "서울 강남구", type: "칵테일바",
-      hours: "19:00 ~ 03:00 · 일 휴무", sig: "무화과 올드패션드",
-      note: "강남 뒷골목 지하. 조도가 낮고 스피커가 좋아서 혼자 오는 손님이 많아요.",
-      tags: ["클래식", "혼술", "심야"], lat: 37.52, lng: 127.05, seed: true },
-    { id: 2, name: "몰트하우스", region: "경기", area: "경기 수원시", type: "위스키바",
-      hours: "18:00 ~ 01:00 · 월 휴무", sig: "글렌캐런 플라이트 3종",
-      note: "싱글몰트 200병대. 사장님이 직접 테이스팅 노트를 붙여둡니다.",
-      tags: ["위스키", "플라이트", "조용함"], lat: 37.26, lng: 127.03, seed: true },
-    { id: 3, name: "바네온", region: "서울", area: "서울 마포구", type: "펍/호프",
-      hours: "18:00 ~ 04:00 · 연중무휴", sig: "네온 하이볼",
-      note: "홍대 한복판. 시끄럽고 빠르고 사람 많습니다. 주말 웨이팅 각오.",
-      tags: ["하이볼", "시끌", "주말"], lat: 37.56, lng: 126.91, seed: true },
-    { id: 4, name: "비노쉐어", region: "서울", area: "서울 강남구", type: "와인바",
-      hours: "17:00 ~ 24:00 · 일 휴무", sig: "글라스 와인 12종 로테이션",
-      note: "내추럴 위주. 잔술 회전이 빨라 혼자 두세 잔 비교해보기 좋아요.",
-      tags: ["와인", "내추럴", "안주"], lat: 37.52, lng: 127.05, seed: true },
-    { id: 5, name: "그랜드바", region: "인천", area: "인천 중구", type: "호텔바",
-      hours: "17:00 ~ 01:00 · 연중무휴", sig: "클래식 마티니",
-      note: "호텔 라운지. 드레스코드는 없지만 분위기가 정중한 편입니다.",
-      tags: ["클래식", "뷰", "정장"], lat: 37.47, lng: 126.62, seed: true },
-    { id: 6, name: "서면비어", region: "부산", area: "부산 부산진구", type: "펍/호프",
-      hours: "17:00 ~ 02:00 · 연중무휴", sig: "부산 페일에일 탭 6종",
-      note: "크래프트 탭이 자주 바뀝니다. 바텐더가 시음잔을 잘 내줘요.",
-      tags: ["맥주", "탭", "가성비"], lat: 35.16, lng: 129.05, seed: true },
-    { id: 7, name: "달빛한잔", region: "서울", area: "서울 종로구", type: "전통주바",
-      hours: "18:00 ~ 01:00 · 일·월 휴무", sig: "제철 과실 막걸리",
-      note: "익선동 한옥. 전통주 베이스 칵테일을 계절마다 새로 짭니다.",
-      tags: ["전통주", "한옥", "데이트"], lat: 37.57, lng: 126.99, seed: true },
-    { id: 8, name: "코너스툴", region: "서울", area: "서울 용산구", type: "칵테일바",
-      hours: "20:00 ~ 03:00 · 화 휴무", sig: "바텐더 오마카세 3잔",
-      note: "좌석 8개짜리 스탠딩 바. 취향만 말하면 알아서 만들어줍니다.",
-      tags: ["오마카세", "소규모", "취향"], lat: 37.53, lng: 126.99, seed: true },
-    { id: 9, name: "하이볼공장", region: "경기", area: "경기 성남시", type: "하이볼바",
-      hours: "17:00 ~ 02:00 · 연중무휴", sig: "산토리 가쿠 하이볼",
-      note: "판교 직장인 밀집. 퇴근 직후 한 시간이 제일 붐빕니다.",
-      tags: ["하이볼", "퇴근", "빠름"], lat: 37.42, lng: 127.13, seed: true },
-    { id: 10, name: "제주바람", region: "제주", area: "제주 제주시", type: "칵테일바",
-      hours: "19:00 ~ 02:00 · 수 휴무", sig: "한라봉 진토닉",
-      note: "제주 재료로만 짠 시그니처 메뉴가 다섯 개 있습니다.",
-      tags: ["로컬", "진", "여행"], lat: 33.50, lng: 126.53, seed: true },
+    { id: 1, name: "르챔버", region: "서울", area: "서울 강남구 청담",
+      type: "칵테일바", lat: 37.52, lng: 127.05, seed: true },
+    { id: 2, name: "찰스 H.", region: "서울", area: "서울 중구",
+      type: "호텔바", lat: 37.57, lng: 126.98, seed: true },
+    { id: 3, name: "앨리스 청담", region: "서울", area: "서울 강남구 청담",
+      type: "칵테일바", lat: 37.52, lng: 127.05, seed: true },
+    { id: 4, name: "제스트", region: "서울", area: "서울 강남구 신사",
+      type: "칵테일바", lat: 37.52, lng: 127.02, seed: true },
+    { id: 5, name: "바 참", region: "서울", area: "서울 종로구",
+      type: "칵테일바", lat: 37.57, lng: 126.99, seed: true },
+    { id: 6, name: "사우스사이드 팔러", region: "서울", area: "서울 용산구 이태원",
+      type: "칵테일바", lat: 37.53, lng: 126.99, seed: true },
+    { id: 7, name: "커피 바 케이", region: "서울", area: "서울 강남구 청담",
+      type: "칵테일바", lat: 37.52, lng: 127.05, seed: true },
+    { id: 8, name: "장생건강원", region: "서울", area: "서울 강남구",
+      type: "칵테일바", lat: 37.52, lng: 127.03, seed: true },
   ];
+  /* tools/fetch-bars.mjs 로 받아둔 실제 목록이 있으면 그걸 씁니다.
+     없으면 위에 적어둔 소수만 나와요. */
+  const BASE_BARS = (window.BARTALK_BARS && window.BARTALK_BARS.length)
+    ? window.BARTALK_BARS
+    : SEED_BARS;
+
   const BAR_TYPES = ["칵테일바", "위스키바", "와인바", "펍/호프", "하이볼바", "전통주바", "호텔바", "이자카야", "기타"];
 
-  /* 재고 품목 분류. 발주서를 이 순서로 묶어줍니다. */
-  const STOCK_CATS = ["스피릿", "리큐르", "와인/맥주", "시럽/주스", "가니시", "소모품", "기타"];
 
   const SEED_SPIRITS = [
     { id: 1, kind: "spirit", emoji: "🥃", name: "글렌피딕 12년", cat: "위스키", abv: 40, price: "5~7만원", note: "배와 사과 향이 나는 입문용 싱글몰트. 부드럽고 깔끔한 피니시라 하이볼로도 좋아요.", by: "익명", time: now - 20 * D, reviews: [
@@ -858,8 +844,7 @@
     cart: store.get("cart", []),
     orders: store.get("orders", []),
     worklog: store.get("worklog", []),
-    bars: store.get("bars", SEED_BARS),
-    stock: store.get("stock", []),
+    bars: store.get("bars", BASE_BARS),
     barQ: "",
     barRegion: "전체",
     barRadius: 0,          // 0 = 전체. 내 주변 모드에서만 씁니다
@@ -950,7 +935,6 @@
   const saveOrders = () => store.set("orders", state.orders);
   const saveWorklog = () => store.set("worklog", state.worklog);
   const saveBars = () => store.set("bars", state.bars);
-  const saveStock = () => store.set("stock", state.stock);
 
   /* ---------- 사용자 필드 보강 (앱 업데이트 시) ---------- */
   state.user.cellar = state.user.cellar || { tried: [], wish: [] };
@@ -967,7 +951,6 @@
   }
   state.user.hiddenPosts = state.user.hiddenPosts || [];
   state.user.hiddenSpirits = state.user.hiddenSpirits || [];
-  state.user.card = state.user.card || null;          // 바텐더 프로필
   state.user.myRecipes = state.user.myRecipes || {};  // 칵테일 id → 내 배합
   state.user.myBars = state.user.myBars || [];        // 즐겨찾은 바 id
 
@@ -1001,25 +984,16 @@
     store.set("seedv", SEED_V);
   }
 
-  /* 바 목록에 좌표를 뒤늦게 붙였습니다.
-     이미 앱을 쓰던 사람은 localStorage 에 좌표 없는 목록이 들어 있어서,
-     그대로 두면 "내 주변"이 전부 물음표로 나옵니다.
-     내가 등록한 곳은 건드리지 않고, 기본 제공 목록만 채워 넣어요. */
-  (() => {
-    let changed = false;
-    SEED_BARS.forEach((s) => {
-      const cur = state.bars.find((b) => b.id === s.id && !b.mine);
-      if (cur && typeof cur.lat !== "number" && typeof s.lat === "number") {
-        cur.lat = s.lat;
-        cur.lng = s.lng;
-        changed = true;
-      }
-    });
-    // 아예 목록에 없는 기본 바가 있으면 그것도 넣어줍니다.
-    const ids = new Set(state.bars.map((b) => b.id));
-    SEED_BARS.forEach((s) => { if (!ids.has(s.id)) { state.bars.push(s); changed = true; } });
-    if (changed) saveBars();
-  })();
+  /* 기본 바 목록을 지어낸 것에서 실제 가게로 갈아끼웠습니다.
+     이미 앱을 쓰던 사람의 localStorage 에는 옛 목록이 남아 있어요.
+     기본 제공분(seed)만 통째로 바꾸고, 직접 등록한 곳(mine)은 그대로 둡니다. */
+  const BAR_SEED_V = 2;
+  if (store.get("barseedv", 1) < BAR_SEED_V) {
+    const mine = state.bars.filter((b) => b.mine);
+    state.bars = BASE_BARS.concat(mine);
+    saveBars();
+    store.set("barseedv", BAR_SEED_V);
+  }
 
   localStorage.removeItem("bartalk_market");
 
@@ -1606,7 +1580,7 @@
       (view === "doc" && (state.docFrom === "onboard" || state.docFrom === "login"));
     $("#bottom-nav").style.display = hideNav ? "none" : "";
     const navView = NAV_VIEWS.includes(view) ? view
-      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", market: "home", "market-detail": "home", cart: "home", worklog: "home", units: "home", search: "home", timer: "home", bars: "home", bar: "home", rank: "home", stock: "home", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", card: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
+      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", market: "home", "market-detail": "home", cart: "home", worklog: "home", units: "home", search: "home", timer: "home", bars: "home", bar: "home", rank: "home", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
     $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === navView));
     if (view === "home") renderHome();
     if (view === "market") renderStore();
@@ -1638,11 +1612,9 @@
     if (view === "settings") renderSettings();
     if (view === "alerts") renderNoti();
     if (view === "blocked") renderBlocked();
-    if (view === "card") renderCard();
     if (view === "bars") renderBars();
     if (view === "bar") renderBarDetail();
     if (view === "rank") renderRank();
-    if (view === "stock") renderStock();
     if (view === "recipes") renderRecipes();
 
     /* 방금 그린 것은 이 기기에 있던 내용입니다.
@@ -5629,13 +5601,9 @@
     $("#cellar-cnt").textContent = cel ? cel + "병" : "";
     $("#blocked-cnt").textContent = blockedKeys().length ? blockedKeys().length + "명" : "";
     showAppDownload();
-    const filled = cardFilled(state.user.card);
-    $("#card-cnt").textContent = state.user.card ? (filled >= 6 ? "완성" : `${filled}/9`) : "미작성";
     const rcN = Object.keys(state.user.myRecipes).length;
     $("#recipe-cnt").textContent = rcN ? rcN + "개" : "";
     $("#rank-cnt").textContent = levelOf(state.user.points || 0).cur.name;
-    const lowN = state.stock.filter(stockLow).length;
-    $("#stock-cnt").textContent = lowN ? `부족 ${lowN}` : (state.stock.length ? `${state.stock.length}품목` : "");
     checkBadges();
     $("#badge-count").textContent = `${state.user.badges.length}/${BADGES.length}`;
     $("#badge-grid").innerHTML = BADGES.map((b) => {
@@ -6470,10 +6438,6 @@
   $("#btn-alerts").addEventListener("click", () => show("alerts"));
 
   /* ---------- 새 화면들 ---------- */
-  $("#card-copy").addEventListener("click", () => {
-    if (!state.user.card) { toast("먼저 프로필을 만들어주세요."); return; }
-    copyText(cardText(), "프로필을 텍스트로 복사했어요. 🪪");
-  });
   $("#bar-add").addEventListener("click", openBarSheet);
   $("#bar-q").addEventListener("input", (e) => { state.barQ = e.target.value; renderBars(); });
   $("#bar-del").addEventListener("click", async () => {
@@ -6485,7 +6449,6 @@
     show("bars");
     toast("삭제했어요.");
   });
-  $("#stock-add").addEventListener("click", () => openStockSheet(null));
   $("#app-download").addEventListener("click", () => {
     const url = String(CFG.APP_ANDROID_URL || "").trim();
     if (!url) return;
@@ -7042,261 +7005,6 @@
   });
 
   /* ============================================================
-   *  내 바텐더 프로필 (포트폴리오)
-   *
-   *  채용 화면은 있는데 지원할 "사람" 쪽 이력이 없었어요.
-   *  서버에 올리지 않고 이 기기에만 둡니다 — 공고에 지원할 때
-   *  텍스트로 복사해 붙여넣는 것이 지금 단계에선 가장 실용적이라서요.
-   * ============================================================ */
-  const CARD_STATUS = ["구직중", "재직중", "프리랜서", "비공개"];
-  const CARD_SKILLS = [
-    "클래식 칵테일", "시그니처 개발", "위스키", "와인", "전통주", "커피/논알콜",
-    "플레어", "바 매니지먼트", "원가 관리", "발주/재고", "직원 교육", "SNS 운영",
-  ];
-  const EMPTY_CARD = {
-    intro: "", years: "", region: "", status: "구직중", shop: "",
-    certs: "", skills: [], sig1: "", sig2: "", sig3: "", awards: "", contact: "",
-  };
-
-  /* 빈 화면 앞에서는 아무도 첫 줄을 못 씁니다.
-     연차대별로 셋을 두고, 눌러서 채운 다음 고쳐 쓰게 해요.
-     실제 사람이 아니라 형식을 보여주려고 만든 예시입니다. */
-  const SAMPLE_CARDS = [
-    {
-      label: "2년차 · 주니어",
-      intro: "이제 2년차라 아직 배우는 중이지만, 클래식은 레시피 안 보고 만들 수 있어요. 시키는 것보다 하나 더 하려고 합니다.",
-      years: "2", region: "서울 마포·서대문", status: "구직중",
-      shop: "홍대 펍 (홀 겸 바)",
-      certs: "조주기능사",
-      skills: ["클래식 칵테일", "커피/논알콜", "SNS 운영"],
-      sig1: "얼그레이 진토닉", sig2: "", sig3: "",
-      awards: "2024 조주기능사 취득\n2024~ 홍대 펍 주말 근무",
-      contact: "",
-    },
-    {
-      label: "6년차 · 메인",
-      intro: "클래식 위주로 6년째. 손님 취향 물어보고 그 자리에서 짜는 걸 제일 좋아합니다. 바 열 때 초기 세팅도 해봤어요.",
-      years: "6", region: "서울 강남·서초", status: "재직중",
-      shop: "문라이트라운지 (메인 바텐더)",
-      certs: "조주기능사, WSET Level 2",
-      skills: ["클래식 칵테일", "시그니처 개발", "위스키", "원가 관리", "직원 교육"],
-      sig1: "무화과 올드패션드", sig2: "산초 네그로니", sig3: "",
-      awards: "2021~2023 ○○바 바텐더\n2023 △△바 오픈 멤버 (메뉴 설계)\n2024~ 문라이트라운지 메인",
-      contact: "",
-    },
-    {
-      label: "12년차 · 매니저",
-      intro: "12년 하면서 매장 세 곳을 맡아봤습니다. 요즘은 만드는 것만큼 사람 가르치는 일에 시간을 많이 씁니다.",
-      years: "12", region: "서울 전역 · 경기 남부", status: "프리랜서",
-      shop: "컨설팅 · 팝업 위주",
-      certs: "조주기능사, WSET Level 3, 위스키 앰배서더 과정 수료",
-      skills: ["시그니처 개발", "위스키", "와인", "바 매니지먼트", "원가 관리", "발주/재고", "직원 교육"],
-      sig1: "리버스 마티니 (하우스 베르무트)", sig2: "제철 과실 사워", sig3: "배럴 에이징 네그로니",
-      awards: "2013~2017 ○○호텔 라운지바\n2017~2021 △△바 헤드 바텐더\n2021~2024 □□그룹 3개 매장 총괄\n2024~ 프리랜서 (바 오픈 컨설팅)",
-      contact: "",
-    },
-  ];
-
-  function cardFilled(c) {
-    if (!c) return 0;
-    const keys = ["intro", "years", "region", "shop", "certs", "sig1", "awards", "contact"];
-    let n = keys.filter((k) => String(c[k] || "").trim()).length;
-    if ((c.skills || []).length) n++;
-    return n;
-  }
-
-  function renderCard() {
-    const c = state.user.card;
-    const box = $("#card-area");
-    if (!c) {
-      box.innerHTML = `
-        <div class="card" style="padding:28px 20px;text-align:center">
-          <div style="font-size:44px;margin-bottom:10px">🪪</div>
-          <h3 style="font-size:17px;margin-bottom:8px">아직 프로필이 없어요</h3>
-          <p class="sheet-note" style="text-align:center;margin:0 0 18px">
-            경력·시그니처·가능 업무를 한 장으로 정리해두면<br>
-            채용 공고에 지원할 때 그대로 복사해 쓸 수 있어요.
-          </p>
-          <button class="big-btn accent ready" id="card-new">빈 프로필로 시작</button>
-        </div>
-
-        <p class="sheet-note" style="text-align:left;margin:16px 20px 8px">
-          아니면 예시 하나를 골라 채운 다음 고쳐 쓰셔도 돼요.
-          <b>실제 사람이 아니라</b> 형식을 보여주려고 만든 것입니다.
-        </p>
-        ${SAMPLE_CARDS.map((s, i) => `
-          <button class="card sample-card pressable" data-s="${i}">
-            <div class="sample-label">${esc(s.label)}</div>
-            <p class="sample-intro">${esc(s.intro)}</p>
-            <div class="sample-meta">${esc(s.region)} · ${esc(s.status)} · 시그니처 ${[s.sig1, s.sig2, s.sig3].filter(Boolean).length}개</div>
-          </button>`).join("")}
-        <div style="height:24px"></div>`;
-      $("#card-new").addEventListener("click", openCardEdit);
-      $$("#card-area .sample-card").forEach((el) =>
-        el.addEventListener("click", () => {
-          const s = SAMPLE_CARDS[+el.dataset.s];
-          const next = Object.assign({}, s);
-          delete next.label;                    // 화면용 딱지는 저장하지 않아요
-          next.skills = next.skills.slice();
-          state.user.card = next;
-          saveUser();
-          renderCard();
-          toast("예시로 채웠어요. 내용을 고쳐서 쓰세요.");
-        }));
-      return;
-    }
-
-    const row = (label, val) => val
-      ? `<div class="card-row"><span class="card-k">${label}</span><span class="card-v">${esc(val)}</span></div>` : "";
-    const sigs = [c.sig1, c.sig2, c.sig3].filter((s) => String(s || "").trim());
-
-    box.innerHTML = `
-      <div class="card bcard">
-        <div class="bcard-top">
-          <span class="avatar md" style="background:${COLORS[state.user.color]}"></span>
-          <div class="bcard-id">
-            <div class="bcard-nick">${esc(state.user.nick)}</div>
-            <div class="bcard-status">${esc(c.status || "")}${c.years ? ` · 경력 ${esc(c.years)}년` : ""}${c.region ? ` · ${esc(c.region)}` : ""}</div>
-          </div>
-        </div>
-        ${c.intro ? `<p class="bcard-intro">${esc(c.intro)}</p>` : ""}
-      </div>
-
-      ${sigs.length ? `
-      <div class="card">
-        <h3 class="card-h">시그니처</h3>
-        ${sigs.map((s) => `<div class="sig-line">🍸 ${esc(s)}</div>`).join("")}
-      </div>` : ""}
-
-      ${(c.skills || []).length ? `
-      <div class="card">
-        <h3 class="card-h">할 수 있는 일</h3>
-        <div class="chip-wrap" style="padding:0">
-          ${c.skills.map((s) => `<span class="chip active" style="pointer-events:none">${esc(s)}</span>`).join("")}
-        </div>
-      </div>` : ""}
-
-      ${(c.shop || c.certs || c.awards || c.contact) ? `
-      <div class="card">
-        <h3 class="card-h">이력</h3>
-        ${row("근무지", c.shop)}
-        ${row("자격증", c.certs)}
-        ${row("연락처", c.contact)}
-        ${c.awards ? `<div class="card-row col"><span class="card-k">경력·수상</span><p class="card-multi">${escMsg(c.awards)}</p></div>` : ""}
-      </div>` : ""}
-
-      <div class="card" style="padding:14px 16px">
-        <button class="big-btn outline" id="card-edit">프로필 수정</button>
-        <button class="text-btn muted" id="card-clear" style="width:100%;padding:14px 0 4px">프로필 지우기</button>
-      </div>
-      <p class="sheet-note" style="margin:2px 20px 24px">
-        이 프로필은 이 기기에만 저장돼요. 오른쪽 위 복사 버튼을 누르면
-        공고 지원용 텍스트로 만들어 드립니다.
-      </p>
-      <div style="height:16px"></div>`;
-
-    $("#card-edit").addEventListener("click", openCardEdit);
-    $("#card-clear").addEventListener("click", async () => {
-      if (!await btConfirm("프로필을 지울까요?", { yes: "삭제" })) return;
-      state.user.card = null;
-      saveUser();
-      renderCard();
-      toast("프로필을 지웠어요.");
-    });
-  }
-
-  function cardText() {
-    const c = state.user.card;
-    if (!c) return "";
-    const L = [];
-    L.push(`${state.user.nick} · 바텐더`);
-    const head = [c.status, c.years ? `경력 ${c.years}년` : "", c.region].filter(Boolean).join(" · ");
-    if (head) L.push(head);
-    if (c.intro) L.push("", c.intro);
-    const sigs = [c.sig1, c.sig2, c.sig3].filter((s) => String(s || "").trim());
-    if (sigs.length) L.push("", "[시그니처]", ...sigs.map((s) => "· " + s));
-    if ((c.skills || []).length) L.push("", "[할 수 있는 일]", c.skills.join(", "));
-    if (c.shop) L.push("", "[근무지] " + c.shop);
-    if (c.certs) L.push("[자격증] " + c.certs);
-    if (c.awards) L.push("", "[경력·수상]", c.awards);
-    if (c.contact) L.push("", "[연락처] " + c.contact);
-    return L.join("\n");
-  }
-
-  function openCardEdit() {
-    const c = Object.assign({}, EMPTY_CARD, state.user.card || {});
-    let skills = (c.skills || []).slice();
-
-    openSheetHTML(`
-      <h3>🪪 바텐더 프로필</h3>
-      <p class="sheet-note" style="text-align:left;margin:0 0 12px">
-        비워둔 항목은 프로필에 나오지 않아요. 다 채우지 않아도 됩니다.
-      </p>
-      <label class="form-label">한 줄 소개</label>
-      <textarea class="input textarea" data-f="intro" rows="2" maxlength="120"
-        placeholder="예: 클래식 위주로 6년째. 손님 취향 물어보고 즉석에서 짜는 걸 제일 좋아합니다.">${esc(c.intro)}</textarea>
-      <label class="form-label">지금 상태</label>
-      <div class="chip-wrap" id="card-status" style="padding:0 0 4px"></div>
-      <label class="form-label">경력 (년)</label>
-      <input type="number" class="input" data-f="years" min="0" max="60" value="${esc(String(c.years))}" placeholder="예: 6">
-      <label class="form-label">활동 지역</label>
-      <input type="text" class="input" data-f="region" maxlength="30" value="${esc(c.region)}" placeholder="예: 서울 강남·서초">
-      <label class="form-label">현재 / 최근 근무지</label>
-      <input type="text" class="input" data-f="shop" maxlength="40" value="${esc(c.shop)}" placeholder="예: 문라이트라운지 (메인 바텐더)">
-      <label class="form-label">할 수 있는 일</label>
-      <div class="chip-wrap" id="card-skills" style="padding:0 0 4px"></div>
-      <label class="form-label">시그니처 (최대 3개)</label>
-      <input type="text" class="input" data-f="sig1" maxlength="50" value="${esc(c.sig1)}" placeholder="예: 무화과 올드패션드">
-      <input type="text" class="input" data-f="sig2" maxlength="50" value="${esc(c.sig2)}" placeholder="두 번째" style="margin-top:8px">
-      <input type="text" class="input" data-f="sig3" maxlength="50" value="${esc(c.sig3)}" placeholder="세 번째" style="margin-top:8px">
-      <label class="form-label">자격증</label>
-      <input type="text" class="input" data-f="certs" maxlength="80" value="${esc(c.certs)}" placeholder="예: 조주기능사, WSET Level 2">
-      <label class="form-label">경력 · 수상</label>
-      <textarea class="input textarea" data-f="awards" rows="4" maxlength="500"
-        placeholder="줄바꿈으로 나눠 적어주세요.&#10;예: 2023 ○○바 오픈 멤버&#10;2024 △△ 칵테일 대회 본선">${esc(c.awards)}</textarea>
-      <label class="form-label">연락처 (선택)</label>
-      <input type="text" class="input" data-f="contact" maxlength="60" value="${esc(c.contact)}" placeholder="공고에 지원할 때만 쓰입니다">
-      <p class="sheet-note" style="text-align:left;margin:10px 0 0">
-        ⚠️ 연락처는 이 기기에만 저장되고 서버로 올라가지 않아요. 그래도 남에게
-        보여줄 화면이니 꼭 필요한 것만 적어주세요.
-      </p>
-      <button class="big-btn accent ready" id="card-save" style="margin-top:14px">저장하기</button>`);
-
-    const bd = document.querySelector(".sheet-backdrop");
-    let status = c.status || "구직중";
-
-    const paint = () => {
-      bd.querySelector("#card-status").innerHTML = CARD_STATUS.map((s) =>
-        `<button class="chip ${s === status ? "active" : ""}" data-st="${esc(s)}">${esc(s)}</button>`).join("");
-      bd.querySelector("#card-skills").innerHTML = CARD_SKILLS.map((s) =>
-        `<button class="chip ${skills.includes(s) ? "active" : ""}" data-sk="${esc(s)}">${esc(s)}</button>`).join("");
-      bd.querySelectorAll("[data-st]").forEach((b) =>
-        b.addEventListener("click", () => { status = b.dataset.st; paint(); }));
-      bd.querySelectorAll("[data-sk]").forEach((b) =>
-        b.addEventListener("click", () => {
-          const v = b.dataset.sk;
-          const i = skills.indexOf(v);
-          if (i >= 0) skills.splice(i, 1); else skills.push(v);
-          paint();
-        }));
-    };
-    paint();
-
-    bd.querySelector("#card-save").addEventListener("click", () => {
-      const next = { status, skills };
-      bd.querySelectorAll("[data-f]").forEach((el) => { next[el.dataset.f] = el.value.trim(); });
-      if (!isClean(next.intro + " " + next.awards)) return;
-      const first = !state.user.card;
-      state.user.card = next;
-      saveUser();
-      bd.remove();
-      renderCard();
-      toast(first ? "프로필을 만들었어요. 🪪" : "프로필을 저장했어요.");
-      if (first) addPoints(50, "바텐더 프로필 작성");
-    });
-  }
-
-  /* ============================================================
    *  바 찾기 (업장)
    * ============================================================ */
 
@@ -7397,7 +7105,7 @@
     let list = state.bars.filter((b) => {
       if (!near && state.barRegion !== "전체" && b.region !== state.barRegion) return false;
       if (!q) return true;
-      return [b.name, b.area, b.type, b.sig, b.note, (b.tags || []).join(" ")]
+      return [b.name, b.area, b.addr, b.type, b.note, (b.tags || []).join(" ")]
         .filter(Boolean).join(" ").toLowerCase().includes(q);
     });
 
@@ -7421,7 +7129,6 @@
           <div class="bar-main">
             <div class="bar-name">${esc(b.name)}${state.user.myBars.includes(b.id) ? ' <span class="me-tag">단골</span>' : ""}</div>
             <div class="bar-meta">${esc(b.area || b.region || "")} · ${esc(b.type || "")}</div>
-            ${b.sig ? `<div class="bar-sig">🍸 ${esc(b.sig)}</div>` : ""}
             ${(b.tags || []).length ? `<div class="bar-tags">${b.tags.map((t) => `<span>#${esc(t)}</span>`).join("")}</div>` : ""}
           </div>
           ${km === null ? "" : `<span class="bar-km">${km === Infinity ? "?" : fmtKm(km)}</span>`}
@@ -7467,8 +7174,8 @@
       </div>
       <div class="card">
         <h3 class="card-h">정보</h3>
+        ${row("주소", b.addr)}
         ${row("영업시간", b.hours)}
-        ${row("시그니처", b.sig)}
         ${dist === null ? "" : row("내 위치에서", dist === Infinity ? "동네 정보 없음" : fmtKm(dist))}
         ${row("등록", b.by || "바텐톡")}
       </div>
@@ -7480,8 +7187,9 @@
         <button class="big-btn outline" id="bar-write" style="margin-top:8px">이 바 이야기 글쓰기</button>
       </div>
       <p class="sheet-note" style="margin:2px 20px 24px">
-        주소·전화번호는 일부러 넣지 않았어요. 확인되지 않은 정보가 퍼지면
-        그 가게에 폐가 됩니다. 방문 전에 직접 확인해주세요.
+        ${b.seed
+          ? "기본 목록에 있는 곳이에요. 바는 자주 닫고 옮기니 <b>방문 전에 꼭 확인</b>해주세요. 영업시간은 넣지 않았습니다 — 확인되지 않은 정보가 퍼지면 그 가게에 폐가 되니까요."
+          : "이용자가 올린 정보라 틀릴 수 있어요. 방문 전에 확인해주세요."}
       </p>
       <div style="height:16px"></div>`;
 
@@ -7531,10 +7239,10 @@
       </p>
       <label class="form-label">종류</label>
       <div class="chip-wrap" id="bar-types" style="padding:0 0 4px"></div>
+      <label class="form-label">주소</label>
+      <input type="text" class="input" data-f="addr" maxlength="80" placeholder="도로명 주소">
       <label class="form-label">영업시간</label>
       <input type="text" class="input" data-f="hours" maxlength="40" placeholder="예: 19:00 ~ 02:00 · 월 휴무">
-      <label class="form-label">시그니처</label>
-      <input type="text" class="input" data-f="sig" maxlength="40" placeholder="예: 무화과 올드패션드">
       <label class="form-label">한 줄 소개</label>
       <textarea class="input textarea" data-f="note" rows="3" maxlength="200" placeholder="분위기, 자리 수, 어떤 사람에게 어울리는지"></textarea>
       <label class="form-label">태그 (쉼표로 구분)</label>
@@ -7578,7 +7286,7 @@
       }
       const row = {
         id: newId(), name: v.name, region: v.region || "기타", area: v.area,
-        type, hours: v.hours, sig: v.sig, note: v.note,
+        type, addr: v.addr, hours: v.hours, note: v.note,
         tags: v.tags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 5),
         by: state.user.nick, time: Date.now(), mine: true,
       };
@@ -7692,238 +7400,6 @@
     const retry = $("#rank-retry");
     if (retry) retry.addEventListener("click", () => loadRank(true));
     if (state.rankState === "idle") loadRank();
-  }
-
-  /* ============================================================
-   *  재고 · 발주
-   *
-   *  근무일지 옆에 붙는 실무 도구입니다. 이 기기에만 저장돼요.
-   * ============================================================ */
-  function stockLow(it) { return Number(it.qty) <= Number(it.min); }
-
-  function renderStock() {
-    const items = state.stock;
-    const low = items.filter(stockLow);
-
-    if (!items.length) {
-      $("#stock-area").innerHTML = `
-        <div class="card" style="padding:28px 20px;text-align:center">
-          <div style="font-size:44px;margin-bottom:10px">📦</div>
-          <h3 style="font-size:17px;margin-bottom:8px">재고를 등록해보세요</h3>
-          <p class="sheet-note" style="text-align:center;margin:0 0 18px">
-            품목과 최소 수량을 넣어두면 부족한 것만 모아<br>발주서로 만들어 드려요.
-          </p>
-          <button class="big-btn accent ready" id="stock-first">첫 품목 추가</button>
-          <button class="text-btn muted" id="stock-sample" style="width:100%;padding:14px 0 0">기본 품목 10개 넣기</button>
-        </div>`;
-      $("#stock-first").addEventListener("click", () => openStockSheet(null));
-      $("#stock-sample").addEventListener("click", () => {
-        state.stock = [
-          { id: newId(), name: "고든스 진 700ml", cat: "스피릿", qty: 2, min: 2, unit: "병", price: 18000, vendor: "" },
-          { id: newId(), name: "앱솔루트 보드카 700ml", cat: "스피릿", qty: 3, min: 2, unit: "병", price: 21000, vendor: "" },
-          { id: newId(), name: "바카디 화이트 럼 750ml", cat: "스피릿", qty: 1, min: 2, unit: "병", price: 23000, vendor: "" },
-          { id: newId(), name: "버팔로 트레이스 750ml", cat: "스피릿", qty: 2, min: 1, unit: "병", price: 52000, vendor: "" },
-          { id: newId(), name: "쿠앵트로 700ml", cat: "리큐르", qty: 1, min: 1, unit: "병", price: 38000, vendor: "" },
-          { id: newId(), name: "앙고스투라 비터 200ml", cat: "리큐르", qty: 1, min: 1, unit: "병", price: 16000, vendor: "" },
-          { id: newId(), name: "설탕시럽 1L", cat: "시럽/주스", qty: 2, min: 2, unit: "병", price: 8000, vendor: "" },
-          { id: newId(), name: "레몬", cat: "가니시", qty: 8, min: 10, unit: "개", price: 900, vendor: "" },
-          { id: newId(), name: "라임", cat: "가니시", qty: 5, min: 10, unit: "개", price: 1200, vendor: "" },
-          { id: newId(), name: "가니시 픽 100입", cat: "소모품", qty: 1, min: 1, unit: "팩", price: 5000, vendor: "" },
-        ];
-        saveStock();
-        renderStock();
-        toast("기본 품목을 넣었어요. 수량만 맞춰주세요.");
-      });
-      return;
-    }
-
-    const byCat = {};
-    items.forEach((it) => { (byCat[it.cat] || (byCat[it.cat] = [])).push(it); });
-    const order = STOCK_CATS.filter((c) => byCat[c]).concat(Object.keys(byCat).filter((c) => !STOCK_CATS.includes(c)));
-
-    $("#stock-area").innerHTML = `
-      <div class="card stock-top">
-        <div>
-          <div class="stock-top-n">${items.length}품목 · <b class="${low.length ? "warn" : ""}">부족 ${low.length}</b></div>
-          <div class="market-meta">현재 수량이 최소 수량 이하면 부족으로 봅니다.</div>
-        </div>
-        <button class="host-chat-btn ${low.length ? "" : "outline"}" id="stock-order" style="width:auto;padding:10px 16px;margin:0">발주서</button>
-      </div>
-      ${order.map((cat) => `
-        <div class="card">
-          <h3 class="card-h">${esc(cat)}</h3>
-          ${byCat[cat].map((it) => `
-            <div class="stock-item ${stockLow(it) ? "low" : ""}" data-id="${it.id}">
-              <div class="stock-info">
-                <div class="stock-name">${esc(it.name)}${stockLow(it) ? ' <span class="stock-warn">부족</span>' : ""}</div>
-                <div class="stock-sub">최소 ${it.min}${esc(it.unit || "")}${it.vendor ? " · " + esc(it.vendor) : ""}${it.price ? " · " + fmtNum(it.price) + "원" : ""}</div>
-              </div>
-              <div class="stock-qty">
-                <button class="qty-btn" data-dec="${it.id}" aria-label="빼기">−</button>
-                <span class="qty-n">${it.qty}</span>
-                <button class="qty-btn" data-inc="${it.id}" aria-label="더하기">+</button>
-              </div>
-            </div>`).join("")}
-        </div>`).join("")}
-      <p class="sheet-note" style="margin:2px 20px 24px">
-        품목을 길게 누르지 않아도 됩니다 — 이름을 탭하면 수정·삭제할 수 있어요.
-      </p>
-      <div style="height:16px"></div>`;
-
-    $$("#stock-area [data-inc]").forEach((b) => b.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const it = state.stock.find((x) => x.id === +b.dataset.inc);
-      if (it) { it.qty = Number(it.qty) + 1; saveStock(); renderStock(); }
-    }));
-    $$("#stock-area [data-dec]").forEach((b) => b.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const it = state.stock.find((x) => x.id === +b.dataset.dec);
-      if (it && Number(it.qty) > 0) { it.qty = Number(it.qty) - 1; saveStock(); renderStock(); }
-    }));
-    $$("#stock-area .stock-info").forEach((el) => el.addEventListener("click", () => {
-      const id = +el.closest(".stock-item").dataset.id;
-      openStockSheet(state.stock.find((x) => x.id === id));
-    }));
-    $("#stock-order").addEventListener("click", openOrderSheet);
-  }
-
-  function openStockSheet(it) {
-    const edit = !!it;
-    const v = it || { name: "", cat: STOCK_CATS[0], qty: 0, min: 1, unit: "병", price: "", vendor: "" };
-    let cat = v.cat;
-
-    openSheetHTML(`
-      <h3>${edit ? "품목 수정" : "📦 품목 추가"}</h3>
-      <label class="form-label">품목명</label>
-      <input type="text" class="input" data-f="name" maxlength="40" value="${esc(v.name)}" placeholder="예: 고든스 진 700ml">
-      <label class="form-label">분류</label>
-      <div class="chip-wrap" id="stock-cats" style="padding:0 0 4px"></div>
-      <div style="display:flex;gap:8px">
-        <div style="flex:1">
-          <label class="form-label">현재 수량</label>
-          <input type="number" class="input" data-f="qty" min="0" value="${esc(String(v.qty))}">
-        </div>
-        <div style="flex:1">
-          <label class="form-label">최소 수량</label>
-          <input type="number" class="input" data-f="min" min="0" value="${esc(String(v.min))}">
-        </div>
-        <div style="width:76px">
-          <label class="form-label">단위</label>
-          <input type="text" class="input" data-f="unit" maxlength="4" value="${esc(v.unit || "")}">
-        </div>
-      </div>
-      <label class="form-label">단가 (선택)</label>
-      <input type="number" class="input" data-f="price" min="0" value="${esc(String(v.price || ""))}" placeholder="원">
-      <label class="form-label">거래처 (선택)</label>
-      <input type="text" class="input" data-f="vendor" maxlength="30" value="${esc(v.vendor || "")}" placeholder="예: ○○주류">
-      <button class="big-btn accent ready" id="stock-save" style="margin-top:14px">${edit ? "저장하기" : "추가하기"}</button>
-      ${edit ? '<button class="text-btn muted" id="stock-del" style="width:100%;padding:14px 0 4px">이 품목 삭제</button>' : ""}`);
-
-    const bd = document.querySelector(".sheet-backdrop");
-    const paint = () => {
-      bd.querySelector("#stock-cats").innerHTML = STOCK_CATS.map((c) =>
-        `<button class="chip ${c === cat ? "active" : ""}" data-c="${esc(c)}">${esc(c)}</button>`).join("");
-      bd.querySelectorAll("#stock-cats .chip").forEach((ch) =>
-        ch.addEventListener("click", () => { cat = ch.dataset.c; paint(); }));
-    };
-    paint();
-
-    bd.querySelector("#stock-save").addEventListener("click", () => {
-      const f = {};
-      bd.querySelectorAll("[data-f]").forEach((el) => { f[el.dataset.f] = el.value.trim(); });
-      if (!f.name) { toast("품목명을 적어주세요."); return; }
-      const next = {
-        name: f.name, cat,
-        qty: Math.max(0, Number(f.qty) || 0),
-        min: Math.max(0, Number(f.min) || 0),
-        unit: f.unit || "", price: Number(f.price) || 0, vendor: f.vendor || "",
-      };
-      if (edit) Object.assign(it, next);
-      else state.stock.push(Object.assign({ id: newId() }, next));
-      saveStock();
-      bd.remove();
-      renderStock();
-      toast(edit ? "저장했어요." : "추가했어요. 📦");
-    });
-
-    const del = bd.querySelector("#stock-del");
-    if (del) del.addEventListener("click", async () => {
-      if (!await btConfirm(`'${it.name}' 을 삭제할까요?`, { yes: "삭제" })) return;
-      state.stock = state.stock.filter((x) => x.id !== it.id);
-      saveStock();
-      bd.remove();
-      renderStock();
-      toast("삭제했어요.");
-    });
-  }
-
-  function orderText() {
-    const low = state.stock.filter(stockLow);
-    if (!low.length) return "";
-    const byVendor = {};
-    low.forEach((it) => { (byVendor[it.vendor || "거래처 미지정"] || (byVendor[it.vendor || "거래처 미지정"] = [])).push(it); });
-    const L = [`[발주 요청] ${new Date().toLocaleDateString("ko-KR")}`];
-    let total = 0;
-    Object.keys(byVendor).forEach((ven) => {
-      L.push("", `■ ${ven}`);
-      byVendor[ven].forEach((it) => {
-        const need = Math.max(1, Number(it.min) - Number(it.qty) + Number(it.min));
-        const sum = need * (Number(it.price) || 0);
-        total += sum;
-        L.push(`- ${it.name} : ${need}${it.unit || ""}` + (it.price ? ` (예상 ${fmtNum(sum)}원)` : ""));
-      });
-    });
-    if (total) L.push("", `예상 합계 약 ${fmtNum(total)}원`);
-    return L.join("\n");
-  }
-
-  function openOrderSheet() {
-    const low = state.stock.filter(stockLow);
-    if (!low.length) {
-      toast("부족한 품목이 없어요. 👍");
-      return;
-    }
-    const text = orderText();
-    openSheetHTML(`
-      <h3>🧾 발주서</h3>
-      <p class="sheet-note" style="text-align:left;margin:0 0 12px">
-        최소 수량 이하인 ${low.length}개 품목입니다.
-        발주 수량은 <b>최소 수량의 두 배에서 현재고를 뺀 값</b>으로 잡았어요.
-      </p>
-      <textarea class="input textarea" id="order-text" rows="12" readonly>${esc(text)}</textarea>
-      <button class="big-btn accent ready" id="order-copy" style="margin-top:12px">복사하기</button>
-      <button class="big-btn outline" id="order-share" style="margin-top:8px">공유하기</button>`);
-
-    const bd = document.querySelector(".sheet-backdrop");
-    bd.querySelector("#order-copy").addEventListener("click", () => copyText(text, "발주서를 복사했어요. 🧾"));
-    bd.querySelector("#order-share").addEventListener("click", async () => {
-      if (navigator.share) {
-        try { await navigator.share({ title: "발주 요청", text }); return; } catch (_) { /* 취소 */ }
-      }
-      copyText(text, "공유를 지원하지 않아 복사했어요.");
-    });
-  }
-
-  /* 클립보드는 권한이 막힐 때가 있어 예비 경로를 둡니다. */
-  function copyText(text, okMsg) {
-    const done = () => toast(okMsg || "복사했어요.");
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, () => fallback());
-      return;
-    }
-    fallback();
-    function fallback() {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      let ok = false;
-      try { ok = document.execCommand("copy"); } catch (_) {}
-      ta.remove();
-      toast(ok ? (okMsg || "복사했어요.") : "복사하지 못했어요. 직접 선택해 복사해주세요.");
-    }
   }
 
   /* ============================================================

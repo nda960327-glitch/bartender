@@ -221,8 +221,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 /* ---------- 홈 ---------- */
 .greet { padding: 18px 20px 0; font-size: 20px; font-weight: 800; line-height: 1.4; letter-spacing: -0.3px; }
 .greet small { display: block; font-size: 14px; font-weight: 500; color: var(--text-sub); margin-top: 3px; }
+/* 여섯 칸이라 3열 두 줄이 맞습니다. */
 .quick-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
   padding: 18px 16px 8px;
 }
 .quick-item {
@@ -1567,29 +1568,6 @@ textarea.input { height: auto; }
 .card-row.col .card-v { text-align: left; }
 .card-multi { font-size: 14.5px; line-height: 1.65; white-space: pre-wrap; }
 
-/* ---------- 바텐더 프로필 ---------- */
-.bcard { padding: 20px 18px; }
-.bcard-top { display: flex; align-items: center; gap: 12px; }
-.bcard-id { min-width: 0; }
-.bcard-nick { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
-.bcard-status { font-size: 13px; color: var(--text-sub); margin-top: 3px; }
-.bcard-intro {
-  margin-top: 14px; font-size: 15px; line-height: 1.7;
-  word-break: keep-all; white-space: pre-wrap;
-}
-.sig-line { padding: 7px 0; font-size: 15px; border-top: 1px solid var(--line); }
-.sig-line:first-of-type { border-top: 0; }
-.sample-card { display: block; width: 100%; text-align: left; border: none; cursor: pointer; }
-.sample-label {
-  display: inline-block; font-size: 12px; font-weight: 700; color: var(--accent);
-  background: var(--accent-soft); border-radius: 999px; padding: 3px 9px;
-}
-.sample-intro {
-  font-size: 14px; line-height: 1.65; color: var(--text); margin-top: 9px;
-  word-break: keep-all;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-}
-.sample-meta { font-size: 12.5px; color: var(--text-sub); margin-top: 8px; }
 
 /* ---------- 바 찾기 ---------- */
 .bar-item {
@@ -1654,30 +1632,6 @@ textarea.input { height: auto; }
 .rank-lvsm { flex: none; font-size: 14px; }
 .rank-pts { flex: none; font-size: 13.5px; font-weight: 700; color: var(--text-sub); }
 
-/* ---------- 재고 · 발주 ---------- */
-.stock-top { display: flex; align-items: center; gap: 12px; padding: 16px; }
-.stock-top > div:first-child { flex: 1; min-width: 0; }
-.stock-top-n { font-size: 15px; font-weight: 700; }
-.stock-top-n .warn { color: var(--accent); }
-.stock-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 0; border-top: 1px solid var(--line);
-}
-.stock-item:first-of-type { border-top: 0; }
-.stock-info { flex: 1; min-width: 0; cursor: pointer; }
-.stock-name { font-size: 14.5px; font-weight: 600; }
-.stock-sub { font-size: 12.5px; color: var(--text-sub); margin-top: 2px; }
-.stock-warn {
-  font-size: 11px; font-weight: 700; color: #fff; background: var(--accent);
-  border-radius: 999px; padding: 2px 7px; margin-left: 4px;
-}
-.stock-qty { flex: none; display: flex; align-items: center; gap: 4px; }
-.qty-btn {
-  width: 32px; height: 32px; border: 1px solid var(--line-strong); border-radius: 9px;
-  background: var(--bg-card); color: var(--text); font-size: 17px; line-height: 1; cursor: pointer;
-}
-.qty-btn:active { background: var(--chip-bg); }
-.qty-n { min-width: 30px; text-align: center; font-size: 15px; font-weight: 700; }
 
 /* ---------- 내 레시피 노트 ---------- */
 .recipe-item { display: block; width: 100%; text-align: left; border: none; cursor: pointer; }
