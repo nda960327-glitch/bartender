@@ -71,7 +71,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.25.0";
+  const APP_BUILD = "2.26.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -2007,6 +2007,18 @@
     if (who.mine) tags.push('<span class="me-tag">나</span>');
     return name + (tags.length ? " " + tags.join(" ") : "");
   };
+
+  /* 댓글 삭제 버튼.
+     내 것이면 그냥 "삭제", 운영자가 남의 것을 지우는 거면 방패를 붙여
+     한눈에 구분되게 합니다 — 실수로 남의 글을 지우지 않도록.
+     서버는 어차피 다시 확인하므로 이건 표시용입니다. */
+  function delBtnHTML(c, attrs) {
+    if (c.mine) return `<button class="cmt-del" ${attrs}>삭제</button>`;
+    if (isAdmin() || state.adminMode) {
+      return `<button class="cmt-del admin" ${attrs} data-adm="1">🛡️ 삭제</button>`;
+    }
+    return "";
+  }
 
   /* 댓글 하트. 개수가 0이면 숫자를 감춰 줄이 지저분해지지 않게 합니다. */
   const heartHTML = (c, ci, ri) =>
@@ -4645,7 +4657,7 @@
             <div class="review-head">
               <span class="review-nick">${esc(dropName(r.color))}${r.mine ? ' <span class="me-tag">나</span>' : ""}</span>
               <span class="review-stars">${starStr(r.stars)}</span>
-              ${r.mine ? `<button class="cmt-del" data-vi="${vi}">삭제</button>` : ""}
+              ${delBtnHTML(r, `data-vi="${vi}"`)}
               <span class="review-time">${fmtTime(r.time)}</span>
             </div>
             ${r.text ? `<div class="review-text">${escMsg(r.text)}</div>` : ""}
@@ -4663,11 +4675,17 @@
     $("#cellar-wish").addEventListener("click", () => { toggleCellar("wish", sp.id); renderSpiritDetail(); });
     $$("#spirit-detail .cmt-del").forEach((b) =>
       b.addEventListener("click", async () => {
-        if (!await btConfirm("리뷰를 삭제할까요?", { yes: "삭제" })) return;
+        const asAdmin = b.dataset.adm === "1";
+        if (!await btConfirm(asAdmin ? "다른 사람의 리뷰입니다.\n운영자 권한으로 삭제할까요?" : "리뷰를 삭제할까요?", { yes: "삭제" })) return;
         const removed = sp.reviews.splice(+b.dataset.vi, 1)[0];
         saveSpirits();
-        if (removed && removed.id) Sync.deleteReview(removed.id);
         renderSpiritDetail();
+        if (removed && removed.id) {
+          if (asAdmin) {
+            const res = await Sync.adminDelete("review", removed.id, { title: String(removed.text || "").slice(0, 60) });
+            toast(res.ok ? "삭제했어요. 🛡️" : "실패: " + res.error);
+          } else Sync.deleteReview(removed.id);
+        }
       }));
     $("#spirit-delete").hidden = !sp.mine;
     $("#spirit-report").hidden = !!sp.mine;
@@ -4876,7 +4894,7 @@
         <div class="comment-item">
           ${avatarHTML(colorOf(c))}
           <div class="comment-body">
-            <div class="comment-head"><span class="comment-nick">${speakerHTML(c, m, meetNums)}</span><span class="comment-time">${fmtTime(c.time)}</span>${c.mine ? `<button class="cmt-del" data-mi="${mi}">삭제</button>` : ""}</div>
+            <div class="comment-head"><span class="comment-nick">${speakerHTML(c, m, meetNums)}</span><span class="comment-time">${fmtTime(c.time)}</span>${delBtnHTML(c, `data-mi="${mi}"`)}</div>
             ${c.text ? `<div class="comment-text">${escMsg(c.text)}</div>` : ""}
             ${c.img ? `<img class="cmt-img" src="${c.img}" alt="댓글 사진">` : ""}
           </div>
@@ -4886,11 +4904,24 @@
       im.addEventListener("click", () => openLightbox(im.src)));
     $$("#meet-detail .cmt-del").forEach((b) =>
       b.addEventListener("click", async () => {
-        if (!await btConfirm("댓글을 삭제할까요?", { yes: "삭제" })) return;
+        const asAdmin = b.dataset.adm === "1";
+        const ok = await btConfirm(
+          asAdmin ? "다른 사람의 댓글입니다.\n운영자 권한으로 삭제할까요?" : "댓글을 삭제할까요?",
+          { yes: "삭제" }
+        );
+        if (!ok) return;
         const removed = m.comments.splice(+b.dataset.mi, 1)[0];
         saveMeets();
-        if (removed && removed.id) Sync.deleteMeetComment(removed.id);
         renderMeetDetail();
+        if (!removed || !removed.id) return;
+        if (asAdmin) {
+          const res = await Sync.adminDelete("meet-comment", removed.id, {
+            title: String(removed.text || "").slice(0, 60),
+          });
+          toast(res.ok ? "삭제했어요. 🛡️" : "실패: " + res.error);
+        } else {
+          Sync.deleteMeetComment(removed.id);
+        }
       }));
     const joinBtn = $("#meet-join");
     if (joinBtn) joinBtn.addEventListener("click", () => {
@@ -5114,7 +5145,7 @@
           ${avatarHTML(colorOf(c))}
           <div class="comment-body">
             <div class="comment-head"><span class="comment-nick">${speakerHTML(c, p, nums)}</span><span class="comment-time">${fmtTime(c.time)}</span>
-              ${c.mine ? `<button class="cmt-del" data-ci="${ci}">삭제</button>` : ""}</div>
+              ${delBtnHTML(c, `data-ci="${ci}"`)}</div>
             ${c.text ? `<div class="comment-text">${escMsg(c.text)}</div>` : ""}
             ${c.img ? `<img class="cmt-img" src="${c.img}" alt="댓글 사진">` : ""}
             <div class="comment-acts">${heartHTML(c, ci)}<button class="reply-btn" data-ci="${ci}">답글쓰기</button></div>
@@ -5122,7 +5153,7 @@
               <div class="reply-item">
                 ${avatarHTML(colorOf(rp))}
                 <div class="comment-body">
-                  <div class="comment-head"><span class="comment-nick">${speakerHTML(rp, p, nums)}</span><span class="comment-time">${fmtTime(rp.time)}</span>${rp.mine ? `<button class="cmt-del" data-ci="${ci}" data-ri="${ri}">삭제</button>` : ""}</div>
+                  <div class="comment-head"><span class="comment-nick">${speakerHTML(rp, p, nums)}</span><span class="comment-time">${fmtTime(rp.time)}</span>${delBtnHTML(rp, `data-ci="${ci}" data-ri="${ri}"`)}</div>
                   ${rp.text ? `<div class="comment-text">${escMsg(rp.text)}</div>` : ""}
                   ${rp.img ? `<img class="cmt-img" src="${rp.img}" alt="댓글 사진">` : ""}
                   <div class="comment-acts">${heartHTML(rp, ci, ri)}</div>
@@ -5155,14 +5186,31 @@
       }));
     $$("#post-detail .cmt-del").forEach((b) =>
       b.addEventListener("click", async () => {
-        if (!await btConfirm("댓글을 삭제할까요?", { yes: "삭제" })) return;
+        const asAdmin = b.dataset.adm === "1";
+        const ok = await btConfirm(
+          asAdmin ? "다른 사람의 댓글입니다.\n운영자 권한으로 삭제할까요?" : "댓글을 삭제할까요?",
+          { yes: "삭제" }
+        );
+        if (!ok) return;
+
         const ci = +b.dataset.ci;
         let removed;
         if (b.dataset.ri !== undefined) removed = p.comments[ci].replies.splice(+b.dataset.ri, 1)[0];
         else removed = p.comments.splice(ci, 1)[0];
         savePosts();
-        if (removed && removed.id) Sync.deleteComment(removed.id);
         renderPostDetail();
+
+        if (!removed || !removed.id) return;
+        if (asAdmin) {
+          // 누가 무엇을 지웠는지 admin_actions 에 남습니다.
+          const res = await Sync.adminDelete("comment", removed.id, {
+            title: String(removed.text || "").slice(0, 60),
+          });
+          toast(res.ok ? "삭제했어요. 🛡️" : "실패: " + res.error);
+          if (!res.ok) Sync.refreshView("post");
+        } else {
+          Sync.deleteComment(removed.id);
+        }
       }));
     $$("#post-detail .cmt-img").forEach((im) =>
       im.addEventListener("click", () => openLightbox(im.src)));

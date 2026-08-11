@@ -1700,3 +1700,7 @@ textarea.input { height: auto; }
 
 /* 질문 알림의 캐릭터 얼굴 */
 .noti-ic svg { width: 30px; height: 30px; display: block; }
+
+/* 운영자가 남의 댓글을 지울 때만 붙습니다. 내 것 지우는 버튼과 색을
+   달리해서, 실수로 남의 글을 지우지 않게 눈에 걸리도록 했어요. */
+.cmt-del.admin { color: var(--accent); font-weight: 700; }
