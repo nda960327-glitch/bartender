@@ -1611,6 +1611,17 @@ textarea.input { height: auto; }
   white-space: nowrap;
 }
 
+/* ---------- 앱으로 받기 ---------- */
+.app-dl {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 15px 16px; border: none; cursor: pointer;
+  text-align: left; color: var(--text);
+}
+.app-dl-ic { flex: none; font-size: 26px; }
+.app-dl-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.app-dl-title { font-size: 15px; font-weight: 700; }
+.app-dl-sub { font-size: 12.5px; color: var(--text-sub); }
+
 /* ---------- 자동 댓글 진단 ---------- */
 .why-row {
   display: flex; gap: 8px; align-items: flex-start;

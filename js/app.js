@@ -71,7 +71,29 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.21.0";
+  const APP_BUILD = "2.22.0";
+
+  /* ---------- 앱으로 받기 ----------
+   * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
+   * 이미 앱으로 보고 있는 사람에게 앱을 받으라고 하면 곤란해요.
+   */
+  const CFG = window.BARTALK_CONFIG || {};
+  const isAndroid = () => /Android/i.test(navigator.userAgent || "");
+  function inStandaloneApp() {
+    try {
+      // TWA 는 안드로이드 앱에서 넘어왔다는 표시를 남깁니다.
+      if (String(document.referrer || "").indexOf("android-app://") === 0) return true;
+      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
+      if (window.navigator.standalone === true) return true;   // iOS 홈화면
+    } catch (e) { /* 판단 못 하면 그냥 웹으로 봅니다 */ }
+    return false;
+  }
+  function showAppDownload() {
+    const btn = $("#app-download");
+    if (!btn) return;
+    const url = String(CFG.APP_ANDROID_URL || "").trim();
+    btn.hidden = !(url && isAndroid() && !inStandaloneApp());
+  }
 
   /* ---------- 저장소 ---------- */
   const store = {
@@ -5514,6 +5536,7 @@
     const cel = state.user.cellar.tried.length + state.user.cellar.wish.length;
     $("#cellar-cnt").textContent = cel ? cel + "병" : "";
     $("#blocked-cnt").textContent = blockedKeys().length ? blockedKeys().length + "명" : "";
+    showAppDownload();
     const filled = cardFilled(state.user.card);
     $("#card-cnt").textContent = state.user.card ? (filled >= 6 ? "완성" : `${filled}/9`) : "미작성";
     const rcN = Object.keys(state.user.myRecipes).length;
@@ -6371,6 +6394,11 @@
     toast("삭제했어요.");
   });
   $("#stock-add").addEventListener("click", () => openStockSheet(null));
+  $("#app-download").addEventListener("click", () => {
+    const url = String(CFG.APP_ANDROID_URL || "").trim();
+    if (!url) return;
+    window.open(url, "_blank", "noopener");
+  });
 
   // 온보딩
   $("#ob-nick").addEventListener("input", renderOnboard);

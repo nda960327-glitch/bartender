@@ -25,6 +25,12 @@ window.BARTALK_CONFIG = {
   //    Site URL 과 Redirect URLs 에도 같은 주소가 등록돼 있어야 링크가 여기로 옵니다.
   SITE_URL: "https://barapp.kr",
 
+  // 안드로이드 앱 내려받는 곳.
+  // 비워두면 "앱으로 받기" 버튼이 아예 안 나옵니다.
+  //   · 스토어 출시 후 → "https://play.google.com/store/apps/details?id=kr.barapp.bartalk"
+  //   · 출시 전 APK 직접 배포 → "https://barapp.kr/app/bartalk.apk"
+  APP_ANDROID_URL: "",
+
   // 서버에서 가져올 최대 개수 (첫 로딩 속도와 관련)
   LIMIT_POSTS: 300,
   LIMIT_MEETS: 100,
