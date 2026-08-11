@@ -9,7 +9,11 @@
   const SUPPORT_EMAIL = LEGAL_META.email || "nda960327@naver.com";
   // 출시 시 기능 on/off. 스토어는 실제 판매/배송·PG 연동 전까지 "사전 오픈" 안내로 동작해요.
   // 결제 인프라 없이 실제 주문을 받으면 Play 심사에서 반려될 수 있으니, 정식 오픈 전엔 STORE_LIVE = false 를 유지하세요.
-  const FEATURES = { STORE_LIVE: false };
+  //
+  // STORE_OPEN 은 스토어를 아예 닫아두는 스위치입니다.
+  //   false → 홈의 "스토어 추천"이 사라지고, 스토어를 눌러도 "준비 중" 안내만 나옵니다.
+  //   물건을 실제로 팔 준비가 되면 true 로 바꾸세요. 상품 목록은 그대로 남아 있습니다.
+  const FEATURES = { STORE_LIVE: false, STORE_OPEN: false };
 
   const COLORS = [
     "#ff6b5e", "#ff8ad4", "#c9a58f", "#ff9b3d", "#ffcb52",
@@ -71,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.29.0";
+  const APP_BUILD = "2.30.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -843,15 +847,16 @@
     meets: store.get("meets", SEED_MEETS),
     cart: store.get("cart", []),
     orders: store.get("orders", []),
-    worklog: store.get("worklog", []),
     bars: store.get("bars", []),        // 내가 등록한 곳만. 기본 목록은 barsAll() 이 합칩니다
     barQ: "",
     barRegion: "전체",
     barKind: "전체",       // 칵테일바 / 위스키바 …
+    barSort: "auto",       // auto = 위치 잡았으면 가까운 순, 아니면 이름순
     barShow: 60,           // 한 번에 그리는 개수. "더 보기"로 늘어납니다
     barRadius: 0,          // 0 = 전체. 내 주변 모드에서만 씁니다
     myLoc: null,           // 앱을 끄면 사라집니다 — 저장하지 않아요
     myLocLabel: "",        // "내 위치" 또는 직접 고른 동네 이름
+    barLocating: false,    // 들어오자마자 위치 잡는 중
     curBar: null,
     rankRows: null,        // 서버에서 받은 랭킹. null 이면 아직 안 받았어요
     rankState: "idle",     // idle | loading | ok | off | error
@@ -908,7 +913,6 @@
     storeCat: "전체",
     curProduct: null,
     pdQty: 1,
-    wlOffset: 0,
     dogamSort: "new",
     dogamRegion: "전체",
     dogamTag: "",          // 심층 도감 태그로 좁혀보기 (예: 피트, 셰리, 하이볼)
@@ -936,7 +940,6 @@
 
   const saveCart = () => store.set("cart", state.cart);
   const saveOrders = () => store.set("orders", state.orders);
-  const saveWorklog = () => store.set("worklog", state.worklog);
   const saveBars = () => { store.set("bars", state.bars); resetDistricts(); };
 
   /* ---------- 사용자 필드 보강 (앱 업데이트 시) ---------- */
@@ -955,7 +958,26 @@
   state.user.hiddenPosts = state.user.hiddenPosts || [];
   state.user.hiddenSpirits = state.user.hiddenSpirits || [];
   state.user.myRecipes = state.user.myRecipes || {};  // 칵테일 id → 내 배합
-  state.user.myBars = state.user.myBars || [];        // 즐겨찾은 바 id
+  /* 단골 바.
+     예전에는 바 번호를 저장했는데, 바 목록은 카카오에서 다시 받으면
+     번호가 통째로 바뀝니다. 그러면 단골이 딴 가게가 돼요.
+     이제 이름+주소로 만든 열쇠를 저장하고, 옛 번호는 한 번만 바꿔줍니다. */
+  state.user.myBars = state.user.myBars || [];
+  if (state.user.myBars.some((x) => typeof x === "number")) {
+    const all = (window.BARTALK_BARS && window.BARTALK_BARS.length) ? window.BARTALK_BARS : [];
+    const byId = new Map(all.concat(store.get("bars", [])).map((b) => [b.id, b]));
+    state.user.myBars = state.user.myBars
+      .map((x) => {
+        if (typeof x !== "number") return x;
+        const b = byId.get(x);
+        if (!b) return null;
+        const n = String(b.name || "").replace(/\s+/g, "").toLowerCase();
+        const a = String(b.addr || b.area || b.region || "").replace(/\s+/g, "").toLowerCase();
+        return (n + "|" + a).slice(0, 180);
+      })
+      .filter(Boolean);
+    store.set("user", state.user);
+  }
 
   /* ---------- 시드 병합 (앱 업데이트 시 새 데이터 추가) ---------- */
   const SEED_V = 8;
@@ -1585,18 +1607,15 @@
       (view === "doc" && (state.docFrom === "onboard" || state.docFrom === "login"));
     $("#bottom-nav").style.display = hideNav ? "none" : "";
     const navView = NAV_VIEWS.includes(view) ? view
-      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", pay: "home", market: "home", "market-detail": "home", cart: "home", worklog: "home", units: "home", search: "home", timer: "home", bars: "home", bar: "home", rank: "home", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
+      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", market: "home", "market-detail": "home", cart: "home", search: "home", bars: "home", mybars: "mypage", bar: "home", rank: "home", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
     $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === navView));
     if (view === "home") renderHome();
     if (view === "market") renderStore();
     if (view === "cart") renderCart();
     if (view === "orders") renderOrders();
-    if (view === "worklog") renderWorklog();
-    if (view === "units") renderUnits();
     if (view === "cellar") renderCellar();
     if (view === "taste") renderTaste();
     if (view === "admin") renderAdmin();
-    if (view === "timer") { stopTimer(); timerLeft = timerSel; renderTimer(); }
     if (view === "search") setTimeout(() => $("#global-search").focus(), 50);
     // 목록 스크롤 위치 복원
     if (["community", "dogam", "meet", "market"].includes(view)) {
@@ -1606,7 +1625,6 @@
     if (view === "finder") renderFinder();
     if (view === "quiz") renderQuiz();
     if (view === "calc") renderCalc();
-    if (view === "pay") renderPay();
     if (view === "jobs") renderJobs();
     if (view === "favjobs") renderFavJobs();
     if (view === "myposts") renderMyPosts();
@@ -1617,7 +1635,8 @@
     if (view === "settings") renderSettings();
     if (view === "alerts") renderNoti();
     if (view === "blocked") renderBlocked();
-    if (view === "bars") renderBars();
+    if (view === "bars") { renderBars(); autoNear(); loadBarSocial(); }
+    if (view === "mybars") { renderMyBars(); loadBarSocial(); }
     if (view === "bar") renderBarDetail();
     if (view === "rank") renderRank();
     if (view === "recipes") renderRecipes();
@@ -3491,43 +3510,6 @@
     });
   }
 
-  /* ---------- 바 타이머 ---------- */
-  const TIMER_PRESETS = [10, 15, 30, 60];
-  let timerLeft = 15, timerSel = 15, timerInt = null;
-  function renderTimer() {
-    $("#timer-display").textContent = timerLeft.toFixed(1);
-    $("#timer-display").classList.toggle("running", !!timerInt);
-    $("#timer-presets").innerHTML = TIMER_PRESETS.map((s) =>
-      `<button class="chip ${s === timerSel ? "active" : ""}" data-s="${s}">${s}초</button>`).join("");
-    $$("#timer-presets .chip").forEach((ch) =>
-      ch.addEventListener("click", () => {
-        timerSel = +ch.dataset.s;
-        stopTimer();
-        timerLeft = timerSel;
-        renderTimer();
-      }));
-    $("#timer-toggle").textContent = timerInt ? "정지" : "시작";
-  }
-  function stopTimer() {
-    clearInterval(timerInt);
-    timerInt = null;
-  }
-  function toggleTimer() {
-    if (timerInt) { stopTimer(); renderTimer(); return; }
-    if (timerLeft <= 0) timerLeft = timerSel;
-    timerInt = setInterval(() => {
-      timerLeft = Math.max(0, timerLeft - 0.1);
-      $("#timer-display").textContent = timerLeft.toFixed(1);
-      if (timerLeft <= 0) {
-        stopTimer();
-        vibrate([200, 100, 200]);
-        toast("⏱️ 타이머 종료!");
-        renderTimer();
-      }
-    }, 100);
-    renderTimer();
-  }
-
   /* ---------- 랜덤 칵테일 ---------- */
   function randomCocktail() {
     const cts = state.spirits.filter((s) => s.kind === "cocktail");
@@ -4030,17 +4012,20 @@
       wireImgFallback("#daily-cocktail");
     }
 
-    // 스토어 추천 (베스트/신상 우선)
-    const picks = [...PRODUCTS].sort((a, b) => (b.tag ? 1 : 0) - (a.tag ? 1 : 0)).slice(0, 6);
-    $("#home-store").innerHTML = picks.map((p) => `
-      <div class="spirit-card" data-id="${p.id}">
-        <span class="sc-emoji">${p.emoji}</span>
-        <span class="sc-name">${esc(p.name)}</span>
-        <span class="sc-stars">${fmtNum(p.price)}원</span>
-        <span class="sc-meta">${p.tag ? esc(p.tag) : esc(p.cat)}</span>
-      </div>`).join("");
-    $$("#home-store .spirit-card").forEach((el) =>
-      el.addEventListener("click", () => openProduct(+el.dataset.id)));
+    // 스토어 추천 (베스트/신상 우선) — 문 열기 전엔 아예 안 보여줍니다
+    $("#home-store-sec").hidden = !FEATURES.STORE_OPEN;
+    if (FEATURES.STORE_OPEN) {
+      const picks = [...PRODUCTS].sort((a, b) => (b.tag ? 1 : 0) - (a.tag ? 1 : 0)).slice(0, 6);
+      $("#home-store").innerHTML = picks.map((p) => `
+        <div class="spirit-card" data-id="${p.id}">
+          <span class="sc-emoji">${p.emoji}</span>
+          <span class="sc-name">${esc(p.name)}</span>
+          <span class="sc-stars">${fmtNum(p.price)}원</span>
+          <span class="sc-meta">${p.tag ? esc(p.tag) : esc(p.cat)}</span>
+        </div>`).join("");
+      $$("#home-store .spirit-card").forEach((el) =>
+        el.addEventListener("click", () => openProduct(+el.dataset.id)));
+    }
 
     const top = [...state.spirits]
       .sort((a, b) => (b.reviews.length * 10 + avgStars(b)) - (a.reviews.length * 10 + avgStars(a)))
@@ -5604,6 +5589,7 @@
     $("#favjob-cnt").textContent = state.user.favJobs.length ? state.user.favJobs.length + "개" : "";
     const cel = state.user.cellar.tried.length + state.user.cellar.wish.length;
     $("#cellar-cnt").textContent = cel ? cel + "병" : "";
+    $("#mybar-cnt").textContent = state.user.myBars.length ? state.user.myBars.length + "곳" : "";
     $("#blocked-cnt").textContent = blockedKeys().length ? blockedKeys().length + "명" : "";
     showAppDownload();
     const rcN = Object.keys(state.user.myRecipes).length;
@@ -5859,6 +5845,21 @@
     });
   }
   function renderStore() {
+    /* 아직 문을 안 열었으면 안내만 보여주고 끝냅니다.
+       상품 목록·장바구니는 그대로 있으니 STORE_OPEN 만 켜면 돌아와요. */
+    const open = FEATURES.STORE_OPEN;
+    $("#store-soon").hidden = open;
+    $("#store-body").hidden = !open;
+    $("#store-cats").hidden = !open;
+    $("#store-cart-btn").hidden = !open;
+    if (!open) {
+      const back = $("#store-soon-back");
+      if (back && !back.dataset.wired) {
+        back.dataset.wired = "1";
+        back.addEventListener("click", () => show("home"));
+      }
+      return;
+    }
     if (!FEATURES.STORE_LIVE) {
       $("#store-banner-ic").textContent = "🚧";
       $("#store-banner-txt").textContent = "정식 오픈 준비 중이에요. 지금은 사전 신청만 받고 있어요.";
@@ -6076,76 +6077,6 @@
           <div class="order-total">${fmtNum(o.total)}원 ${o.used ? `<small style="color:var(--text-sub);font-weight:500">(${fmtNum(o.used)}P 할인)</small>` : ""}</div>
         </div>`).join("")
       : `<div class="empty-state">${FEATURES.STORE_LIVE ? "주문 내역이" : "사전 신청 내역이"} 없어요.</div>`);
-  }
-
-  /* ---------- 근무일지 ---------- */
-  function wlMonth() {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth() + state.wlOffset, 1);
-  }
-  function renderWorklog() {
-    const m = wlMonth();
-    const ym = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`;
-    $("#wl-month").textContent = `${m.getFullYear()}년 ${m.getMonth() + 1}월`;
-    $("#wl-next").disabled = state.wlOffset >= 0;
-    if (!$("#wl-date").value) $("#wl-date").value = new Date(now - new Date().getTimezoneOffset() * M).toISOString().slice(0, 10);
-    const wage = +($("#wl-wage").value || store.get("wage", ""));
-    if (!$("#wl-wage").value && wage) $("#wl-wage").value = wage;
-
-    const entries = state.worklog.filter((w) => w.date.startsWith(ym)).sort((a, b) => b.date.localeCompare(a.date));
-    const hours = entries.reduce((a, w) => a + w.hours, 0);
-    const tips = entries.reduce((a, w) => a + (w.tip || 0), 0);
-    $("#wl-summary").innerHTML = `
-      <div class="cr-row"><span>근무 일수</span><b>${entries.length}일</b></div>
-      <div class="cr-row"><span>총 근무시간</span><b>${Math.round(hours * 10) / 10}시간</b></div>
-      <div class="cr-row"><span>팁 합계</span><b>${fmtNum(tips)}원</b></div>
-      <div class="cr-row hl"><span>예상 수입 ${wage ? "" : "(시급 입력 필요)"}</span><b>${wage ? fmtNum(Math.round(hours * wage + tips)) + "원" : "-"}</b></div>`;
-    $("#wl-list").innerHTML = entries.length
-      ? entries.map((w) => `
-        <div class="wl-item" data-id="${w.id}">
-          <span class="wl-date">${w.date.slice(5).replace("-", "/")}</span>
-          <div class="wl-info">
-            <div class="wl-hours">${w.hours}시간 ${w.tip ? `<span class="wl-tip">+팁 ${fmtNum(w.tip)}원</span>` : ""}</div>
-            ${w.memo ? `<div class="wl-memo">${esc(w.memo)}</div>` : ""}
-          </div>
-          <button class="cart-rm" aria-label="삭제">✕</button>
-        </div>`).join("")
-      : '<div class="empty-state" style="padding:30px 0">이 달의 기록이 없어요.</div>';
-    $$("#wl-list .cart-rm").forEach((b) =>
-      b.addEventListener("click", () => {
-        const id = +b.closest(".wl-item").dataset.id;
-        state.worklog = state.worklog.filter((w) => w.id !== id);
-        saveWorklog(); renderWorklog();
-      }));
-    updateWlAdd();
-  }
-  function updateWlAdd() {
-    const ok = $("#wl-date").value && +$("#wl-hours").value > 0;
-    $("#wl-add").disabled = !ok;
-    $("#wl-add").classList.toggle("ready", !!ok);
-  }
-  function addWorklog() {
-    if ($("#wl-add").disabled) return;
-    const id = newId();
-    state.worklog.push({
-      id, date: $("#wl-date").value, hours: +$("#wl-hours").value,
-      tip: +$("#wl-tip").value || 0, memo: $("#wl-memo").value.trim(),
-    });
-    saveWorklog();
-    $("#wl-hours").value = ""; $("#wl-tip").value = ""; $("#wl-memo").value = "";
-    const d = new Date($("#wl-date").value + "T00:00");
-    const today = new Date();
-    state.wlOffset = (d.getFullYear() - today.getFullYear()) * 12 + d.getMonth() - today.getMonth();
-    renderWorklog();
-    toast("근무 기록을 저장했어요. 📅");
-  }
-
-  /* ---------- 단위 변환 ---------- */
-  const OZ = 29.57;
-  function renderUnits() {
-    const rows = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5]
-      .map((oz) => `<div class="cr-row"><span>${oz} oz</span><b>${Math.round(oz * OZ * 10) / 10} ml <small style="color:var(--text-sub);font-weight:500">(현장 ${Math.round(oz * 30)}ml)</small></b></div>`).join("");
-    $("#unit-table").innerHTML = rows;
   }
 
   /* ---------- 데이터 백업/복원 ---------- */
@@ -6393,26 +6324,6 @@
       <div class="cr-note">가니시·얼음·인건비는 포함되지 않은 재료 원가 기준이에요.</div>`;
   }
 
-  /* ---------- 급여 계산기 ---------- */
-  function renderPay() { payCompute(); }
-  function payCompute() {
-    const wage = +$("#pay-wage").value;
-    const hours = +$("#pay-hours").value;
-    const days = +$("#pay-days").value;
-    const box = $("#pay-result");
-    if (!(wage > 0 && hours > 0 && days > 0 && days <= 7)) { box.classList.remove("show"); return; }
-    const weeklyHours = hours * days;
-    const jhu = weeklyHours >= 15 ? wage * Math.min(hours, 8) : 0;
-    const weekly = wage * weeklyHours + jhu;
-    const monthly = Math.round(weekly * 4.345);
-    box.classList.add("show");
-    box.innerHTML = `
-      <div class="cr-row"><span>주 근무시간</span><b>${weeklyHours}시간</b></div>
-      <div class="cr-row"><span>주휴수당 (주)</span><b>${jhu ? fmtNum(jhu) + "원" : "해당 없음"}</b></div>
-      <div class="cr-row"><span>주급 (주휴 포함)</span><b>${fmtNum(weekly)}원</b></div>
-      <div class="cr-row hl"><span>월급 예상</span><b>${fmtNum(monthly)}원</b></div>`;
-  }
-
   /* ---------- 레시피 공유 ---------- */
   function shareSpirit() {
     const sp = state.spirits.find((x) => x.id === state.curSpirit);
@@ -6599,8 +6510,6 @@
 
   // 새 도구/신고/리포트
   $("#tool-random").addEventListener("click", randomCocktail);
-  $("#timer-toggle").addEventListener("click", toggleTimer);
-  $("#timer-reset").addEventListener("click", () => { stopTimer(); timerLeft = timerSel; renderTimer(); });
   $("#btn-taste").addEventListener("click", () => show("taste"));
   $("#post-report").addEventListener("click", () => {
     const p = state.posts.find((x) => x.id === state.curPost);
@@ -6634,31 +6543,12 @@
     e.target.value = "";
   });
 
-  // 근무일지
-  $("#wl-prev").addEventListener("click", () => { state.wlOffset--; renderWorklog(); });
-  $("#wl-next").addEventListener("click", () => { if (state.wlOffset < 0) { state.wlOffset++; renderWorklog(); } });
-  $("#wl-wage").addEventListener("input", () => { store.set("wage", +$("#wl-wage").value || ""); renderWorklog(); });
-  ["wl-date", "wl-hours"].forEach((i) => $("#" + i).addEventListener("input", updateWlAdd));
-  $("#wl-add").addEventListener("click", addWorklog);
-
-  // 단위 변환
-  $("#unit-oz").addEventListener("input", () => {
-    const v = parseFloat($("#unit-oz").value);
-    $("#unit-ml").value = isNaN(v) ? "" : Math.round(v * 29.57 * 10) / 10;
-  });
-  $("#unit-ml").addEventListener("input", () => {
-    const v = parseFloat($("#unit-ml").value);
-    $("#unit-oz").value = isNaN(v) ? "" : Math.round(v / 29.57 * 100) / 100;
-  });
-
   // 도구
   $("#calc-add-row").addEventListener("click", () => {
     state.calcRows.push({ name: "", price: "", vol: "", use: "" });
     renderCalc();
   });
   $("#calc-price").addEventListener("input", calcCompute);
-  ["pay-wage", "pay-hours", "pay-days"].forEach((i) =>
-    $("#" + i).addEventListener("input", payCompute));
 
   // 모임
   $("#fab-meet").addEventListener("click", () => { renderMeetWrite(); show("meet-write"); });
@@ -6852,6 +6742,7 @@
   $("#home-search-btn").addEventListener("click", () => show("search"));
   $("#global-search").addEventListener("input", renderSearch);
   $("#btn-cellar").addEventListener("click", () => show("cellar"));
+  $("#btn-mybars").addEventListener("click", () => show("mybars"));
   $$("#cellar-seg .seg-btn").forEach((b) =>
     b.addEventListener("click", () => { state.cellarTab = b.dataset.cellar; renderCellar(); }));
   $("#post-edit").addEventListener("click", () => {
@@ -7021,6 +6912,144 @@
     return state.bars.length ? state.bars.concat(base) : base;
   }
 
+  /* ---------- 바 좋아요 · 별점 · 댓글 ----------
+   * 가게를 번호가 아니라 "이름+주소"로 알아봅니다.
+   * 바 목록은 카카오에서 받아 만든 파일이라 다시 받으면 번호가 통째로 바뀌어요.
+   * 번호로 묶어두면 목록을 갱신하는 날 남의 가게에 내 댓글이 붙습니다.
+   */
+  function barKey(b) {
+    const n = String(b.name || "").replace(/\s+/g, "").toLowerCase();
+    const a = String(b.addr || b.area || b.region || "").replace(/\s+/g, "").toLowerCase();
+    return (n + "|" + a).slice(0, 180);
+  }
+
+  /* 서버에서 받아온 가게별 합계. 없으면 그냥 안 보여줍니다. */
+  const barSocial = {
+    ready: false,          // supabase/bars.sql 을 넣었는지
+    stats: new Map(),      // bar_key → { likes, rated, stars_sum, comments }
+    liked: new Set(),      // 내가 하트 누른 가게
+    loading: false,
+    reviews: [],           // 지금 보고 있는 가게의 댓글
+    reviewsKey: "",
+    reviewsState: "idle",  // idle | loading | ok | off
+    stars: 0,              // 지금 고른 별점
+  };
+  function barStat(key) {
+    return barSocial.stats.get(key) || { likes: 0, rated: 0, stars_sum: 0, comments: 0 };
+  }
+  function barAvg(key) {
+    const s = barStat(key);
+    return s.rated ? s.stars_sum / s.rated : 0;
+  }
+
+  async function loadBarSocial(force) {
+    if (barSocial.loading) return;
+    if (barSocial.ready && !force) return;
+    if (!Sync.enabled) return;
+    barSocial.loading = true;
+    const r = await Sync.barStats();
+    barSocial.loading = false;
+    if (!r.ok) return;                       // 아직 SQL 을 안 넣었거나 로그인 전
+    barSocial.ready = true;
+    barSocial.stats = new Map((r.stats || []).map((s) => [s.bar_key, s]));
+    barSocial.liked = new Set(r.liked || []);
+    if (state.view === "bars") renderBars();
+    if (state.view === "bar") renderBarDetail();
+  }
+
+  /* 하트는 눌린 티가 바로 나야 합니다. 서버 답을 기다리며 멈춰 있으면
+     두 번 세 번 누르게 돼요. 먼저 화면을 바꾸고, 실패하면 되돌립니다. */
+  async function toggleBarLike(b) {
+    if (!Sync.enabled) { toast("로그인하면 좋아요를 누를 수 있어요."); return; }
+    if (!barSocial.ready) { toast("좋아요 기능이 아직 준비되지 않았어요."); return; }
+    const key = barKey(b);
+    const on = !barSocial.liked.has(key);
+    const s = barStat(key);
+    const before = { ...s };
+
+    if (on) barSocial.liked.add(key); else barSocial.liked.delete(key);
+    barSocial.stats.set(key, { ...s, likes: Math.max(0, s.likes + (on ? 1 : -1)) });
+    sfx(on ? "success" : "tap");
+    renderBarDetail();
+
+    const r = await Sync.barLike(key, on);
+    if (!r.ok) {
+      if (on) barSocial.liked.delete(key); else barSocial.liked.add(key);
+      barSocial.stats.set(key, before);
+      renderBarDetail();
+      toast(r.error === "not-installed" ? "좋아요 기능이 아직 준비되지 않았어요." : "실패: " + r.error);
+    }
+  }
+
+  async function loadBarReviews(b) {
+    const key = barKey(b);
+    barSocial.reviewsKey = key;
+    barSocial.reviewsState = "loading";
+    barSocial.reviews = [];
+    renderBarDetail();
+    const r = await Sync.barReviews(key);
+    if (barSocial.reviewsKey !== key) return;       // 그새 다른 가게로 넘어갔어요
+    barSocial.reviewsState = r.ok ? "ok" : "off";
+    barSocial.reviews = r.ok ? r.rows : [];
+    renderBarDetail();
+  }
+
+  async function addBarReview(b) {
+    const input = $("#bar-cmt-input");
+    const text = input ? input.value.trim() : "";
+    const stars = barSocial.stars;
+    if (!text && !stars) { toast("별점을 주거나 한마디 남겨주세요."); return; }
+    if (!Sync.enabled) { toast("로그인하면 댓글을 남길 수 있어요."); return; }
+    if (isBanned() || !isClean(text)) return;
+
+    const rv = { id: newId(), stars, text, color: state.user.color, mine: true, time: Date.now() };
+    const key = barKey(b);
+    const r = await Sync.barAddReview(key, b.name, rv);
+    if (!r.ok) {
+      toast(r.error === "not-installed" ? "댓글 기능이 아직 준비되지 않았어요." : "실패: " + r.error);
+      return;
+    }
+    sfx("success");
+    barSocial.reviews.unshift(rv);
+    const s = barStat(key);
+    barSocial.stats.set(key, {
+      ...s,
+      rated: s.rated + (stars ? 1 : 0),
+      stars_sum: s.stars_sum + (stars || 0),
+      comments: s.comments + (text ? 1 : 0),
+    });
+    barSocial.stars = 0;
+    if (input) input.value = "";
+    renderBarDetail();
+    addPoints(20, "바 후기 작성");
+  }
+
+  async function delBarReview(b, id, asAdmin) {
+    const ok = await btConfirm(
+      asAdmin ? "다른 사람의 댓글입니다.\n운영자 권한으로 삭제할까요?" : "댓글을 삭제할까요?",
+      { yes: "삭제" });
+    if (!ok) return;
+    const r = await Sync.barDelReview(id);
+    if (!r.ok) { toast("실패: " + r.error); return; }
+    const key = barKey(b);
+    const gone = barSocial.reviews.find((x) => x.id === id);
+    barSocial.reviews = barSocial.reviews.filter((x) => x.id !== id);
+    if (gone) {
+      const s = barStat(key);
+      barSocial.stats.set(key, {
+        ...s,
+        rated: Math.max(0, s.rated - (gone.stars ? 1 : 0)),
+        stars_sum: Math.max(0, s.stars_sum - (gone.stars || 0)),
+        comments: Math.max(0, s.comments - (gone.text ? 1 : 0)),
+      });
+    }
+    renderBarDetail();
+    if (asAdmin) {
+      Sync.logAdmin("삭제", "bar-review", id, String((gone && gone.text) || "").slice(0, 60), "");
+      toast("삭제했어요. 🛡️");
+    } else toast("삭제했어요.");
+  }
+
   /* 두 점 사이 거리(km). 하버사인 — 지구를 공으로 치고 잽니다.
      동네 중심끼리 재는 것이라 소수점은 의미가 없어요. */
   function distanceKm(a, b) {
@@ -7040,6 +7069,24 @@
     if (km < 10) return `약 ${Math.round(km)}km`;
     if (km < 100) return `약 ${Math.round(km / 5) * 5}km`;
     return `${Math.round(km / 10) * 10}km+`;
+  }
+
+  /* 정렬 방법. auto 는 상황에 맞춰 알아서 고릅니다 —
+     위치를 잡았으면 가까운 순, 아니면 이름순. */
+  const BAR_SORTS = [
+    { k: "auto",     label: "기본순" },
+    { k: "dist",     label: "가까운 순",     needLoc: true },
+    { k: "stars",    label: "별점 높은 순" },
+    { k: "starsLow", label: "별점 낮은 순" },
+    { k: "likes",    label: "좋아요 많은 순" },
+    { k: "comments", label: "댓글 많은 순" },
+    { k: "name",     label: "이름순" },
+  ];
+  function barSortLabel() {
+    const s = BAR_SORTS.find((x) => x.k === state.barSort);
+    if (!s) return "기본순";
+    if (s.k === "auto") return state.myLoc ? "가까운 순" : "이름순";
+    return s.label;
   }
 
   const BAR_RADIUS = [
@@ -7150,6 +7197,8 @@
               state.myLocLabel = d.name;
               state.barRegion = "전체";
               state.barShow = 60;
+              // 다음에 들어올 때도 이 동네 기준으로 바로 보여줍니다
+              store.set("barNear", { mode: "district", label: d.name, lat: state.myLoc.lat, lng: state.myLoc.lng });
               bd.remove();
               renderBars();
               toast(`${d.name} 기준으로 가까운 순 정렬했어요.`);
@@ -7158,6 +7207,47 @@
         drawRegions();
       }
     );
+  }
+
+  /* ---- 화면 열자마자 알아서 가까운 순으로 ----
+   * 바 찾기에 들어오면 버튼을 누르지 않아도 위치를 잡아 정렬합니다.
+   *
+   * 다만 세 가지는 지킵니다.
+   *   · 권한이 이미 거부됐으면 아예 묻지 않습니다 (매번 물으면 짜증나요)
+   *   · 사용자가 ✕ 로 끈 적이 있으면 다시 켜지 않습니다
+   *   · 실패해도 조용히 지역 목록으로 둡니다 — 들어오자마자 창이 뜨면 놀라요
+   * 동네를 직접 고른 적이 있으면 그 동네를 기억해뒀다 바로 씁니다.
+   */
+  let barNearTried = false;
+  async function autoNear() {
+    if (state.myLoc || barNearTried) return;
+    barNearTried = true;
+
+    const saved = store.get("barNear", null);
+    if (saved && saved.mode === "off") return;
+    if (saved && saved.mode === "district" && typeof saved.lat === "number") {
+      state.myLoc = { lat: saved.lat, lng: saved.lng };
+      state.myLocLabel = saved.label || "고른 동네";
+      renderBars();
+      return;
+    }
+
+    let perm = "prompt";
+    try { perm = (await navigator.permissions.query({ name: "geolocation" })).state; } catch (e) { /* 모르면 그냥 해봅니다 */ }
+    if (perm === "denied") return;
+
+    state.barLocating = true;
+    renderBars();
+    const r = await locateMe();
+    state.barLocating = false;
+    if (!r.ok) { renderBars(); return; }
+
+    state.myLoc = { lat: r.lat, lng: r.lng };
+    state.myLocLabel = "내 위치";
+    state.barRegion = "전체";
+    state.barShow = 60;
+    store.set("barNear", { mode: "gps" });
+    renderBars();
   }
 
   /* 📍 버튼을 눌렀을 때 */
@@ -7171,6 +7261,7 @@
       state.myLocLabel = "내 위치";
       state.barRegion = "전체";
       state.barShow = 60;
+      store.set("barNear", { mode: "gps" });
       renderBars();
       toast("가까운 순으로 정렬했어요. 📍");
       return;
@@ -7216,7 +7307,7 @@
         .filter(Boolean).join(" ").toLowerCase().includes(q);
     });
 
-    // 거리 계산 → 가까운 순. 좌표가 없는 곳은 뒤로 미룹니다.
+    // 거리 계산. 좌표가 없는 곳은 뒤로 미룹니다.
     let noCoord = 0;
     if (near) {
       list = list.map((b) => {
@@ -7225,31 +7316,71 @@
         return { b, km: has ? distanceKm(state.myLoc, b) : Infinity };
       });
       if (state.barRadius) list = list.filter((x) => x.km <= state.barRadius || x.km === Infinity);
-      list.sort((x, y) => x.km - y.km);
     } else {
       list = list.map((b) => ({ b, km: null }));
+    }
+
+    /* ---- 정렬 ----
+       별점·좋아요·댓글이 하나도 없는 곳이 위로 올라오면 안 됩니다.
+       "별점 낮은 순" 은 평가가 나쁜 곳이지, 평가가 없는 곳이 아니에요. */
+    const sort = state.barSort === "auto" ? (near ? "dist" : "name") : state.barSort;
+    const byName = (x, y) => x.b.name.localeCompare(y.b.name, "ko");
+    const st = (x) => barStat(barKey(x.b));
+    if (sort === "dist" && near) {
+      list.sort((x, y) => x.km - y.km);
+    } else if (sort === "stars" || sort === "starsLow") {
+      const dir = sort === "stars" ? -1 : 1;
+      list.sort((x, y) => {
+        const a = barAvg(barKey(x.b)), b2 = barAvg(barKey(y.b));
+        if (!a && !b2) return byName(x, y);
+        if (!a) return 1;                    // 별점 없는 곳은 항상 뒤로
+        if (!b2) return -1;
+        return (a - b2) * dir || byName(x, y);
+      });
+    } else if (sort === "likes" || sort === "comments") {
+      const f = sort === "likes" ? (x) => st(x).likes : (x) => st(x).comments;
+      list.sort((x, y) => f(y) - f(x) || byName(x, y));
+    } else {
+      list.sort(byName);
     }
     const total = list.length;
 
     /* ---- 맨 윗줄: 가까운 순 버튼 + 몇 곳인지 ----
        예전엔 📍 가 칩 줄 맨 끝에 있어서 가로로 밀어야 보였습니다.
        가장 쓸모 있는 기능인데 안 보이면 없는 것과 같아요. */
-    $("#bar-tools").innerHTML = near
+    $("#bar-tools").innerHTML = (near
       ? `<button class="bar-loc-btn on" id="bar-loc">
-           <span>📍</span> ${esc(state.myLocLabel || "내 위치")} 기준 · 가까운 순
+           <span>📍</span> ${esc(state.myLocLabel || "내 위치")}
          </button>
-         <button class="bar-loc-x" id="bar-loc-off" aria-label="끄기">✕</button>
-         <span class="bar-count">${fmtNum(total)}곳</span>`
-      : `<button class="bar-loc-btn" id="bar-loc"><span>📍</span> 가까운 순으로 보기</button>
-         <span class="bar-count">${fmtNum(total)}곳</span>`;
+         <button class="bar-loc-x" id="bar-loc-off" aria-label="끄기">✕</button>`
+      : `<button class="bar-loc-btn" id="bar-loc" ${state.barLocating ? "disabled" : ""}>
+           <span>📍</span> ${state.barLocating ? "위치 잡는 중…" : "가까운 순으로 보기"}
+         </button>`)
+      + `<span class="bar-count">${fmtNum(total)}곳</span>
+         <button class="bar-sort" id="bar-sort">⇅ ${esc(barSortLabel())}</button>`;
 
     $("#bar-loc").addEventListener("click", (e) => {
       if (near) { openDistrictPicker("다른 동네 기준으로 볼 수 있어요."); return; }
       turnOnNearby(e.currentTarget);
     });
+    $("#bar-sort").addEventListener("click", () => {
+      /* 위치를 안 잡았으면 "가까운 순"은 고를 수 없습니다.
+         눌러도 아무 일 없는 항목을 보여주면 고장 난 줄 알아요. */
+      const opts = BAR_SORTS.filter((s) => !s.needLoc || near);
+      const cur = BAR_SORTS.find((s) => s.k === state.barSort);
+      openSheet("정렬", opts.map((s) => s.k === "auto" ? `기본순 (${near ? "가까운 순" : "이름순"})` : s.label),
+        cur ? (cur.k === "auto" ? `기본순 (${near ? "가까운 순" : "이름순"})` : cur.label) : null,
+        (picked) => {
+          const hit = opts.find((s) => picked.startsWith(s.k === "auto" ? "기본순" : s.label));
+          state.barSort = hit ? hit.k : "auto";
+          state.barShow = 60;
+          renderBars();
+        });
+    });
     const offBtn = $("#bar-loc-off");
     if (offBtn) offBtn.addEventListener("click", () => {
       state.myLoc = null; state.myLocLabel = ""; state.barRadius = 0; state.barShow = 60;
+      store.set("barNear", { mode: "off" });   // 껐으면 다음에 들어와도 안 켭니다
       renderBars();
     });
 
@@ -7282,18 +7413,28 @@
     list = list.slice(0, shown);
 
     $("#bar-list").innerHTML = list.length
-      ? list.map(({ b, km }) => `
+      ? list.map(({ b, km }) => {
+        const st = barStat(barKey(b));
+        const avg = barAvg(barKey(b));
+        const meta = [
+          avg ? `<span class="bar-meta-i">★ ${avg.toFixed(1)}</span>` : "",
+          st.likes ? `<span class="bar-meta-i">♥ ${fmtNum(st.likes)}</span>` : "",
+          st.comments ? `<span class="bar-meta-i">💬 ${fmtNum(st.comments)}</span>` : "",
+        ].filter(Boolean).join("");
+        return `
         <button class="bar-item pressable" data-id="${b.id}">
           <span class="bar-badge">${esc((b.type || "바").replace(/바$/, "") || "바")}</span>
           <div class="bar-main">
-            <div class="bar-name">${esc(b.name)}${state.user.myBars.includes(b.id) ? ' <span class="me-tag">단골</span>' : ""}</div>
+            <div class="bar-name">${esc(b.name)}${state.user.myBars.includes(barKey(b)) ? ' <span class="me-tag">단골</span>' : ""}</div>
             <div class="bar-addr-line">${esc(b.addr || b.area || b.region || "")}</div>
+            ${meta ? `<div class="bar-meta">${meta}</div>` : ""}
             ${(b.tags || []).length ? `<div class="bar-tags">${b.tags.map((t) => `<span>#${esc(t)}</span>`).join("")}</div>` : ""}
           </div>
           ${km === null
             ? '<span class="bar-go">›</span>'
             : `<span class="bar-km">${km === Infinity ? "?" : fmtKm(km)}</span>`}
-        </button>`).join("")
+        </button>`;
+      }).join("")
         + (shown < total
           ? `<button class="text-btn" id="bar-more" style="width:100%;padding:16px 0">
                ${fmtNum(total - shown)}곳 더 보기
@@ -7321,9 +7462,52 @@
     });
   }
 
+  /* 마이 > 단골 바.
+     저장은 열쇠(이름+주소)로 하므로, 목록을 다시 받아도 그대로 살아 있습니다.
+     다만 문 닫아서 목록에서 빠진 곳은 찾을 수 없으니 그 사실을 알려줍니다. */
+  function renderMyBars() {
+    const keys = state.user.myBars;
+    const all = barsAll();
+    const found = keys.map((k) => all.find((b) => barKey(b) === k)).filter(Boolean);
+    const lost = keys.length - found.length;
+
+    $("#mybar-list").innerHTML = found.length
+      ? found.map((b) => {
+        const st = barStat(barKey(b));
+        const avg = barAvg(barKey(b));
+        const meta = [
+          avg ? `<span class="bar-meta-i">★ ${avg.toFixed(1)}</span>` : "",
+          st.likes ? `<span class="bar-meta-i">♥ ${fmtNum(st.likes)}</span>` : "",
+        ].filter(Boolean).join("");
+        return `
+        <button class="bar-item pressable" data-id="${b.id}">
+          <span class="bar-badge">${esc((b.type || "바").replace(/바$/, "") || "바")}</span>
+          <div class="bar-main">
+            <div class="bar-name">${esc(b.name)}</div>
+            <div class="bar-addr-line">${esc(b.addr || b.area || b.region || "")}</div>
+            ${meta ? `<div class="bar-meta">${meta}</div>` : ""}
+          </div>
+          <span class="bar-go">›</span>
+        </button>`;
+      }).join("")
+        + (lost ? `<p class="sheet-note" style="text-align:left;margin:14px 20px 24px">
+             저장해둔 ${lost}곳은 지금 목록에 없어요. 가게가 문을 닫았거나 이름이 바뀐 것 같아요.
+           </p>` : "")
+      : `<div class="empty-state">
+           아직 단골로 저장한 바가 없어요.<br>
+           바 찾기에서 가게를 열고 <b>☆ 단골 저장</b>을 눌러보세요.
+         </div>`;
+
+    $$("#mybar-list .bar-item").forEach((el) =>
+      el.addEventListener("click", () => openBar(+el.dataset.id)));
+  }
+
   function openBar(id) {
     state.curBar = id;
+    barSocial.stars = 0;
     show("bar");
+    const b = barsAll().find((x) => x.id === id);
+    if (b && Sync.enabled) { loadBarSocial(); loadBarReviews(b); }
   }
 
   /* ---------- 지도 ----------
@@ -7392,12 +7576,74 @@
     }
   }
 
+  /* 좋아요 · 별점 · 댓글 덩어리.
+     서버가 없거나 supabase/bars.sql 을 아직 안 넣었으면 통째로 안 보여줍니다.
+     반쯤 동작하는 버튼을 보여주는 것보다 없는 편이 나아요. */
+  function barSocialHTML(b) {
+    if (!Sync.enabled) return "";
+    const key = barKey(b);
+    const st = barStat(key);
+    const avg = barAvg(key);
+    const liked = barSocial.liked.has(key);
+    const rows = barSocial.reviewsKey === key ? barSocial.reviews : [];
+
+    return `
+      <div class="bar-social">
+        <div class="bar-social-top">
+          <button class="bar-heart ${liked ? "on" : ""}" id="bar-like">
+            <span>${liked ? "❤️" : "🤍"}</span> ${fmtNum(st.likes)}
+          </button>
+          <div class="bar-score">
+            ${avg
+              ? `<b>★ ${avg.toFixed(1)}</b><span>${fmtNum(st.rated)}명</span>`
+              : '<span class="bar-score-none">아직 별점이 없어요</span>'}
+          </div>
+        </div>
+
+        <div class="bar-write-box">
+          <div class="star-pick" id="bar-star-pick">
+            ${[1, 2, 3, 4, 5].map((n) =>
+              `<button class="${n <= barSocial.stars ? "on" : ""}" data-n="${n}" aria-label="별 ${n}개">⭐</button>`).join("")}
+            ${barSocial.stars ? '<button class="star-clear" id="bar-star-clear">지우기</button>' : ""}
+          </div>
+          <div class="cmt-row">
+            <input type="text" id="bar-cmt-input" maxlength="300"
+                   placeholder="다녀온 소감을 남겨보세요" autocomplete="off">
+            <button class="cmt-send" id="bar-cmt-send">등록</button>
+          </div>
+        </div>
+
+        <h3 class="bar-cmt-h">댓글 ${fmtNum(rows.filter((r) => r.text).length)}</h3>
+        ${barSocial.reviewsState === "loading"
+          ? '<p class="sheet-note" style="margin:0 20px 8px">불러오는 중…</p>'
+          : barSocial.reviewsState === "off"
+          ? '<p class="sheet-note" style="margin:0 20px 8px">댓글 기능이 아직 준비되지 않았어요.</p>'
+          : rows.length
+          ? `<div class="bar-cmts">${rows.map((r) => `
+              <div class="bar-cmt">
+                <span class="avatar" style="background:${COLORS[r.color] || COLORS[2]}"></span>
+                <div class="bar-cmt-body">
+                  <div class="bar-cmt-head">
+                    <span class="bar-cmt-who">${r.mine ? "나" : "술방울"}</span>
+                    ${r.stars ? `<span class="bar-cmt-stars">${"★".repeat(r.stars)}</span>` : ""}
+                    <span class="bar-cmt-time">${fmtRel(r.time)}</span>
+                    ${r.mine
+                      ? `<button class="cmt-del" data-del="${r.id}">삭제</button>`
+                      : (isAdmin() ? `<button class="cmt-del admin" data-del="${r.id}" data-adm="1">🛡️ 삭제</button>` : "")}
+                  </div>
+                  ${r.text ? `<p class="bar-cmt-txt">${escMsg(r.text)}</p>` : '<p class="bar-cmt-txt muted">별점만 남겼어요</p>'}
+                </div>
+              </div>`).join("")}</div>`
+          : '<p class="sheet-note" style="margin:0 20px 8px">첫 댓글을 남겨보세요.</p>'}
+      </div>`;
+  }
+
   function renderBarDetail() {
     const b = barsAll().find((x) => x.id === state.curBar);
     if (!b) { show("bars"); return; }
     $("#bar-title").textContent = b.name;
     $("#bar-del").hidden = !b.mine;
-    const fav = state.user.myBars.includes(b.id);
+    const fav = state.user.myBars.includes(barKey(b));
     const dist = state.myLoc
       ? (typeof b.lat === "number" && typeof b.lng === "number" ? distanceKm(state.myLoc, b) : Infinity)
       : null;
@@ -7452,6 +7698,8 @@
         <button class="bar-act" id="bar-write"><span>✍️</span>글쓰기</button>
       </div>
 
+      ${barSocialHTML(b)}
+
       <p class="sheet-note" style="margin:14px 20px 24px">
         ${b.seed
           ? "바는 자주 닫고 옮깁니다. <b>방문 전에 꼭 확인</b>해주세요. 영업시간은 넣지 않았어요 — 확인되지 않은 정보가 퍼지면 그 가게에 폐가 되니까요."
@@ -7473,8 +7721,8 @@
     });
 
     $("#bar-fav").addEventListener("click", () => {
-      const i = state.user.myBars.indexOf(b.id);
-      if (i >= 0) state.user.myBars.splice(i, 1); else state.user.myBars.push(b.id);
+      const i = state.user.myBars.indexOf(barKey(b));
+      if (i >= 0) state.user.myBars.splice(i, 1); else state.user.myBars.push(barKey(b));
       saveUser();
       renderBarDetail();
       toast(i >= 0 ? "단골에서 뺐어요." : "단골로 저장했어요. ⭐");
@@ -7495,6 +7743,23 @@
       if (body) { body.value = ""; body.focus(); }
       updateSubmit();
     });
+
+    /* ---- 좋아요 · 별점 · 댓글 ---- */
+    const likeBtn = $("#bar-like");
+    if (likeBtn) likeBtn.addEventListener("click", () => toggleBarLike(b));
+
+    $$("#bar-star-pick [data-n]").forEach((el) =>
+      el.addEventListener("click", () => { barSocial.stars = +el.dataset.n; renderBarDetail(); }));
+    const clr = $("#bar-star-clear");
+    if (clr) clr.addEventListener("click", () => { barSocial.stars = 0; renderBarDetail(); });
+
+    const send = $("#bar-cmt-send");
+    if (send) send.addEventListener("click", () => addBarReview(b));
+    const cin = $("#bar-cmt-input");
+    if (cin) cin.addEventListener("keydown", (e) => { if (e.key === "Enter") addBarReview(b); });
+
+    $$("#bar-detail [data-del]").forEach((el) =>
+      el.addEventListener("click", () => delBarReview(b, +el.dataset.del, el.dataset.adm === "1")));
   }
 
   function openBarSheet() {

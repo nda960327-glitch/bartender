@@ -980,6 +980,13 @@
   /* ---------- 쓰기 API (app.js 가 호출) ---------- */
   function ready() { return !!(sb && S.uid); }
 
+  /* "표가 없다"와 "진짜 오류"는 다르게 다뤄야 합니다.
+     SQL 을 아직 안 넣은 것뿐인데 빨간 오류를 띄우면 놀라니까요. */
+  function notInstalled(err) {
+    var m = String((err && err.message) || "");
+    return /does not exist|not find|schema cache|relation/i.test(m) ? "not-installed" : m;
+  }
+
   var api = {
     get enabled() { return S.enabled; },
     get status() { return S.status; },
@@ -1549,6 +1556,98 @@
         return { ok: true, rows: res.data || [] };
       } catch (e) {
         return { ok: false, error: (e && e.message) || "확인하지 못했어요." };
+      }
+    },
+
+    /* ---------- 바 좋아요 · 별점 · 댓글 ----------
+     * supabase/bars.sql 이 필요합니다. 아직 안 넣었으면 "not-installed" 로
+     * 돌려주고, 앱은 이 기능만 조용히 접어둡니다 (바 목록은 그대로 동작).
+     *
+     * 가게는 번호가 아니라 이름+주소로 만든 열쇠(bar_key)로 묶습니다.
+     * 목록 파일을 다시 받아도 달아둔 댓글이 딴 가게로 가지 않게요.
+     */
+    async barStats() {
+      if (!ready()) return { ok: false, error: "offline" };
+      try {
+        var res = await sb.from("bar_stats")
+          .select("bar_key,likes,rated,stars_sum,comments").limit(5000);
+        if (res.error) return { ok: false, error: notInstalled(res.error) };
+        var mine = await sb.from("bar_likes").select("bar_key").eq("user_id", S.uid).limit(2000);
+        return {
+          ok: true,
+          stats: res.data || [],
+          liked: (mine.data || []).map(function (r) { return r.bar_key; }),
+        };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "불러오지 못했어요." };
+      }
+    },
+
+    async barLike(barKey, on) {
+      if (!ready()) return { ok: false, error: "로그인이 필요해요." };
+      try {
+        var res = on
+          ? await sb.from("bar_likes").insert({ bar_key: barKey, user_id: S.uid })
+          : await sb.from("bar_likes").delete().eq("bar_key", barKey).eq("user_id", S.uid);
+        // 이미 눌러둔 하트를 또 넣으면 중복 오류가 납니다. 결과는 같으니 넘어가요.
+        if (res.error && !/duplicate|unique/i.test(res.error.message || "")) {
+          return { ok: false, error: notInstalled(res.error) };
+        }
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "처리하지 못했어요." };
+      }
+    },
+
+    async barReviews(barKey) {
+      if (!ready()) return { ok: false, error: "offline" };
+      try {
+        var res = await sb.from("bar_reviews")
+          .select("id,bar_key,author_id,stars,text,color,created_at")
+          .eq("bar_key", barKey)
+          .order("created_at", { ascending: false })
+          .limit(200);
+        if (res.error) return { ok: false, error: notInstalled(res.error) };
+        var me = S.uid;
+        return {
+          ok: true,
+          rows: (res.data || []).map(function (r) {
+            return {
+              id: Number(r.id), stars: r.stars, text: r.text || "",
+              color: r.color, authorId: r.author_id,
+              mine: r.author_id === me, time: t(r.created_at),
+            };
+          }),
+        };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "불러오지 못했어요." };
+      }
+    },
+
+    async barAddReview(barKey, barName, rv) {
+      if (!ready()) return { ok: false, error: "로그인이 필요해요." };
+      try {
+        var res = await sb.from("bar_reviews").insert({
+          id: rv.id, bar_key: barKey, bar_name: String(barName || "").slice(0, 80),
+          author_id: S.uid, stars: rv.stars || null,
+          text: rv.text || "", color: rv.color,
+        });
+        if (res.error) return { ok: false, error: notInstalled(res.error) };
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "쓰지 못했어요." };
+      }
+    },
+
+    async barDelReview(id) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      try {
+        var res = await sb.from("bar_reviews").delete().eq("id", id).select("id");
+        if (res.error) return { ok: false, error: notInstalled(res.error) };
+        if (!res.data || !res.data.length) return { ok: false, error: "권한이 없거나 이미 지워졌어요." };
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "지우지 못했어요." };
       }
     },
 

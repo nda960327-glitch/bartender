@@ -143,15 +143,11 @@
           <button class="tool-item pressable" data-go="finder"><span class="tool-ic">🔍</span><span class="tool-name">재료로 칵테일 찾기</span><span class="tool-desc">있는 재료로 뭐 만들지?</span></button>
           <button class="tool-item pressable" data-go="quiz"><span class="tool-ic">🎯</span><span class="tool-name">레시피 퀴즈</span><span class="tool-desc">조주 실력 테스트</span></button>
           <button class="tool-item pressable" data-go="calc"><span class="tool-ic">🧮</span><span class="tool-name">원가 계산기</span><span class="tool-desc">잔당 원가·판매가</span></button>
-          <button class="tool-item pressable" data-go="pay"><span class="tool-ic">💰</span><span class="tool-name">급여 계산기</span><span class="tool-desc">주급·월급 예상</span></button>
-          <button class="tool-item pressable" data-go="worklog"><span class="tool-ic">📅</span><span class="tool-name">근무일지</span><span class="tool-desc">근무·팁 기록, 월 수입</span></button>
-          <button class="tool-item pressable" data-go="units"><span class="tool-ic">⚖️</span><span class="tool-name">단위 변환</span><span class="tool-desc">oz ↔ ml 한 번에</span></button>
-          <button class="tool-item pressable" data-go="timer"><span class="tool-ic">⏱️</span><span class="tool-name">바 타이머</span><span class="tool-desc">스터·셰이킹 초 재기</span></button>
           <button class="tool-item pressable" id="tool-random"><span class="tool-ic">🎲</span><span class="tool-name">오늘 뭐 마시지?</span><span class="tool-desc">랜덤 칵테일 뽑기</span></button>
         </div>
       </div>
 
-      <div class="home-sec">
+      <div class="home-sec" id="home-store-sec">
         <div class="home-sec-head">
           <h2>스토어 추천 🛒</h2>
           <button class="more-btn" data-go="market">더보기</button>
@@ -203,6 +199,18 @@
   </section>
 
   <!-- ===================== 내 술장 ===================== -->
+  <!-- ===================== 단골 바 ===================== -->
+  <section class="view" id="view-mybars" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="mypage">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">단골 바</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area" id="mybar-list"></div>
+  </section>
+
   <section class="view" id="view-cellar" hidden>
     <header class="topbar">
       <button class="icon-btn back-btn" data-back="mypage">
@@ -656,6 +664,7 @@
         <button class="row-link pressable" data-go="rank"><span class="row-label">랭킹</span><span class="flex-1"></span><span class="row-badge" id="rank-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-taste"><span class="row-label">내 취향 리포트</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-cellar"><span class="row-label">내 술장</span><span class="flex-1"></span><span class="row-badge" id="cellar-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="row-link pressable" id="btn-mybars"><span class="row-label">단골 바</span><span class="flex-1"></span><span class="row-badge" id="mybar-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-favjobs"><span class="row-label">관심알바</span><span class="flex-1"></span><span class="row-badge" id="favjob-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-myposts"><span class="row-label">내가 쓴 글</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-orders"><span class="row-label">주문 내역</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
@@ -772,8 +781,22 @@
         <span class="bell-badge" id="cart-badge" hidden></span>
       </button>
     </header>
+
+    <!-- 문 닫아둔 동안 보여줄 안내 (js/app.js 의 FEATURES.STORE_OPEN) -->
+    <div class="scroll-area" id="store-soon" hidden>
+      <div class="soon-wrap">
+        <div class="soon-ic">🚧</div>
+        <h2 class="soon-title">스토어는 준비 중이에요</h2>
+        <p class="soon-txt">
+          바텐더에게 진짜 쓸모 있는 물건만 골라 담고 있어요.<br>
+          준비가 끝나면 알려드릴게요.
+        </p>
+        <button class="big-btn" id="store-soon-back">둘러보러 가기</button>
+      </div>
+    </div>
+
     <div class="chip-scroll" id="store-cats"></div>
-    <div class="scroll-area">
+    <div class="scroll-area" id="store-body">
       <div class="search-box">
         <svg viewBox="0 0 24 24" class="search-ic"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
         <input type="text" id="store-search" placeholder="상품 검색">
@@ -873,126 +896,6 @@
       <input type="number" class="input" id="calc-price" placeholder="예) 15000" inputmode="numeric">
       <div class="calc-result" id="calc-result"></div>
       <div style="height:24px"></div>
-    </div>
-  </section>
-
-  <!-- ===================== 급여 계산기 ===================== -->
-  <section class="view" id="view-pay" hidden>
-    <header class="topbar">
-      <button class="icon-btn back-btn" data-back="home">
-        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
-      </button>
-      <h1 class="topbar-title">급여 계산기</h1>
-      <span class="topbar-spacer"></span>
-    </header>
-    <div class="scroll-area form-area">
-      <p class="tool-guide no-pad">시급과 근무 패턴을 넣으면<br>주급·월급을 예상해드려요. 💰</p>
-      <label class="form-label">시급 (원)</label>
-      <input type="number" class="input" id="pay-wage" placeholder="10,320 (2026 최저시급)" inputmode="numeric">
-      <div class="form-2col">
-        <div>
-          <label class="form-label">하루 근무시간</label>
-          <input type="number" class="input" id="pay-hours" placeholder="8" inputmode="decimal">
-        </div>
-        <div>
-          <label class="form-label">주 근무일수</label>
-          <input type="number" class="input" id="pay-days" placeholder="5" min="1" max="7" inputmode="numeric">
-        </div>
-      </div>
-      <div class="calc-result" id="pay-result"></div>
-      <p class="sheet-note">주 15시간 이상 근무 시 주휴수당(1일치, 최대 8시간)을 포함해 계산해요. 세전 금액이며 실제 지급액과 다를 수 있어요.</p>
-      <div style="height:24px"></div>
-    </div>
-  </section>
-
-  <!-- ===================== 근무일지 ===================== -->
-  <section class="view" id="view-worklog" hidden>
-    <header class="topbar">
-      <button class="icon-btn back-btn" data-back="home">
-        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
-      </button>
-      <h1 class="topbar-title">근무일지</h1>
-      <span class="topbar-spacer"></span>
-    </header>
-    <div class="scroll-area form-area">
-      <div class="month-nav">
-        <button class="icon-btn" id="wl-prev"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
-        <span class="month-title" id="wl-month"></span>
-        <button class="icon-btn" id="wl-next"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
-      </div>
-      <div class="calc-result show" id="wl-summary"></div>
-      <label class="form-label">이번 달 시급 (원)</label>
-      <input type="number" class="input" id="wl-wage" placeholder="12000" inputmode="numeric">
-      <h2 class="section-title" style="margin-top:24px">근무 기록 추가</h2>
-      <div class="form-2col">
-        <div>
-          <label class="form-label">날짜</label>
-          <input type="date" class="input" id="wl-date">
-        </div>
-        <div>
-          <label class="form-label">근무시간</label>
-          <input type="number" class="input" id="wl-hours" placeholder="8" inputmode="decimal">
-        </div>
-      </div>
-      <div class="form-2col">
-        <div>
-          <label class="form-label">팁 (원)</label>
-          <input type="number" class="input" id="wl-tip" placeholder="0" inputmode="numeric">
-        </div>
-        <div>
-          <label class="form-label">메모</label>
-          <input type="text" class="input" id="wl-memo" placeholder="예) 단체 예약">
-        </div>
-      </div>
-      <button class="big-btn accent" id="wl-add" disabled>기록하기</button>
-      <div id="wl-list" style="margin-top:20px"></div>
-      <div style="height:24px"></div>
-    </div>
-  </section>
-
-  <!-- ===================== 단위 변환 ===================== -->
-  <section class="view" id="view-units" hidden>
-    <header class="topbar">
-      <button class="icon-btn back-btn" data-back="home">
-        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
-      </button>
-      <h1 class="topbar-title">단위 변환</h1>
-      <span class="topbar-spacer"></span>
-    </header>
-    <div class="scroll-area form-area">
-      <div class="form-2col" style="align-items:end">
-        <div>
-          <label class="form-label">온스 (oz)</label>
-          <input type="number" class="input" id="unit-oz" placeholder="1.5" inputmode="decimal" step="0.25">
-        </div>
-        <div>
-          <label class="form-label">밀리리터 (ml)</label>
-          <input type="number" class="input" id="unit-ml" placeholder="45" inputmode="decimal">
-        </div>
-      </div>
-      <div class="calc-result show" id="unit-table"></div>
-      <p class="sheet-note">1oz = 29.57ml 기준, 바 현장에서는 보통 30ml로 계산해요. 지거 표준: 30/45ml (1/1.5oz)</p>
-      <div style="height:24px"></div>
-    </div>
-  </section>
-
-  <!-- ===================== 바 타이머 ===================== -->
-  <section class="view" id="view-timer" hidden>
-    <header class="topbar">
-      <button class="icon-btn back-btn" data-back="home">
-        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
-      </button>
-      <h1 class="topbar-title">바 타이머</h1>
-      <span class="topbar-spacer"></span>
-    </header>
-    <div class="scroll-area timer-area">
-      <div class="timer-display" id="timer-display">15.0</div>
-      <div class="chip-wrap timer-presets" id="timer-presets"></div>
-      <div class="pd-actions" style="padding:0 20px">
-        <button class="mkd-chat-btn" id="timer-toggle">시작</button>
-        <button class="mkd-chat-btn outline" id="timer-reset">리셋</button>
-      </div>
-      <p class="sheet-note" style="text-align:center">셰이킹 12~15초 · 스터 30초가 일반적이에요.<br>끝나면 진동으로 알려드려요. (지원 기기)</p>
     </div>
   </section>
 

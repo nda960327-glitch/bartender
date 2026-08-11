@@ -1576,11 +1576,28 @@ textarea.input { height: auto; }
 .card-multi { font-size: 14.5px; line-height: 1.65; white-space: pre-wrap; }
 
 
+/* ---------- 준비 중 안내 (스토어 등) ---------- */
+.soon-wrap {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 70px 32px 40px; gap: 14px;
+}
+.soon-ic { font-size: 52px; }
+.soon-title { font-size: 19px; font-weight: 800; }
+.soon-txt { font-size: 14px; line-height: 1.75; color: var(--text-sub); }
+.soon-wrap .big-btn { margin-top: 10px; max-width: 240px; }
+
 /* ---------- 바 찾기 ---------- */
 /* 맨 윗줄 — "가까운 순" 버튼과 몇 곳인지 */
 .bar-tools {
   display: flex; align-items: center; gap: 8px; padding: 12px 16px 10px;
+  flex-wrap: wrap;
 }
+.bar-sort {
+  flex: none; padding: 8px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--bg-card); color: var(--text-sub);
+  font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.bar-sort:active { background: var(--chip-bg); }
 .bar-loc-btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 9px 15px; border-radius: 999px; border: 1px solid var(--line);
@@ -1602,6 +1619,7 @@ textarea.input { height: auto; }
   margin-left: auto; flex: none;
   font-size: 12.5px; font-weight: 700; color: var(--text-muted);
 }
+.bar-loc-btn { max-width: none; }
 .bar-go { flex: none; align-self: center; color: var(--text-muted); font-size: 20px; }
 
 .bar-item {
@@ -1630,6 +1648,60 @@ textarea.input { height: auto; }
   flex: none; align-self: center; font-size: 12.5px; font-weight: 700;
   color: var(--accent); white-space: nowrap;
 }
+/* 목록에 붙는 별점 · 하트 · 댓글 수 */
+.bar-meta { display: flex; gap: 10px; margin-top: 6px; }
+.bar-meta-i { font-size: 11.5px; font-weight: 700; color: var(--text-muted); }
+
+/* ---------- 바 좋아요 · 별점 · 댓글 ---------- */
+.bar-social { border-top: 8px solid var(--line-soft, var(--chip-bg)); padding-top: 6px; }
+.bar-social-top {
+  display: flex; align-items: center; gap: 12px; padding: 16px 20px 12px;
+}
+.bar-heart {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 17px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--bg-card); color: var(--text); cursor: pointer;
+  font-size: 14px; font-weight: 800;
+}
+.bar-heart.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.bar-heart:active { transform: scale(.96); }
+.bar-score { margin-left: auto; display: flex; align-items: baseline; gap: 6px; }
+.bar-score b { font-size: 17px; font-weight: 800; color: var(--accent); }
+.bar-score span { font-size: 12px; color: var(--text-muted); }
+.bar-score-none { font-size: 12.5px; color: var(--text-muted); }
+
+.bar-write-box { padding: 0 20px 16px; }
+.bar-write-box .star-pick { display: flex; align-items: center; gap: 2px; margin-bottom: 10px; }
+.bar-write-box .star-pick button {
+  border: none; background: none; cursor: pointer; padding: 2px 1px;
+  font-size: 23px; filter: grayscale(1); opacity: .35;
+}
+.bar-write-box .star-pick button.on { filter: none; opacity: 1; }
+.bar-write-box .star-clear {
+  margin-left: 8px; font-size: 12px !important; filter: none !important; opacity: 1 !important;
+  color: var(--text-muted); font-weight: 600;
+}
+.bar-write-box .cmt-row { display: flex; gap: 8px; }
+.bar-write-box .cmt-row input {
+  flex: 1; min-width: 0; padding: 11px 14px; font-size: 14px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--bg-card); color: var(--text);
+}
+.bar-write-box .cmt-send {
+  flex: none; padding: 0 17px; border: none; border-radius: 12px;
+  background: var(--accent); color: #fff; font-size: 13.5px; font-weight: 700; cursor: pointer;
+}
+
+.bar-cmt-h { font-size: 14px; font-weight: 800; padding: 4px 20px 10px; }
+.bar-cmts { padding: 0 20px 4px; }
+.bar-cmt { display: flex; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); }
+.bar-cmt-body { flex: 1; min-width: 0; }
+.bar-cmt-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bar-cmt-who { font-size: 12.5px; font-weight: 700; }
+.bar-cmt-stars { font-size: 11.5px; color: var(--accent); letter-spacing: -1px; }
+.bar-cmt-time { font-size: 11.5px; color: var(--text-muted); }
+.bar-cmt-txt { font-size: 14px; line-height: 1.6; margin-top: 5px; word-break: break-word; }
+.bar-cmt-txt.muted { color: var(--text-muted); font-size: 12.5px; }
 
 /* 상세 */
 .bar-hero { padding: 22px 20px 18px; background: var(--bg-card); }
