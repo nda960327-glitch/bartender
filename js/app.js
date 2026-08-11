@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.32.0";
+  const APP_BUILD = "2.33.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -7429,6 +7429,19 @@
     } else {
       list.sort(byName);
     }
+
+    /* 별점·좋아요·댓글로 정렬했는데 아직 아무 데도 없으면,
+       그냥 이름순으로 보여주고 조용히 넘어가면 고장 난 줄 압니다.
+       "아직 없어요" 라고 말해주는 게 맞아요. */
+    let sortEmpty = "";
+    if (sort === "stars" || sort === "starsLow") {
+      if (!list.some((x) => barAvg(barKey(x.b)))) sortEmpty = "아직 별점이 매겨진 바가 없어요. 첫 별점을 남겨보세요.";
+    } else if (sort === "likes") {
+      if (!list.some((x) => st(x).likes)) sortEmpty = "아직 좋아요를 받은 바가 없어요.";
+    } else if (sort === "comments") {
+      if (!list.some((x) => st(x).comments)) sortEmpty = "아직 댓글이 달린 바가 없어요.";
+    }
+
     const total = list.length;
 
     /* ---- 맨 윗줄: 가까운 순 버튼 + 몇 곳인지 ----
@@ -7510,7 +7523,9 @@
     const shown = Math.min(total, state.barShow);
     list = list.slice(0, shown);
 
-    $("#bar-list").innerHTML = list.length
+    $("#bar-list").innerHTML = (sortEmpty
+      ? `<p class="bar-sort-empty">${esc(sortEmpty)}</p>` : "")
+      + (list.length
       ? list.map(({ b, km }) => {
         const st = barStat(barKey(b));
         const avg = barAvg(barKey(b));
@@ -7546,7 +7561,7 @@
         ? `${state.barRadius}km 안에는 조건에 맞는 바가 없어요.<br>범위를 넓혀보세요.`
         : (q || state.barRegion !== "전체" || state.barKind !== "전체"
           ? "조건에 맞는 바가 없어요."
-          : "아직 등록된 바가 없어요. 오른쪽 위 + 로 추가해보세요.")}</div>`;
+          : "아직 등록된 바가 없어요. 오른쪽 위 + 로 추가해보세요.")}</div>`);
 
     $$("#bar-list .bar-item").forEach((el) =>
       el.addEventListener("click", () => openBar(+el.dataset.id)));
