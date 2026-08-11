@@ -71,7 +71,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.20.0";
+  const APP_BUILD = "2.21.0";
 
   /* ---------- 저장소 ---------- */
   const store = {
@@ -2798,6 +2798,8 @@
             <button class="chip ${cfg.ac_ignore_quiet ? "active" : ""}" data-quietac="1">24시간 답니다</button>
             <button class="chip ${cfg.ac_ignore_quiet ? "" : "active"}" data-quietac="0">위 발행 설정을 따름</button>
           </div>` : ""}
+        <button class="host-chat-btn outline" id="ac-why" style="margin-top:12px">🔎 왜 안 나가는지 확인</button>
+        <div id="ac-why-out"></div>
         ${acRecent.length ? `
           <div class="market-meta" style="margin-top:14px">최근 자동 댓글</div>
           ${acRecent.map((q) => `<div class="bot-next">${fmtWhen(q.published_at)} · ${esc(q.text || "")} <span class="bot-by">${esc(nickOf(q.author_id))}</span></div>`).join("")}
@@ -2854,6 +2856,35 @@
       if (on && !(await btConfirm(`자동 발행을 켤까요?\n예약된 ${count("approved")}건이 시간에 맞춰 올라갑니다.`))) return;
       await botAfter(await Sync.botSaveSettings({ enabled: on }), on ? "자동 발행을 켰어요." : "자동 발행을 껐어요.");
     });
+    const acWhy = $("#ac-why");
+    if (acWhy) acWhy.addEventListener("click", async () => {
+      const out = $("#ac-why-out");
+      acWhy.textContent = "확인하는 중…";
+      const r = await Sync.autoCommentWhy();
+      acWhy.textContent = "🔎 왜 안 나가는지 확인";
+      if (!r.ok) {
+        out.innerHTML = `<div class="market-meta" style="margin-top:10px;line-height:1.7">${
+          r.error === "not-installed"
+            ? "진단 기능이 아직 서버에 없어요.<br><b>supabase/auto-comment-why.sql</b> 을 실행해주세요."
+            : esc(r.error)}</div>`;
+        return;
+      }
+      // 처음 걸린 곳이 진짜 원인입니다. 그 아래는 참고용이에요.
+      const firstBad = r.rows.findIndex((x) => !x.ok);
+      out.innerHTML = `
+        <div class="market-meta" style="margin-top:12px">${firstBad < 0
+          ? "막힌 곳이 없습니다. 남은 건 확률과 서버의 ANTHROPIC_API_KEY 뿐이에요."
+          : `<b style="color:var(--accent)">여기서 막혔습니다 — ${esc(r.rows[firstBad].step)}</b>`}</div>
+        ${r.rows.map((x, i) => `
+          <div class="why-row ${x.ok ? "" : "bad"} ${i === firstBad ? "first" : ""}">
+            <span class="why-ic">${x.ok ? "✅" : "⛔"}</span>
+            <span class="why-body">
+              <b>${esc(x.step)}</b>
+              <span>${esc(x.detail)}</span>
+            </span>
+          </div>`).join("")}`;
+    });
+
     const acRecheck = $("#ac-recheck");
     if (acRecheck) acRecheck.addEventListener("click", async () => {
       await loadBots(true);

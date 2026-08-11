@@ -1611,6 +1611,18 @@ textarea.input { height: auto; }
   white-space: nowrap;
 }
 
+/* ---------- 자동 댓글 진단 ---------- */
+.why-row {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 8px 0; border-top: 1px solid var(--line);
+}
+.why-row.first { background: var(--accent-soft); margin: 0 -14px; padding: 8px 14px; border-radius: 8px; }
+.why-ic { flex: none; font-size: 13px; line-height: 1.5; }
+.why-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.why-body b { font-size: 13.5px; }
+.why-body span { font-size: 12.5px; color: var(--text-sub); line-height: 1.6; word-break: keep-all; }
+.why-row.bad .why-body b { color: var(--accent); }
+
 /* ---------- 랭킹 ---------- */
 .rank-me { padding: 22px 18px; text-align: center; }
 .rank-lv { font-size: 17px; font-weight: 800; }

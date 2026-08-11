@@ -1513,6 +1513,22 @@
      * 앱에서 status 를 '발행됨' 으로 직접 바꾸거나 작성 계정을 갈아끼우는 건
      * 서버 트리거가 되돌립니다. */
 
+    /* 자동 댓글이 어디서 막혔는지. 읽기만 하고 아무것도 바꾸지 않아요. */
+    async autoCommentWhy() {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      try {
+        var res = await sb.rpc("auto_comment_why");
+        if (res.error) {
+          var m = String(res.error.message || "");
+          if (/does not exist|not find|schema cache/i.test(m)) return { ok: false, error: "not-installed" };
+          return { ok: false, error: m };
+        }
+        return { ok: true, rows: res.data || [] };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "확인하지 못했어요." };
+      }
+    },
+
     /* 순위표. supabase/ranking.sql 을 넣지 않은 곳에서는 함수가 없으니
        그 경우를 오류가 아니라 "아직 없음"으로 구분해 돌려줍니다. */
     async topBartenders(limit) {
