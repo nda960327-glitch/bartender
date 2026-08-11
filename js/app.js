@@ -71,7 +71,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.22.0";
+  const APP_BUILD = "2.22.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -2752,10 +2752,11 @@
       <div class="order-item" style="margin-top:12px">
         <div class="bot-switch">
           <div>
-            <div class="order-title" style="margin:0">자동 발행 ${cfg.enabled ? "켜짐" : "꺼짐"}</div>
+            <div class="order-title" style="margin:0">예약 글 자동 발행 ${cfg.enabled ? "켜짐" : "꺼짐"}</div>
             <div class="market-meta">${cfg.enabled
               ? `예약된 글이 시간에 맞춰 자동으로 올라갑니다. 오늘 ${todayCnt}/${cfg.daily_cap}건`
-              : "예약된 글이 있어도 나가지 않습니다."}</div>
+              : `예약된 ${count("approved")}건이 나가지 않습니다.`}<br>
+              <span style="color:var(--text-muted)">아래 AI 자동 댓글과는 별개입니다.</span></div>
           </div>
           <button class="host-chat-btn ${cfg.enabled ? "outline" : ""}" id="bot-toggle" style="width:auto;padding:10px 16px;margin:0">
             ${cfg.enabled ? "끄기" : "켜기"}
@@ -2796,8 +2797,9 @@
           <div>
             <div class="order-title" style="margin:0">AI 자동 댓글 ${cfg.auto_comment_enabled ? "켜짐" : "꺼짐"}</div>
             <div class="market-meta">${cfg.auto_comment_enabled
-              ? `공식 계정이 최근 글에 알아서 댓글을 답니다. 최근 24시간 ${acDay}/${cfg.ac_cap_24h}개`
-              : "글이 올라와도 자동으로 댓글이 달리지 않습니다."}</div>
+              ? `최근 글에 알아서 댓글을 답니다. 최근 24시간 ${acDay}/${cfg.ac_cap_24h}개`
+              : "글이 올라와도 자동으로 댓글이 달리지 않습니다."}<br>
+              <span style="color:var(--text-muted)">위 "자동 발행"과는 별개입니다 — 예약된 글은 나가지 않아요.</span></div>
           </div>
           <button class="host-chat-btn ${cfg.auto_comment_enabled ? "outline" : ""}" id="ac-toggle" style="width:auto;padding:10px 16px;margin:0">
             ${cfg.auto_comment_enabled ? "끄기" : "켜기"}
