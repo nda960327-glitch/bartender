@@ -71,7 +71,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.23.0";
+  const APP_BUILD = "2.24.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -2822,7 +2822,8 @@
             <button class="chip ${cfg.ac_ignore_quiet ? "active" : ""}" data-quietac="1">24시간 답니다</button>
             <button class="chip ${cfg.ac_ignore_quiet ? "" : "active"}" data-quietac="0">위 발행 설정을 따름</button>
           </div>` : ""}
-        <button class="host-chat-btn outline" id="ac-why" style="margin-top:12px">🔎 왜 안 나가는지 확인</button>
+        <button class="host-chat-btn" id="ac-run" style="margin-top:12px">▶ 지금 한 번 달아보기</button>
+        <button class="host-chat-btn outline" id="ac-why" style="margin-top:8px">🔎 왜 안 나가는지 확인</button>
         <div id="ac-why-out"></div>
         ${acRecent.length ? `
           <div class="market-meta" style="margin-top:14px">최근 자동 댓글</div>
@@ -2880,6 +2881,42 @@
       if (on && !(await btConfirm(`자동 발행을 켤까요?\n예약된 ${count("approved")}건이 시간에 맞춰 올라갑니다.`))) return;
       await botAfter(await Sync.botSaveSettings({ enabled: on }), on ? "자동 발행을 켰어요." : "자동 발행을 껐어요.");
     });
+    const acRun = $("#ac-run");
+    if (acRun) acRun.addEventListener("click", async () => {
+      const out = $("#ac-why-out");
+      acRun.textContent = "달아보는 중…";
+      acRun.disabled = true;
+      const r = await Sync.runAutoCommentNow();
+      acRun.textContent = "▶ 지금 한 번 달아보기";
+      acRun.disabled = false;
+
+      if (!r.ok) {
+        out.innerHTML = `<div class="market-meta" style="margin-top:10px">${esc(r.error)}</div>`;
+        return;
+      }
+      const j = r.result || {};
+      const WHY = {
+        no_target: "달 곳이 없어요 (꺼짐·쉬는 시간·상한·주사위·대상 글 없음)",
+        no_api_key: "서버에 API 키가 없어요 (OPENAI_API_KEY 또는 ANTHROPIC_API_KEY)",
+        bad_api_key: "API 키가 거부됐어요. 값을 다시 확인해주세요.",
+        model_error: "모델 호출이 실패했어요. Vercel 로그를 보세요.",
+        model_skipped: "모델이 쓸 말이 마땅치 않다고 건너뛰었어요. 다시 눌러보세요.",
+        refusal: "모델이 거절했어요. 다른 글에서 다시 시도해보세요.",
+        duplicate: "이미 달려 있는 글이에요.",
+        too_long: "너무 길게 써서 버렸어요.",
+        bad_model_output: "응답을 해석하지 못했어요.",
+      };
+      out.innerHTML = j.posted
+        ? `<div class="market-meta" style="margin-top:10px;line-height:1.7">
+             <b style="color:var(--accent)">✅ 달았습니다</b><br>
+             글 #${esc(String(j.post_id))} · ${esc(j.nick || "")}
+           </div>`
+        : `<div class="market-meta" style="margin-top:10px;line-height:1.7">
+             <b>안 달렸어요</b><br>${esc(WHY[j.reason] || j.reason || "알 수 없음")}
+           </div>`;
+      if (j.posted) await loadBots(true);
+    });
+
     const acWhy = $("#ac-why");
     if (acWhy) acWhy.addEventListener("click", async () => {
       const out = $("#ac-why-out");

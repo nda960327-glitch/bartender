@@ -5,7 +5,7 @@
  *
  *    1. auto_comment_pick()  — 지금 달아도 되는지 + 어느 글에 달지
  *                              (스위치·쉬는 시간·구간 상한·주사위 전부 DB 가 판단)
- *    2. Claude 가 그 글을 읽고 댓글 한 줄을 씁니다
+ *    2. AI 가 그 글을 읽고 댓글 한 줄을 씁니다
  *    3. auto_comment_publish() — 실제로 등록
  *
  *  1번이 빈손으로 돌아오면 2·3번은 아예 하지 않습니다. 그래서 자주 불러도
@@ -17,7 +17,7 @@
  *     CRON_SECRET                 ← publish.js 와 같은 값
  *
  *     그리고 아래 둘 중 아무거나 하나:
- *       OPENAI_API_KEY      (ChatGPT)   · 모델 기본값 gpt-4o-mini
+ *       OPENAI_API_KEY      (ChatGPT)   · 모델 기본값 gpt-4o
  *       ANTHROPIC_API_KEY   (Claude)    · 모델 기본값 claude-opus-5
  *
  *     둘 다 있으면 OPENAI 를 씁니다. 모델을 바꾸려면 AI_MODEL 을 넣으세요.
@@ -38,11 +38,38 @@ function secretMatches(given, expected) {
 }
 
 function presentedSecret(req) {
-  const auth = req.headers.authorization || "";
-  if (auth.startsWith("Bearer ")) return auth.slice(7).trim();
   const header = req.headers["x-cron-key"];
   if (typeof header === "string" && header) return header.trim();
+  const auth = req.headers.authorization || "";
+  if (auth.startsWith("Bearer ")) return auth.slice(7).trim();
   return "";
+}
+
+/* 관리자가 앱에서 직접 눌러볼 수 있게 합니다.
+   크론 열쇠를 모르는 상태에서도 "지금 한 번 달아보기"가 되어야, 크론이
+   문제인지 키가 문제인지 DB 가 문제인지를 따로 떼어 볼 수 있어요.
+
+   로그인 토큰을 Supabase 에 직접 물어 확인하고, admins 표에 있는지까지
+   봅니다. 둘 다 통과해야 진짜 관리자입니다. */
+async function isAdminRequest(env, req) {
+  const auth = req.headers.authorization || "";
+  if (!auth.startsWith("Bearer ")) return false;
+  const jwt = auth.slice(7).trim();
+  if (!jwt || jwt.length < 40) return false;
+
+  try {
+    const who = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: "Bearer " + jwt },
+    });
+    if (!who.ok) return false;
+    const u = await who.json();
+    if (!u || !u.id) return false;
+
+    const rows = await sel(env, "admins?user_id=eq." + encodeURIComponent(u.id) + "&select=user_id");
+    return Array.isArray(rows) && rows.length > 0;
+  } catch (e) {
+    return false;
+  }
 }
 
 function send(res, status, payload) {
@@ -191,7 +218,7 @@ async function writeComment(prompt) {
 }
 
 async function writeWithOpenAI(prompt) {
-  const model = (process.env.AI_MODEL || "gpt-4o-mini").trim();
+  const model = (process.env.AI_MODEL || "gpt-4o").trim();
   const r = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -282,7 +309,10 @@ module.exports = async (req, res) => {
     return send(res, 500, { ok: false, error: "server_not_configured" });
   }
 
-  if (!secretMatches(presentedSecret(req), CRON_SECRET)) {
+  // 크론 열쇠가 맞거나, 앱에서 로그인한 관리자거나.
+  let allowed = secretMatches(presentedSecret(req), CRON_SECRET);
+  if (!allowed) allowed = await isAdminRequest(env, req);
+  if (!allowed) {
     return send(res, 401, { ok: false, error: "unauthorized" });
   }
 

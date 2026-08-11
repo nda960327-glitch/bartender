@@ -1513,6 +1513,29 @@
      * 앱에서 status 를 '발행됨' 으로 직접 바꾸거나 작성 계정을 갈아끼우는 건
      * 서버 트리거가 되돌립니다. */
 
+    /* 자동 댓글을 지금 한 번 돌려봅니다 (관리자만).
+       크론을 기다리지 않고 바로 결과를 볼 수 있어요. 서버가 로그인 토큰으로
+       관리자인지 다시 확인하므로, 앱 코드를 고쳐도 남이 부를 수 없습니다. */
+    async runAutoCommentNow() {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      try {
+        var s = await sb.auth.getSession();
+        var jwt = s && s.data && s.data.session && s.data.session.access_token;
+        if (!jwt) return { ok: false, error: "로그인이 필요해요." };
+
+        var r = await fetch("/api/auto-comment", {
+          method: "GET",
+          headers: { Authorization: "Bearer " + jwt },
+        });
+        var j = await r.json().catch(function () { return {}; });
+        if (r.status === 401) return { ok: false, error: "권한이 없어요 (관리자만)." };
+        if (!r.ok) return { ok: false, error: (j && j.error) || ("HTTP " + r.status) };
+        return { ok: true, result: j };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "실행하지 못했어요." };
+      }
+    },
+
     /* 자동 댓글이 어디서 막혔는지. 읽기만 하고 아무것도 바꾸지 않아요. */
     async autoCommentWhy() {
       if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };

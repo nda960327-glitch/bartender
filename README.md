@@ -392,15 +392,23 @@ node tools/queue.mjs settings --daily-cap 2 --min-gap 180 --quiet 1-10
 
 | 변수 | 발급처 | 기본 모델 |
 |---|---|---|
-| `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com) | `gpt-4o-mini` |
+| `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com) | `gpt-4o` |
 | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) | `claude-opus-5` |
 
 둘 다 있으면 OpenAI 를 씁니다. 모델을 바꾸려면 `AI_MODEL` 을 넣으세요.
 넣기 전까지는 크론이 돌아도 `{"reason":"no_api_key"}` 만 돌려주고 아무 일도
 하지 않아요 (에러가 아니라 정상 응답입니다).
 
-**비용** — 댓글 한 개에 `gpt-4o-mini` 는 1원 안팎, `claude-opus-5` 는 20~40원
-정도입니다. 한두 줄짜리 댓글이라 싼 모델로도 충분해요.
+**비용** — 댓글 한 개당 대략:
+
+| 모델 | 1개 | 하루 3개 기준 한 달 |
+|---|---|---|
+| `gpt-4o` (기본값) | 6원 | 약 550원 |
+| `gpt-4o-mini` | 0.4원 | 약 40원 |
+| `claude-opus-5` | 20~40원 | 약 2,000원 |
+
+더 싸게 쓰려면 `AI_MODEL` 을 `gpt-4o-mini` 로 두세요. 액수 자체가 작아서
+문장 품질을 먼저 보고 정하시는 편이 낫습니다.
 
 **3. 크론** — 예약 발행과 똑같이 GitHub Actions 를 씁니다 (Vercel Hobby 는 크론이
 하루 1회라서요). `.github/workflows/auto-comment.yml` 이 10분마다 노크합니다.
