@@ -30,7 +30,7 @@ window.BARTALK_CONFIG = {
   //   ⚠️ 바 목록을 받아올 때 쓰는 REST API 키와 다른 값입니다.
   //   ⚠️ 같은 앱의 [플랫폼 > Web] 에 https://barapp.kr 을 등록해야 동작해요.
   // 비워두면 지도 자리에 안내만 뜨고 나머지는 그대로 동작합니다.
-  KAKAO_JS_KEY: "",
+  KAKAO_JS_KEY: "443d5fab23ab4ed0cb7a8bd5a699a427",
 
   // 안드로이드 앱 내려받는 곳.
   // 비워두면 "앱으로 받기" 버튼이 아예 안 나옵니다.

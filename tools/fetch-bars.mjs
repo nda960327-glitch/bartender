@@ -149,9 +149,11 @@ async function search(key, query, page) {
    "칵테일바"로 검색해도 카페·음식점이 섞여 나와요. */
 function looksLikeBar(doc) {
   const cat = String(doc.category_name || "");
-  if (!/술집|바\(BAR\)|바$|호프|이자카야|와인|칵테일/i.test(cat)) return false;
+  if (!/술집|바\(BAR\)|바$|이자카야|와인|칵테일/i.test(cat)) return false;
   // 프랜차이즈 포차·노래방은 뺍니다
   if (/노래|단란|유흥|룸살롱/.test(cat)) return false;
+  // 호프·맥줏집은 바텐더가 일하는 곳이 아니라서 뺍니다 (사장님 요청)
+  if (/호프|맥주/.test(cat)) return false;
   return true;
 }
 
@@ -159,7 +161,6 @@ function typeFrom(doc, fallback) {
   const cat = String(doc.category_name || "");
   if (/와인/.test(cat)) return "와인바";
   if (/이자카야/.test(cat)) return "이자카야";
-  if (/호프|맥주/.test(cat)) return "펍/호프";
   if (/칵테일|바\(BAR\)/.test(cat)) return "칵테일바";
   return fallback;
 }
@@ -257,7 +258,8 @@ KAKAO_REST_KEY 가 없습니다.
             const name = stripTags(it.title);
             const addr = it.roadAddress || it.address || "";
             if (!name || !addr) continue;
-            if (!/술집|바|와인|칵테일|이자카야|호프/i.test(String(it.category || ""))) continue;
+            if (!/술집|바|와인|칵테일|이자카야/i.test(String(it.category || ""))) continue;
+            if (/호프|맥주/.test(String(it.category || ""))) continue;   // 호프집은 제외
 
             const key = norm(name) + "|" + norm(addr.split(" ")[1] || "");
             if (seen.has(key)) { both++; continue; }
@@ -270,8 +272,7 @@ KAKAO_REST_KEY 가 없습니다.
               area: addr.split(" ").slice(0, 3).join(" "),
               addr,
               type: /와인/.test(it.category) ? "와인바"
-                : /이자카야/.test(it.category) ? "이자카야"
-                : /호프|맥주/.test(it.category) ? "펍/호프" : kind.type,
+                : /이자카야/.test(it.category) ? "이자카야" : kind.type,
               lat: round2(c.lat),
               lng: round2(c.lng),
             });

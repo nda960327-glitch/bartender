@@ -71,7 +71,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.28.0";
+  const APP_BUILD = "2.29.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -161,7 +161,7 @@
     ? window.BARTALK_BARS
     : SEED_BARS;
 
-  const BAR_TYPES = ["칵테일바", "위스키바", "와인바", "펍/호프", "하이볼바", "전통주바", "호텔바", "이자카야", "기타"];
+  const BAR_TYPES = ["칵테일바", "위스키바", "와인바", "하이볼바", "전통주바", "호텔바", "이자카야", "기타"];
 
 
   const SEED_SPIRITS = [
@@ -847,9 +847,11 @@
     bars: store.get("bars", []),        // 내가 등록한 곳만. 기본 목록은 barsAll() 이 합칩니다
     barQ: "",
     barRegion: "전체",
+    barKind: "전체",       // 칵테일바 / 위스키바 …
     barShow: 60,           // 한 번에 그리는 개수. "더 보기"로 늘어납니다
     barRadius: 0,          // 0 = 전체. 내 주변 모드에서만 씁니다
     myLoc: null,           // 앱을 끄면 사라집니다 — 저장하지 않아요
+    myLocLabel: "",        // "내 위치" 또는 직접 고른 동네 이름
     curBar: null,
     rankRows: null,        // 서버에서 받은 랭킹. null 이면 아직 안 받았어요
     rankState: "idle",     // idle | loading | ok | off | error
@@ -935,7 +937,7 @@
   const saveCart = () => store.set("cart", state.cart);
   const saveOrders = () => store.set("orders", state.orders);
   const saveWorklog = () => store.set("worklog", state.worklog);
-  const saveBars = () => store.set("bars", state.bars);
+  const saveBars = () => { store.set("bars", state.bars); resetDistricts(); };
 
   /* ---------- 사용자 필드 보강 (앱 업데이트 시) ---------- */
   state.user.cellar = state.user.cellar || { tried: [], wish: [] };
@@ -7049,11 +7051,19 @@
 
   /* 현재 위치 잡기.
      좌표는 소수점 둘째 자리까지만 남깁니다 (약 1km 격자). 어느 건물에
-     있는지까지 알 필요가 없고, 저장해두지도 않아요 — 앱을 끄면 사라집니다. */
+     있는지까지 알 필요가 없고, 저장해두지도 않아요 — 앱을 끄면 사라집니다.
+
+     why: 위치는 안 잡히는 경우가 정말 많습니다. 폰 GPS 가 꺼져 있거나,
+     설치형 앱이라 주소창 자물쇠가 없거나, 윈도우 자체 위치 설정이 꺼져 있거나.
+     그래서 실패 사유를 상황에 맞게 알려주고, 안 되면 동네를 직접 고르게 합니다. */
   function locateMe() {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
-        resolve({ ok: false, error: "이 기기는 위치를 알려주지 못해요." });
+        resolve({ ok: false, why: "unsupported", error: "이 기기는 위치를 알려주지 못해요." });
+        return;
+      }
+      if (!window.isSecureContext) {
+        resolve({ ok: false, why: "insecure", error: "https 주소가 아니라서 위치를 쓸 수 없어요." });
         return;
       }
       navigator.geolocation.getCurrentPosition(
@@ -7062,15 +7072,115 @@
           lat: Math.round(pos.coords.latitude * 100) / 100,
           lng: Math.round(pos.coords.longitude * 100) / 100,
         }),
-        (err) => resolve({
-          ok: false,
-          error: err && err.code === 1
-            ? "위치 권한이 꺼져 있어요. 브라우저 주소창 옆 자물쇠 > 위치 에서 허용해주세요."
-            : "위치를 잡지 못했어요. 실내라면 창가에서 다시 해보세요.",
-        }),
+        (err) => {
+          const code = err && err.code;
+          resolve({
+            ok: false,
+            why: code === 1 ? "denied" : code === 3 ? "timeout" : "unavailable",
+            error: code === 1 ? "위치 권한이 꺼져 있어요."
+              : code === 3 ? "위치를 잡는 데 너무 오래 걸려요."
+              : "지금은 위치를 알 수 없어요.",
+          });
+        },
         { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
       );
     });
+  }
+
+  /* 위치가 안 될 때 대신 쓸 "동네 좌표".
+     가게 주소에서 시/군/구까지만 잘라내고, 그 동네 가게들의 좌표 평균을
+     동네 중심으로 씁니다. 따로 좌표표를 들고 다닐 필요가 없어요. */
+  function districtOf(b) {
+    const parts = String(b.addr || b.area || "").trim().split(/\s+/);
+    const out = [];
+    for (const p of parts) {
+      out.push(p);
+      if (out.length >= 2 && /[시군구]$/.test(p)) break;
+      if (out.length >= 3) break;
+    }
+    return out.join(" ");
+  }
+  /* var 로 둡니다 — saveBars() 가 앱을 켜자마자(이 줄보다 먼저) 불릴 수 있어요 */
+  var _districts = null;
+  function resetDistricts() { _districts = null; }   // 내가 바를 등록하면 다시 계산
+  function districts() {
+    if (_districts) return _districts;
+    const map = new Map();
+    for (const b of barsAll()) {
+      if (typeof b.lat !== "number" || typeof b.lng !== "number") continue;
+      const d = districtOf(b);
+      if (!d) continue;
+      const cur = map.get(d) || { name: d, region: b.region || "", n: 0, lat: 0, lng: 0 };
+      cur.n++; cur.lat += b.lat; cur.lng += b.lng;
+      map.set(d, cur);
+    }
+    _districts = [...map.values()]
+      .map((d) => ({ ...d, lat: d.lat / d.n, lng: d.lng / d.n }))
+      .sort((a, b) => b.n - a.n);
+    return _districts;
+  }
+
+  /* 동네 직접 고르기 — 지역 고르고 → 그 안의 시/군/구 고르기 */
+  function openDistrictPicker(note) {
+    const regions = barRegions().filter((r) => r !== "전체");
+    openSheetHTML(
+      `<h3>동네 고르기</h3>
+       ${note ? `<p class="sheet-note" style="text-align:left;margin:-4px 0 14px">${esc(note)}</p>` : ""}
+       <div id="dp-body"></div>`,
+      (bd) => {
+        const body = bd.querySelector("#dp-body");
+        const drawRegions = () => {
+          body.innerHTML = regions.map((r) =>
+            `<button class="sheet-opt" data-r="${esc(r)}">${esc(r)}</button>`).join("");
+          body.querySelectorAll("[data-r]").forEach((btn) =>
+            btn.addEventListener("click", () => drawDistricts(btn.dataset.r)));
+        };
+        const drawDistricts = (region) => {
+          const ds = districts().filter((d) => d.region === region)
+            .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+          body.innerHTML =
+            `<button class="text-btn" id="dp-back" style="margin:0 0 10px">← 지역 다시 고르기</button>` +
+            ds.map((d, i) =>
+              `<button class="sheet-opt" data-i="${i}">${esc(d.name)} <span style="color:var(--text-muted);font-weight:500">${d.n}곳</span></button>`).join("");
+          body.querySelector("#dp-back").addEventListener("click", drawRegions);
+          body.querySelectorAll("[data-i]").forEach((btn) =>
+            btn.addEventListener("click", () => {
+              const d = ds[+btn.dataset.i];
+              state.myLoc = { lat: Math.round(d.lat * 100) / 100, lng: Math.round(d.lng * 100) / 100 };
+              state.myLocLabel = d.name;
+              state.barRegion = "전체";
+              state.barShow = 60;
+              bd.remove();
+              renderBars();
+              toast(`${d.name} 기준으로 가까운 순 정렬했어요.`);
+            }));
+        };
+        drawRegions();
+      }
+    );
+  }
+
+  /* 📍 버튼을 눌렀을 때 */
+  async function turnOnNearby(btn) {
+    const label = btn ? btn.innerHTML : "";
+    if (btn) { btn.disabled = true; btn.innerHTML = "위치 잡는 중…"; }
+    const r = await locateMe();
+    if (btn) { btn.disabled = false; btn.innerHTML = label; }
+    if (r.ok) {
+      state.myLoc = { lat: r.lat, lng: r.lng };
+      state.myLocLabel = "내 위치";
+      state.barRegion = "전체";
+      state.barShow = 60;
+      renderBars();
+      toast("가까운 순으로 정렬했어요. 📍");
+      return;
+    }
+    /* 실패 — 왜 안 됐는지 말해주고, 동네를 직접 고르게 합니다.
+       "허용해주세요" 만 띄우고 끝내면 설치형 앱에서는 방법이 없어요. */
+    const how = r.why === "denied"
+      ? "브라우저면 주소창 옆 자물쇠 > 위치 에서, 설치한 앱이면 윈도우 설정 > 개인 정보 > 위치 에서 켤 수 있어요."
+      : r.why === "insecure" ? "" : "실내라면 창가에서 다시 해보세요.";
+    openDistrictPicker(`${r.error} ${how}\n대신 동네를 직접 고르면 그 동네 기준으로 가까운 순으로 보여드려요.`);
   }
 
   function barRegions() {
@@ -7078,43 +7188,29 @@
     return ["전체", ...[...set].sort((a, b) => a.localeCompare(b, "ko"))];
   }
 
+  function barKinds() {
+    const cnt = new Map();
+    for (const b of barsAll()) if (b.type) cnt.set(b.type, (cnt.get(b.type) || 0) + 1);
+    return ["전체", ...[...cnt.entries()].sort((a, b) => b[1] - a[1]).map((e) => e[0])];
+  }
+
+  /* 고른 칩이 화면 밖에 있으면 보이게 끌어옵니다.
+     칩 줄이 가로로 길어서, 안 하면 뭘 골랐는지 안 보여요. */
+  function scrollChipIntoView(row) {
+    const on = row && row.querySelector(".chip.active");
+    if (!on) return;
+    const left = on.offsetLeft - row.clientWidth / 2 + on.offsetWidth / 2;
+    row.scrollTo({ left: Math.max(0, left), behavior: "auto" });
+  }
+
   function renderBars() {
     const near = !!state.myLoc;
 
-    /* 위치를 잡았으면 지역 칩 대신 거리 칩을 보여줍니다.
-       내 주변을 보는 중에 "서울/경기"를 또 고르게 하면 서로 싸워요. */
-    $("#bar-regions").innerHTML = near
-      ? BAR_RADIUS.map((r) =>
-        `<button class="chip ${r.km === state.barRadius ? "active" : ""}" data-km="${r.km}">${r.k}</button>`).join("")
-        + '<button class="chip" id="bar-loc-off">✕ 내 주변 끄기</button>'
-      : barRegions().map((r) =>
-        `<button class="chip ${r === state.barRegion ? "active" : ""}" data-r="${esc(r)}">${esc(r)}</button>`).join("")
-        + '<button class="chip" id="bar-loc-on">📍 내 주변</button>';
-
-    $$("#bar-regions [data-r]").forEach((ch) =>
-      ch.addEventListener("click", () => { state.barRegion = ch.dataset.r; state.barShow = 60; renderBars(); }));
-    $$("#bar-regions [data-km]").forEach((ch) =>
-      ch.addEventListener("click", () => { state.barRadius = +ch.dataset.km; state.barShow = 60; renderBars(); }));
-
-    const onBtn = $("#bar-loc-on");
-    if (onBtn) onBtn.addEventListener("click", async () => {
-      onBtn.textContent = "위치 잡는 중…";
-      const r = await locateMe();
-      if (!r.ok) { toast(r.error); renderBars(); return; }
-      state.myLoc = { lat: r.lat, lng: r.lng };
-      state.barRegion = "전체";
-      renderBars();
-      toast("가까운 순으로 정렬했어요. 📍");
-    });
-    const offBtn = $("#bar-loc-off");
-    if (offBtn) offBtn.addEventListener("click", () => {
-      state.myLoc = null;
-      renderBars();
-    });
-
+    /* ---- 걸러내기 ---- */
     const q = state.barQ.trim().toLowerCase();
     let list = barsAll().filter((b) => {
-      if (!near && state.barRegion !== "전체" && b.region !== state.barRegion) return false;
+      if (state.barRegion !== "전체" && b.region !== state.barRegion) return false;
+      if (state.barKind !== "전체" && b.type !== state.barKind) return false;
       if (!q) return true;
       return [b.name, b.area, b.addr, b.type, b.note, (b.tags || []).join(" ")]
         .filter(Boolean).join(" ").toLowerCase().includes(q);
@@ -7133,23 +7229,70 @@
     } else {
       list = list.map((b) => ({ b, km: null }));
     }
-
-    /* 4천 곳을 한 번에 그리면 폰이 버팁니다. 끊어서 보여주고
-       "더 보기"로 늘려요. 검색·지역·거리로 좁히면 대개 여기 안 걸립니다. */
     const total = list.length;
+
+    /* ---- 맨 윗줄: 가까운 순 버튼 + 몇 곳인지 ----
+       예전엔 📍 가 칩 줄 맨 끝에 있어서 가로로 밀어야 보였습니다.
+       가장 쓸모 있는 기능인데 안 보이면 없는 것과 같아요. */
+    $("#bar-tools").innerHTML = near
+      ? `<button class="bar-loc-btn on" id="bar-loc">
+           <span>📍</span> ${esc(state.myLocLabel || "내 위치")} 기준 · 가까운 순
+         </button>
+         <button class="bar-loc-x" id="bar-loc-off" aria-label="끄기">✕</button>
+         <span class="bar-count">${fmtNum(total)}곳</span>`
+      : `<button class="bar-loc-btn" id="bar-loc"><span>📍</span> 가까운 순으로 보기</button>
+         <span class="bar-count">${fmtNum(total)}곳</span>`;
+
+    $("#bar-loc").addEventListener("click", (e) => {
+      if (near) { openDistrictPicker("다른 동네 기준으로 볼 수 있어요."); return; }
+      turnOnNearby(e.currentTarget);
+    });
+    const offBtn = $("#bar-loc-off");
+    if (offBtn) offBtn.addEventListener("click", () => {
+      state.myLoc = null; state.myLocLabel = ""; state.barRadius = 0; state.barShow = 60;
+      renderBars();
+    });
+
+    /* ---- 둘째 줄: 지역 (가까운 순일 땐 거리) ---- */
+    const rowR = $("#bar-regions");
+    rowR.innerHTML = near
+      ? BAR_RADIUS.map((r) =>
+        `<button class="chip ${r.km === state.barRadius ? "active" : ""}" data-km="${r.km}">${r.k}</button>`).join("")
+      : barRegions().map((r) =>
+        `<button class="chip ${r === state.barRegion ? "active" : ""}" data-r="${esc(r)}">${esc(r)}</button>`).join("");
+
+    $$("#bar-regions [data-r]").forEach((ch) =>
+      ch.addEventListener("click", () => { state.barRegion = ch.dataset.r; state.barShow = 60; renderBars(); }));
+    $$("#bar-regions [data-km]").forEach((ch) =>
+      ch.addEventListener("click", () => { state.barRadius = +ch.dataset.km; state.barShow = 60; renderBars(); }));
+
+    /* ---- 셋째 줄: 종류 ---- */
+    const rowK = $("#bar-kinds");
+    rowK.innerHTML = barKinds().map((k) =>
+      `<button class="chip ${k === state.barKind ? "active" : ""}" data-k="${esc(k)}">${esc(k)}</button>`).join("");
+    $$("#bar-kinds [data-k]").forEach((ch) =>
+      ch.addEventListener("click", () => { state.barKind = ch.dataset.k; state.barShow = 60; renderBars(); }));
+
+    scrollChipIntoView(rowR);
+    scrollChipIntoView(rowK);
+
+    /* 3천 곳을 한 번에 그리면 폰이 버팁니다. 끊어서 보여주고
+       "더 보기"로 늘려요. 검색·지역·거리로 좁히면 대개 여기 안 걸립니다. */
     const shown = Math.min(total, state.barShow);
     list = list.slice(0, shown);
 
     $("#bar-list").innerHTML = list.length
       ? list.map(({ b, km }) => `
         <button class="bar-item pressable" data-id="${b.id}">
-          <span class="bar-badge">${esc((b.type || "바").slice(0, 3))}</span>
+          <span class="bar-badge">${esc((b.type || "바").replace(/바$/, "") || "바")}</span>
           <div class="bar-main">
             <div class="bar-name">${esc(b.name)}${state.user.myBars.includes(b.id) ? ' <span class="me-tag">단골</span>' : ""}</div>
             <div class="bar-addr-line">${esc(b.addr || b.area || b.region || "")}</div>
             ${(b.tags || []).length ? `<div class="bar-tags">${b.tags.map((t) => `<span>#${esc(t)}</span>`).join("")}</div>` : ""}
           </div>
-          ${km === null ? "" : `<span class="bar-km">${km === Infinity ? "?" : fmtKm(km)}</span>`}
+          ${km === null
+            ? '<span class="bar-go">›</span>'
+            : `<span class="bar-km">${km === Infinity ? "?" : fmtKm(km)}</span>`}
         </button>`).join("")
         + (shown < total
           ? `<button class="text-btn" id="bar-more" style="width:100%;padding:16px 0">
@@ -7160,9 +7303,9 @@
             거리는 <b>가게 위치가 아니라 그 동네 중심</b>까지의 대략적인 값이에요.
             정확한 위치는 방문 전에 직접 확인해주세요.${noCoord ? `<br>동네를 안 적은 ${noCoord}곳은 맨 뒤에 뒀습니다.` : ""}
           </p>` : "")
-      : `<div class="empty-state">${near
-        ? `${state.barRadius}km 안에는 등록된 바가 없어요.<br>범위를 넓혀보세요.`
-        : (q || state.barRegion !== "전체"
+      : `<div class="empty-state">${near && state.barRadius
+        ? `${state.barRadius}km 안에는 조건에 맞는 바가 없어요.<br>범위를 넓혀보세요.`
+        : (q || state.barRegion !== "전체" || state.barKind !== "전체"
           ? "조건에 맞는 바가 없어요."
           : "아직 등록된 바가 없어요. 오른쪽 위 + 로 추가해보세요.")}</div>`;
 
@@ -7192,12 +7335,13 @@
    *    플랫폼 > Web 에 도메인(https://barapp.kr)이 등록돼 있어야 합니다.
    */
   let kakaoMapState = "idle";        // idle | loading | ready | off
+  let kakaoMapReason = "nokey";      // nokey | domain — 안 나올 때 뭘 고쳐야 하는지
   function loadKakaoMaps() {
     return new Promise((resolve) => {
       if (kakaoMapState === "ready") return resolve(true);
       if (kakaoMapState === "off") return resolve(false);
       const key = String(CFG.KAKAO_JS_KEY || "").trim();
-      if (!key) { kakaoMapState = "off"; return resolve(false); }
+      if (!key) { kakaoMapState = "off"; kakaoMapReason = "nokey"; return resolve(false); }
       if (kakaoMapState === "loading") {
         const wait = setInterval(() => {
           if (kakaoMapState !== "loading") { clearInterval(wait); resolve(kakaoMapState === "ready"); }
@@ -7205,6 +7349,9 @@
         return;
       }
       kakaoMapState = "loading";
+      /* 키가 있는데도 안 열리는 건 거의 다 "이 도메인이 등록 안 됨" 입니다.
+         키를 넣어놓고 "키를 채워주세요" 라고 하면 하루를 날려요. */
+      kakaoMapReason = "domain";
       const sc = document.createElement("script");
       sc.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&autoload=false`;
       sc.onload = () => {
@@ -7224,7 +7371,13 @@
     if (!canvas) return;                     // 그 사이 다른 화면으로 갔습니다
     if (!ok) {
       canvas.hidden = true;
-      if (off) off.hidden = false;
+      if (off) {
+        off.hidden = false;
+        const p = off.querySelector("p");
+        if (p) p.innerHTML = kakaoMapReason === "nokey"
+          ? "지도를 보려면 <b>js/config.js</b> 의<br>KAKAO_JS_KEY 를 채워주세요."
+          : `카카오 개발자 > 내 애플리케이션 > 플랫폼 > Web 에<br><b>${esc(location.origin)}</b> 을 등록해주세요.`;
+      }
       return;
     }
     try {

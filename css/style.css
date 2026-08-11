@@ -1249,6 +1249,13 @@ textarea.input { height: auto; }
 /* ---------- 계산기 ---------- */
 .sort-row { display: flex; gap: 6px; padding: 0 16px 10px; }
 .sort-row .chip { padding: 7px 13px; font-size: 13px; }
+/* 칩이 많은 줄은 가로로 밀어서 봅니다. 스크롤바는 자리만 먹어서 숨겨요. */
+#bar-regions, #bar-kinds {
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+#bar-regions::-webkit-scrollbar, #bar-kinds::-webkit-scrollbar { display: none; }
+#bar-regions .chip, #bar-kinds .chip { flex: none; }
+#bar-kinds { padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .calc-row {
   display: grid; grid-template-columns: 1.4fr 1fr 0.9fr 0.9fr 34px; gap: 6px;
   margin-bottom: 8px; align-items: center;
@@ -1570,6 +1577,33 @@ textarea.input { height: auto; }
 
 
 /* ---------- 바 찾기 ---------- */
+/* 맨 윗줄 — "가까운 순" 버튼과 몇 곳인지 */
+.bar-tools {
+  display: flex; align-items: center; gap: 8px; padding: 12px 16px 10px;
+}
+.bar-loc-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 15px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--bg-card); color: var(--text); cursor: pointer;
+  font-size: 13.5px; font-weight: 700; white-space: nowrap;
+  max-width: calc(100% - 90px); overflow: hidden; text-overflow: ellipsis;
+}
+.bar-loc-btn span { font-size: 14px; }
+.bar-loc-btn.on {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+.bar-loc-btn:disabled { opacity: .6; }
+.bar-loc-x {
+  flex: none; width: 32px; height: 32px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--bg-card);
+  color: var(--text-sub); font-size: 13px; cursor: pointer;
+}
+.bar-count {
+  margin-left: auto; flex: none;
+  font-size: 12.5px; font-weight: 700; color: var(--text-muted);
+}
+.bar-go { flex: none; align-self: center; color: var(--text-muted); font-size: 20px; }
+
 .bar-item {
   display: flex; align-items: flex-start; gap: 12px; width: 100%;
   padding: 14px 16px; border: none; border-bottom: 1px solid var(--line);
