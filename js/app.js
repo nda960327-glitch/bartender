@@ -88,33 +88,6 @@
     } catch (e) { /* 판단 못 하면 그냥 웹으로 봅니다 */ }
     return false;
   }
-  /* 안드로이드 앱이 ?fcm=... 로 자기 알림 주소를 건네줍니다.
-     로그인한 뒤라야 누구 것인지 알 수 있으므로, 등록은 여기서 합니다.
-     주소창에 토큰이 남아 있으면 지저분하니 등록 후 지워요. */
-  function registerFcmFromUrl() {
-    let token = null;
-    try {
-      token = new URL(location.href).searchParams.get("fcm");
-    } catch (e) { return; }
-    if (!token) return;
-
-    // 주소에서 지웁니다 (기록에도 안 남게 replaceState).
-    try {
-      const u = new URL(location.href);
-      u.searchParams.delete("fcm");
-      history.replaceState(history.state, "", u.pathname + u.search + u.hash);
-    } catch (e) { /* 못 지워도 등록은 합니다 */ }
-
-    // 로그인 전이면 소용없으니, 로그인될 때까지 잠깐 기다렸다 넣어요.
-    let tries = 0;
-    const tryOnce = () => {
-      if (Sync.ready && Sync.ready()) { Sync.saveFcmToken(token); return; }
-      if (++tries > 20) return;          // 1분쯤 기다리다 포기
-      setTimeout(tryOnce, 3000);
-    };
-    tryOnce();
-  }
-
   function showAppDownload() {
     const btn = $("#app-download");
     if (!btn) return;
@@ -6423,7 +6396,6 @@
     toast("삭제했어요.");
   });
   $("#stock-add").addEventListener("click", () => openStockSheet(null));
-  registerFcmFromUrl();
   $("#app-download").addEventListener("click", () => {
     const url = String(CFG.APP_ANDROID_URL || "").trim();
     if (!url) return;

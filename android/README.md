@@ -37,22 +37,36 @@ Gradle 과 SDK 는 Studio 가 알아서 받습니다. 처음 열면 몇 분 걸�
 
 ## 주소창 없애기 (Digital Asset Links)
 
-앱과 웹이 서로를 인정해야 주소창이 사라집니다. 지금은 웹 쪽 인정서에
-지문이 비어 있어요.
+앱과 웹이 서로를 인정해야 주소창이 사라집니다. **디버그 빌드용 지문은 이미
+넣어두었습니다** — 지금 만든 debug APK 는 배포만 되면 바로 주소창 없이 뜹니다.
+
+`.well-known/assetlinks.json` 에 들어 있는 값:
+
+```
+FA:57:7A:D8:CF:4A:A8:39:22:25:4D:5C:B0:6A:40:4E:26:31:9D:67:17:6E:18:F5:33:0F:EE:2D:B0:90:D0:9D
+```
+
+이건 이 PC 의 안드로이드 디버그 키(`~/.android/debug.keystore`) 지문입니다.
+비밀이 아니에요 — 원래 공개되는 값이고, 모든 개발 PC 가 각자 다른 값을 갖습니다.
+**다른 PC 에서 빌드하면 지문이 달라 주소창이 다시 생깁니다.** 그때는 그 PC 에서
+아래를 돌려 나온 값을 배열에 하나 더 넣으세요 (여러 개 넣을 수 있습니다).
+
+```
+keytool -list -v -keystore %USERPROFILE%.androiddebug.keystore -alias androiddebugkey -storepass android -keypass android
+```
+
+### 스토어에 올릴 때
+
+Play 는 자체 키로 다시 서명하므로 지문이 또 달라집니다.
 
 1. Play Console > 앱 > 설정 > **앱 서명** 에서 **SHA-256 인증서 지문** 복사
-2. 저장소의 `.well-known/assetlinks.json` 에서
-   `REPLACE_WITH_SHA256_FINGERPRINT_FROM_PLAY_CONSOLE` 를 그 값으로 교체
-3. 커밋 → 푸시 (Vercel 이 자동 배포)
-4. 앱을 지웠다 다시 설치
+2. `assetlinks.json` 의 배열에 **추가** (디버그 지문은 지워도 되고 둬도 됩니다)
+3. 커밋 → 푸시 (Vercel 자동 배포)
+4. 앱 재설치
 
-로컬 디버그 빌드로 먼저 확인하려면 디버그 키 지문을 쓰세요:
+> ⚠️ 배열에 `REPLACE_WITH...` 같은 자리표시자 문자열을 남겨두지 마세요.
+> 형식이 안 맞는 항목이 하나라도 있으면 안드로이드가 파일 전체를 무시합니다.
 
-```
-keytool -list -v -keystore %USERPROFILE%\.android\debug.keystore -alias androiddebugkey -storepass android -keypass android
-```
-
-지문을 `assetlinks.json` 배열에 하나 더 넣으면 됩니다 (여러 개 넣을 수 있어요).
 
 ## 값 바꾸기
 
@@ -132,63 +146,3 @@ TWA 에서 웹 푸시가 어떻게 도착하는지 헷갈리기 쉬워서 적어
 1. 앱에서 주소창이 안 보인다 → 검증 완료
 2. 앱 안에서 알림 켜기 → 안드로이드 알림 권한 허용
 3. 관리자에서 테스트 발송 → 앱 이름으로 뜨는지 확인
-
-## FCM 붙이기 (네이티브 알림)
-
-앱이 크롬을 거치지 않고 직접 알림을 받습니다. **Digital Asset Links 검증과
-무관하게 동작**해서, 서명키를 아직 안 만들었어도 알림이 옵니다.
-
-`google-services.json` 이 없으면 FCM 만 잠들고 앱은 그대로 빌드·동작합니다.
-
-### 1. 파이어베이스 프로젝트
-
-[console.firebase.google.com](https://console.firebase.google.com) → 프로젝트 만들기
-→ 안드로이드 앱 추가 → 패키지 이름 **`kr.barapp.bartalk`**
-
-`google-services.json` 을 받아 **`android/app/google-services.json`** 에 넣으세요.
-(`.gitignore` 로 막아두었습니다 — 저장소에 올리지 마세요)
-
-### 2. 서버 키
-
-파이어베이스 콘솔 → 프로젝트 설정 → **서비스 계정** → 새 비공개 키 생성
-→ 받은 JSON **전체를 한 줄로** 만들어 Vercel 환경변수에 넣습니다.
-
-| 변수 | 값 |
-|---|---|
-| `FCM_SERVICE_ACCOUNT` | 서비스 계정 JSON 전체 |
-
-넣고 **Redeploy**. 이 값이 없으면 FCM 발송만 건너뛰고 웹푸시는 그대로 나갑니다.
-
-### 3. 표 만들기
-
-Supabase SQL Editor 에 **`supabase/fcm.sql`** 실행.
-
-### 4. 확인
-
-앱을 켜면 주소가 이렇게 열립니다.
-
-```
-https://barapp.kr/?fcm=<이 기기의 알림 주소>
-```
-
-웹이 그 값을 읽어 `fcm_tokens` 에 등록하고 주소창에서 지웁니다.
-**처음 설치 직후 한 번은 토큰이 아직 없어 그냥 열립니다** — 두 번째 실행부터
-실려 가요. 등록됐는지는 Supabase 에서 확인할 수 있습니다.
-
-```sql
-select token, platform, updated_at from fcm_tokens;
-```
-
-### 웹푸시와 같이 씁니다
-
-한 사람이 웹과 앱을 둘 다 쓰면 양쪽으로 갑니다.
-
-```
-api/push-send.js
-   ├─ fcm_tokens        → 앱 (FCM)
-   └─ push_subscriptions → 웹 (VAPID 웹푸시)
-```
-
-알림을 눌렀을 때 여는 주소 규칙은 `sw.js` 의 notificationclick 과 맞춰뒀습니다
-(`?post=` / `?meet=` / `?chat=` / `?admin=1`). 한쪽만 고치면 웹과 앱이 서로
-다른 화면을 엽니다.

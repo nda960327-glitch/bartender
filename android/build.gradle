@@ -1,6 +1,4 @@
 // 최상위 빌드 파일. 하위 모듈이 공통으로 쓸 플러그인만 선언합니다.
 plugins {
     id 'com.android.application' version '8.13.0' apply false
-    // FCM 용. google-services.json 이 있을 때만 app 모듈에서 켭니다.
-    id 'com.google.gms.google-services' version '4.4.2' apply false
 }

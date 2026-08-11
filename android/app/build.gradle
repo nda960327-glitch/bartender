@@ -2,19 +2,6 @@ plugins {
     id 'com.android.application'
 }
 
-/*
- * google-services.json 이 있을 때만 FCM 을 켭니다.
- * 파이어베이스를 아직 안 붙였어도 프로젝트가 그대로 빌드되도록 하려고요.
- */
-def fcmFile = file('google-services.json')
-def useFcm = fcmFile.exists()
-if (useFcm) {
-    apply plugin: 'com.google.gms.google-services'
-} else {
-    logger.lifecycle("[바텐톡] google-services.json 이 없어 FCM 없이 빌드합니다. " +
-                     "알림을 쓰려면 android/README.md 의 'FCM 붙이기'를 보세요.")
-}
-
 android {
     namespace 'kr.barapp.bartalk'
     compileSdk 36
@@ -25,12 +12,11 @@ android {
         targetSdk 36
         versionCode 1
         versionName "1.2.0"
-
     }
-
 
     buildTypes {
         release {
+            // 코드가 거의 없는 껍데기라 난독화할 것이 없습니다.
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
@@ -43,10 +29,7 @@ android {
 }
 
 dependencies {
-    // 웹앱을 주소창 없이 띄워주는 라이브러리 (Google 제공)
+    // 웹앱을 주소창 없이 띄워주는 라이브러리 (Google 제공).
+    // 이 앱의 코드는 사실상 이것뿐입니다 — 화면은 전부 barapp.kr 이 그립니다.
     implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
-
-    // 알림. google-services.json 이 없으면 초기화만 안 될 뿐 빌드는 됩니다.
-    implementation platform('com.google.firebase:firebase-bom:33.7.0')
-    implementation 'com.google.firebase:firebase-messaging'
 }

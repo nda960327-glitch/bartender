@@ -25,7 +25,6 @@
  * ============================================================ */
 
 const webpush = require("web-push");
-const fcm = require("./_fcm.js");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -71,39 +70,11 @@ async function dropDeadSub(endpoint) {
   } catch (e) { /* 정리 실패는 다음 발송 때 다시 시도됩니다 */ }
 }
 
-async function dropFcmToken(token) {
-  try {
-    await fetch(SUPABASE_URL + "/rest/v1/fcm_tokens?token=eq." + encodeURIComponent(token), {
-      method: "DELETE",
-      headers: { apikey: SERVICE_KEY, Authorization: "Bearer " + SERVICE_KEY },
-    });
-  } catch (e) { /* 정리 실패는 다음 발송 때 다시 시도됩니다 */ }
-}
-
-/* 안드로이드 앱으로 보냅니다. fcm.sql 을 안 넣었으면 조용히 0 을 돌려줘요. */
-async function sendFcm(userId, payload) {
-  if (!fcm.enabled()) return 0;
-  let rows = [];
-  try {
-    rows = await db("fcm_tokens?user_id=eq." + userId + "&select=token");
-  } catch (e) { return 0; }
-  if (!rows.length) return 0;
-
-  let sent = 0;
-  await Promise.all(rows.map(async (row) => {
-    const r = await fcm.sendOne(row.token, payload);
-    if (r === "ok") sent++;
-    else if (r === "dead") await dropFcmToken(row.token);
-  }));
-  return sent;
-}
-
-/* 한 사람의 모든 기기로 보냅니다 (웹 + 앱). */
+/* 한 사람의 모든 기기로 보냅니다. */
 async function sendTo(userId, payload) {
-  const appSent = await sendFcm(userId, payload);
   const subs = await db("push_subscriptions?user_id=eq." + userId + "&select=endpoint,p256dh,auth");
-  if (!subs.length) return appSent;
-  let sent = appSent;
+  if (!subs.length) return 0;
+  let sent = 0;
   const body = JSON.stringify(payload);
   await Promise.all(subs.map(async (s) => {
     try {
