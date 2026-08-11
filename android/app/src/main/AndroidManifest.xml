@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  바텐톡 안드로이드 껍데기 (Trusted Web Activity)
+
+  화면을 새로 만들지 않습니다. https://barapp.kr 을 주소창 없이 전체화면으로
+  띄우는 것이 전부예요. 그래서 웹을 고쳐 배포하면 앱도 같이 바뀝니다.
+  스토어에 다시 올릴 필요가 없습니다.
+
+  주소창이 사라지려면 barapp.kr 이 "이 앱은 내 것"이라고 인정해줘야 합니다.
+  그 인정서가 /.well-known/assetlinks.json 이에요. 거기 서명키 지문이 안 맞으면
+  앱 위쪽에 주소창이 그대로 남습니다 (동작은 합니다).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 안드로이드 13+ 에서 알림을 보내려면 필요합니다 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.BarTalk">
+
+        <meta-data
+            android:name="asset_statements"
+            android:resource="@string/asset_statements" />
+
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:exported="true"
+            android:label="@string/app_name">
+
+            <meta-data
+                android:name="android.support.customtabs.trusted.DEFAULT_URL"
+                android:value="@string/launch_url" />
+
+            <!-- 상태바·내비게이션바 색. 웹의 theme_color 와 맞췄습니다. -->
+            <meta-data
+                android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
+                android:resource="@color/colorPrimary" />
+            <meta-data
+                android:name="android.support.customtabs.trusted.NAVIGATION_BAR_COLOR"
+                android:resource="@color/navigationColor" />
+
+            <!-- 브라우저가 뜨는 동안 보여줄 시작 화면 -->
+            <meta-data
+                android:name="android.support.customtabs.trusted.SPLASH_IMAGE_DRAWABLE"
+                android:resource="@drawable/splash" />
+            <meta-data
+                android:name="android.support.customtabs.trusted.SPLASH_SCREEN_BACKGROUND_COLOR"
+                android:resource="@color/backgroundColor" />
+            <meta-data
+                android:name="androidx.browser.trusted.splashscreen.PROVIDER_AUTHORITY"
+                android:value="kr.barapp.bartalk.fileprovider" />
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- barapp.kr 링크를 눌렀을 때 이 앱으로 열리게 합니다.
+                 autoVerify 가 assetlinks.json 을 확인합니다. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="barapp.kr" />
+            </intent-filter>
+        </activity>
+
+        <!-- 시작 화면 이미지를 브라우저에 건네주는 통로입니다.
+             위 SPLASH_IMAGE_DRAWABLE 을 쓰려면 이게 있어야 해요. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="kr.barapp.bartalk.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/filepaths" />
+        </provider>
+
+        <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />
+
+        <!-- 크롬이 없거나 TWA 를 못 쓰는 기기용 대비책 -->
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.WebViewFallbackActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" />
+
+        <!-- 앱을 닫아둬도 오는 알림을 이 서비스가 받습니다 -->
+        <service
+            android:name="com.google.androidbrowserhelper.trusted.DelegationService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+
+    </application>
+</manifest>

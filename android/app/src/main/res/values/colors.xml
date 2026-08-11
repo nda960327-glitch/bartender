@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 웹 manifest.json 의 theme_color 와 같은 값입니다 -->
+    <color name="colorPrimary">#ff5c35</color>
+    <color name="navigationColor">#ffffff</color>
+    <color name="backgroundColor">#ffffff</color>
+    <color name="ic_launcher_background">#ff5c35</color>
+</resources>

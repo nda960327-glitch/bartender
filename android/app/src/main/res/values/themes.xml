@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 껍데기라 화면이 없습니다. 브라우저가 뜨기 전 한순간만 보이는 테마예요. -->
+    <style name="Theme.BarTalk" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">@color/colorPrimary</item>
+        <item name="android:windowBackground">@color/backgroundColor</item>
+    </style>
+</resources>

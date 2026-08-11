@@ -1,0 +1,4 @@
+// 최상위 빌드 파일. 하위 모듈이 공통으로 쓸 플러그인만 선언합니다.
+plugins {
+    id 'com.android.application' version '8.13.0' apply false
+}

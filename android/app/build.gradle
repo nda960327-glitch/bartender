@@ -1,0 +1,35 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'kr.barapp.bartalk'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "kr.barapp.bartalk"
+        minSdk 21          // 안드로이드 5.0. TWA 가 도는 하한선입니다.
+        targetSdk 36
+        versionCode 1
+        versionName "1.2.0"
+    }
+
+    buildTypes {
+        release {
+            // 코드가 거의 없는 껍데기라 난독화할 것이 없습니다.
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // 웹앱을 주소창 없이 띄워주는 라이브러리 (Google 제공).
+    // 이 앱의 코드는 사실상 이것뿐입니다 — 화면은 전부 barapp.kr 이 그립니다.
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+}

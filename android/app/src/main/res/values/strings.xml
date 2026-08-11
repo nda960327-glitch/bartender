@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">바텐톡</string>
+
+    <!-- 앱을 켜면 열리는 주소 -->
+    <string name="launch_url" translatable="false">https://barapp.kr/</string>
+
+    <!--
+      "이 앱은 barapp.kr 을 대신 띄웁니다" 라는 앱 쪽 선언입니다.
+      웹 쪽 선언(/.well-known/assetlinks.json)과 짝이 맞아야
+      주소창이 사라집니다. 둘 중 하나만 있으면 소용없어요.
+    -->
+    <string name="asset_statements" translatable="false">
+        [{
+          \"relation\": [\"delegate_permission/common.handle_all_urls\"],
+          \"target\": {
+            \"namespace\": \"web\",
+            \"site\": \"https://barapp.kr\"
+          }
+        }]
+    </string>
+</resources>
