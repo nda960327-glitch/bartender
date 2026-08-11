@@ -10,7 +10,7 @@
  * 커뮤니티 앱에서는 치명적이라 네트워크 우선으로 바꿨습니다.
  * 첫 화면이 아주 조금 느려지지만 파일이 작아 체감되지 않습니다.
  */
-const VERSION = "2.31.0";
+const VERSION = "2.32.0";
 const CACHE = "bartalk-v" + VERSION;
 
 // 오프라인에서도 앱이 뜨도록 미리 받아두는 파일
@@ -26,7 +26,7 @@ const SHELL = [
   "./js/sfx.js",
   "./js/char.js",
   "./js/seed-content.js",
-  "./js/seed-content.js",
+  "./js/seed-reviews.js",
   "./js/app.js",
   // 심층 도감 데이터(cocktail-deep.js / whisky-deep.js)는 셸에서 뺐어요.
   // 설치할 때 500KB 를 같이 받으면 첫 방문이 느려지고, 어차피 도감에 들어가면

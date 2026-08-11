@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.31.0";
+  const APP_BUILD = "2.32.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -775,6 +775,26 @@
     { id: 506, region: "대전", title: "대전 홈텐딩 모임 🏠", date: now + 8 * D, place: "둔산동 파티룸", max: 8, joined: 4, desc: "각자 자신있는 칵테일 한 잔씩 만들어서 나눠 마셔요. 재료는 공동 구매!", host: "익명", hostColor: 5, isJoined: false, comments: [] }
   );
 
+  /* 술도감 예시 리뷰 붙이기 (js/seed-reviews.js).
+     앱을 처음 열었을 때 리뷰가 하나도 없으면 죽은 앱처럼 보여요.
+     이미 리뷰가 있는 항목은 건드리지 않고, 서버에서 온 진짜 리뷰가
+     생기면 그 아래에 함께 보입니다. 파일이 없어도 앱은 그대로 돕니다. */
+  if (window.BARTALK_SEED_REVIEWS) {
+    const SR = window.BARTALK_SEED_REVIEWS;
+    for (const sp of SEED_SPIRITS) {
+      const rows = SR[sp.id];
+      if (!rows || (sp.reviews && sp.reviews.length)) continue;
+      sp.reviews = rows.map((r, i) => ({
+        id: sp.id * 1000 + i,          // 내 것과 안 겹치게 (내 리뷰 id 는 시각 기반)
+        color: r.color,
+        stars: r.stars,
+        text: r.text,
+        time: now - r.days * D,
+        seed: true,
+      }));
+    }
+  }
+
   SEED_POSTS.push(
     { id: 501, cat: "free", color: 4, nick: "익명", time: now - 2 * H, title: "조주기능사 실기 합격했어요!!", body: "3트만에 드디어 붙었습니다 ㅠㅠ 사이드카에서 계량 실수한 줄 알았는데 합격. 다들 화이팅!", likes: 8, comments: [
       { color: 1, text: "축하드려요!! 저는 다음달 시험", time: now - 100 * M },
@@ -980,7 +1000,7 @@
   }
 
   /* ---------- 시드 병합 (앱 업데이트 시 새 데이터 추가) ---------- */
-  const SEED_V = 8;
+  const SEED_V = 9;      // 9 = 술도감 예시 리뷰 추가
   if (store.get("seedv", 1) < SEED_V) {
     const mergeSeed = (arr, seed) => {
       const ids = new Set(arr.map((x) => x.id));
@@ -1005,6 +1025,19 @@
     mergeSeed(state.posts, SEED_POSTS);
     mergeSeed(state.spirits, SEED_SPIRITS);
     mergeSeed(state.meets, SEED_MEETS);
+
+    /* 예시 리뷰는 이미 저장된 항목에도 채워 넣습니다.
+       새 항목만 합치면, 앱을 쓰고 계시던 분은 계속 "리뷰 0" 만 보게 돼요.
+       내가 쓴 리뷰가 하나라도 있는 항목은 절대 건드리지 않습니다. */
+    if (window.BARTALK_SEED_REVIEWS) {
+      const bySeed = new Map(SEED_SPIRITS.map((s) => [s.id, s]));
+      for (const sp of state.spirits) {
+        if (sp.reviews && sp.reviews.some((r) => !r.seed)) continue;   // 진짜 리뷰가 있으면 그대로
+        const from = bySeed.get(sp.id);
+        if (from && from.reviews && from.reviews.length) sp.reviews = from.reviews.slice();
+      }
+    }
+
     savePosts(); saveSpirits(); saveMeets();
     store.set("seedv", SEED_V);
   }
@@ -7270,28 +7303,36 @@
 
     const saved = store.get("barNear", null);
     if (saved && saved.mode === "off") return;
+
+    let perm = "prompt";
+    try { perm = (await navigator.permissions.query({ name: "geolocation" })).state; } catch (e) { /* 모르면 그냥 해봅니다 */ }
+
+    /* 진짜 내 위치가 우선입니다.
+       전에는 한 번 고른 동네를 계속 썼는데, 그러면 "가까운 순"이라고 해놓고
+       엉뚱한 동네 기준으로 보여주게 돼요. 동네는 위치가 안 될 때만 씁니다. */
+    if (perm !== "denied") {
+      state.barLocating = true;
+      renderBars();
+      const r = await locateMe();
+      state.barLocating = false;
+      if (r.ok) {
+        state.myLoc = { lat: r.lat, lng: r.lng };
+        state.myLocLabel = "내 위치";
+        state.barRegion = "전체";
+        state.barShow = 60;
+        store.set("barNear", { mode: "gps" });
+        renderBars();
+        return;
+      }
+    }
+
+    // 위치를 못 잡았을 때만 전에 고른 동네로
     if (saved && saved.mode === "district" && typeof saved.lat === "number") {
       state.myLoc = { lat: saved.lat, lng: saved.lng };
       state.myLocLabel = saved.label || "고른 동네";
       renderBars();
       return;
     }
-
-    let perm = "prompt";
-    try { perm = (await navigator.permissions.query({ name: "geolocation" })).state; } catch (e) { /* 모르면 그냥 해봅니다 */ }
-    if (perm === "denied") return;
-
-    state.barLocating = true;
-    renderBars();
-    const r = await locateMe();
-    state.barLocating = false;
-    if (!r.ok) { renderBars(); return; }
-
-    state.myLoc = { lat: r.lat, lng: r.lng };
-    state.myLocLabel = "내 위치";
-    state.barRegion = "전체";
-    state.barShow = 60;
-    store.set("barNear", { mode: "gps" });
     renderBars();
   }
 
@@ -7405,8 +7446,20 @@
          <button class="bar-sort" id="bar-sort">⇅ ${esc(barSortLabel())}</button>`;
 
     $("#bar-loc").addEventListener("click", (e) => {
-      if (near) { openDistrictPicker("다른 동네 기준으로 볼 수 있어요."); return; }
-      turnOnNearby(e.currentTarget);
+      if (!near) { turnOnNearby(e.currentTarget); return; }
+      /* 이미 켜져 있을 때 — 지금 뭘 기준으로 보고 있는지 알려주고 바꿀 수 있게.
+         전에는 바로 동네 고르기가 떠서, 내 위치로 돌아올 방법이 없었어요. */
+      const gps = state.myLocLabel === "내 위치";
+      openSheet(
+        gps ? "지금 내 위치 기준으로 보고 있어요" : `지금 ${state.myLocLabel} 기준으로 보고 있어요`,
+        ["📍 내 위치로 다시 잡기", "🏙 동네 직접 고르기", "✕ 가까운 순 끄기"], null,
+        (v) => {
+          if (v.includes("내 위치")) { turnOnNearby(null); return; }
+          if (v.includes("동네")) { openDistrictPicker("고른 동네 중심에서 가까운 순으로 보여드려요."); return; }
+          state.myLoc = null; state.myLocLabel = ""; state.barRadius = 0; state.barShow = 60;
+          store.set("barNear", { mode: "off" });
+          renderBars();
+        });
     });
     $("#bar-sort").addEventListener("click", () => {
       /* 위치를 안 잡았으면 "가까운 순"은 고를 수 없습니다.
