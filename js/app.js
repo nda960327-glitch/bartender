@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.34.0";
+  const APP_BUILD = "2.35.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -877,6 +877,8 @@
     myLoc: null,           // 앱을 끄면 사라집니다 — 저장하지 않아요
     myLocLabel: "",        // "내 위치" 또는 직접 고른 동네 이름
     barLocating: false,    // 들어오자마자 위치 잡는 중
+    barLocMsg: "",         // 위치를 왜 못 잡았는지 (화면에 띄웁니다)
+    barLocHow: "",         // 어떻게 켜는지 안내
     curBar: null,
     rankRows: null,        // 서버에서 받은 랭킹. null 이면 아직 안 받았어요
     rankState: "idle",     // idle | loading | ok | off | error
@@ -7322,10 +7324,14 @@
         state.barRegion = "전체";
         state.barShow = 60;
         state.barSort = "auto";
+        state.barLocMsg = "";
         store.set("barNear", { mode: "gps" });
         renderBars();
         return;
       }
+      setLocFail(r.why, r.error);
+    } else {
+      setLocFail("denied", "위치 권한이 꺼져 있어요.");
     }
 
     // 위치를 못 잡았을 때만 전에 고른 동네로
@@ -7336,6 +7342,18 @@
       return;
     }
     renderBars();
+  }
+
+  /* 위치를 못 잡았으면 그 사실을 화면에 띄웁니다.
+     아무 말 없이 이름순으로 보여주면 "왜 내 위치 기준이 아니지?" 하게 돼요.
+     실제로 그 질문을 받았습니다. */
+  function setLocFail(why, msg) {
+    state.barLocMsg = msg || "위치를 잡지 못했어요.";
+    state.barLocHow = why === "denied"
+      ? "브라우저면 주소창 옆 자물쇠 > 위치, 설치한 앱이면 윈도우 설정 > 개인 정보 및 보안 > 위치 에서 켤 수 있어요."
+      : why === "insecure" ? ""
+      : why === "timeout" ? "실내라면 창가 쪽에서 다시 눌러보세요."
+      : "잠시 뒤에 다시 눌러보세요.";
   }
 
   /* 📍 버튼을 눌렀을 때 */
@@ -7352,6 +7370,7 @@
       /* 버튼에 "가까운 순"이라고 써놓고 정렬이 안 바뀌면 고장으로 보입니다.
          전에 다른 정렬을 골라뒀더라도 여기서는 되돌립니다. */
       state.barSort = "auto";
+      state.barLocMsg = "";
       store.set("barNear", { mode: "gps" });
       renderBars();
       toast("가까운 순으로 정렬했어요. 📍");
@@ -7359,10 +7378,9 @@
     }
     /* 실패 — 왜 안 됐는지 말해주고, 동네를 직접 고르게 합니다.
        "허용해주세요" 만 띄우고 끝내면 설치형 앱에서는 방법이 없어요. */
-    const how = r.why === "denied"
-      ? "브라우저면 주소창 옆 자물쇠 > 위치 에서, 설치한 앱이면 윈도우 설정 > 개인 정보 > 위치 에서 켤 수 있어요."
-      : r.why === "insecure" ? "" : "실내라면 창가에서 다시 해보세요.";
-    openDistrictPicker(`${r.error} ${how}\n대신 동네를 직접 고르면 그 동네 기준으로 가까운 순으로 보여드려요.`);
+    setLocFail(r.why, r.error);
+    renderBars();
+    openDistrictPicker(`${state.barLocMsg} ${state.barLocHow}\n대신 동네를 직접 고르면 그 동네 기준으로 가까운 순으로 보여드려요.`);
   }
 
   function barRegions() {
@@ -7535,7 +7553,19 @@
     const shown = Math.min(total, state.barShow);
     list = list.slice(0, shown);
 
-    $("#bar-list").innerHTML = (sortEmpty
+    /* 위치를 못 잡았으면 목록 맨 위에 그 사실과 할 수 있는 일을 띄웁니다. */
+    const locFail = (!near && state.barLocMsg && !state.barLocating)
+      ? `<div class="bar-locfail">
+           <div class="bar-locfail-t">📍 ${esc(state.barLocMsg)} 지금은 <b>이름순</b>으로 보여드리고 있어요.</div>
+           ${state.barLocHow ? `<div class="bar-locfail-s">${esc(state.barLocHow)}</div>` : ""}
+           <div class="bar-locfail-btns">
+             <button id="locfail-retry">다시 시도</button>
+             <button id="locfail-pick">동네 직접 고르기</button>
+           </div>
+         </div>`
+      : "";
+
+    $("#bar-list").innerHTML = locFail + (sortEmpty
       ? `<p class="bar-sort-empty">${esc(sortEmpty)}</p>` : "")
       + (list.length
       ? list.map(({ b, km, key, avg, likes, cmts }) => {
@@ -7572,6 +7602,12 @@
         : (q || state.barRegion !== "전체" || state.barKind !== "전체"
           ? "조건에 맞는 바가 없어요."
           : "아직 등록된 바가 없어요. 오른쪽 위 + 로 추가해보세요.")}</div>`);
+
+    const retry = $("#locfail-retry");
+    if (retry) retry.addEventListener("click", () => turnOnNearby(null));
+    const pickD = $("#locfail-pick");
+    if (pickD) pickD.addEventListener("click", () =>
+      openDistrictPicker("고른 동네 중심에서 가까운 순으로 보여드려요."));
 
     $$("#bar-list .bar-item").forEach((el) =>
       el.addEventListener("click", () => openBar(+el.dataset.id)));

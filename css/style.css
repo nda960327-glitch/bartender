@@ -1648,6 +1648,23 @@ textarea.input { height: auto; }
   flex: none; align-self: center; font-size: 12.5px; font-weight: 700;
   color: var(--accent); white-space: nowrap;
 }
+/* 위치를 못 잡았을 때 목록 맨 위에 뜨는 안내 */
+.bar-locfail {
+  margin: 0 16px 10px; padding: 14px 16px; border-radius: 14px;
+  background: var(--accent-soft); border: 1px solid var(--accent);
+}
+.bar-locfail-t { font-size: 13px; font-weight: 700; line-height: 1.55; color: var(--text); }
+.bar-locfail-s { font-size: 11.5px; line-height: 1.6; color: var(--text-sub); margin-top: 6px; }
+.bar-locfail-btns { display: flex; gap: 8px; margin-top: 11px; }
+.bar-locfail-btns button {
+  flex: 1; padding: 9px 0; border-radius: 10px; cursor: pointer;
+  font-size: 12.5px; font-weight: 700;
+  border: 1px solid var(--line); background: var(--bg-card); color: var(--text);
+}
+.bar-locfail-btns button:first-child {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+
 .bar-sort-empty {
   margin: 0; padding: 14px 20px; background: var(--chip-bg);
   font-size: 12.5px; line-height: 1.6; color: var(--text-sub);
