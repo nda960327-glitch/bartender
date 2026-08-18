@@ -265,6 +265,19 @@ select * from admin_actions order by created_at desc limit 50;
 
 ### 2. 코드에 이름 붙이기
 
+**가장 쉬운 방법** — 붙여넣기 전에 `referral.sql` 안의 그 4줄을 직접 고치세요.
+`('코드', '이름', '메모')` 순서입니다.
+
+```sql
+insert into public.referral_codes (code, owner, memo) values
+  ('G2G', '김바텐', '010-1234-5678'),
+  ('J7J', '이바텐', '홍대 담당'),
+  ...
+```
+
+이미 실행한 뒤에 이름을 바꾸고 싶으면, 고친 파일을 **다시 실행**하면 됩니다.
+(실적은 그대로 남고 이름만 바뀝니다.) 한 줄만 바꿔도 되고요:
+
 ```sql
 -- 코드에 실제 이름 붙이기
 update public.referral_codes set owner = '김바텐', memo = '010-0000-0000' where code = 'G2G';

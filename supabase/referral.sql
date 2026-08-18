@@ -25,14 +25,24 @@ create table if not exists public.referral_codes (
 
 comment on table public.referral_codes is '영업하시는 분에게 나눠주는 추천인 코드. 앱에서는 만들 수 없고 대시보드에서만 관리합니다.';
 
--- 처음 쓸 코드 4개입니다. 헷갈리는 글자(O·0·I·1·S·5)는 뺐어요.
--- owner 는 실제 이름으로 바꿔서 나눠주세요. (아래 5번 항목 참고)
+-- ★★★ 여기 4줄만 고치시면 됩니다 ★★★
+--
+--   ('코드', '누구 것인지', '메모')
+--     코드   — 그대로 두셔도 되고 바꾸셔도 돼요 (헷갈리는 글자 O·0·I·1·S·5 는 피해주세요)
+--     이름   — 이 코드를 받는 분 이름. 관리자 화면에 이 이름이 보입니다
+--     메모   — 연락처·지역 등 아무거나. 비워두려면 null 이라고 쓰세요
+--
+--   예)  ('G2G', '김바텐', '010-1234-5678'),
+--
+--   ※ 고치고 이 파일을 다시 실행하면 이름이 바뀝니다. 실적은 그대로 남아요.
+--
 insert into public.referral_codes (code, owner, memo) values
-  ('G2G', '영업 1', '실제 이름으로 바꿔주세요'),
-  ('J7J', '영업 2', '실제 이름으로 바꿔주세요'),
-  ('N4N', '영업 3', '실제 이름으로 바꿔주세요'),
-  ('T3T', '영업 4', '실제 이름으로 바꿔주세요')
-on conflict (code) do nothing;
+  ('G2G', '영업 1', null),
+  ('J7J', '영업 2', null),
+  ('N4N', '영업 3', null),
+  ('T3T', '영업 4', null)
+-- 이미 있는 코드는 이름·메모만 새로 맞춰줍니다 (실적은 건드리지 않아요)
+on conflict (code) do update set owner = excluded.owner, memo = excluded.memo;
 
 alter table public.referral_codes enable row level security;
 
