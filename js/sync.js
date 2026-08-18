@@ -95,7 +95,10 @@
       if (res.error) {
         // RLS 위반·중복키 등은 재시도해도 소용없으니 큐에서 제거
         var code = res.error.code || "";
-        var permanent = ["23505", "23503", "23514", "42501", "22P02", "PGRST116"];
+        // 42703·PGRST204 = "그런 칸이 서버에 없다".
+        // 새 기능의 SQL 을 아직 안 넣은 상태예요. 재시도해도 계속 실패하고
+        // 큐가 막혀 다른 글까지 안 올라가므로 이 작업만 버립니다.
+        var permanent = ["23505", "23503", "23514", "42501", "22P02", "PGRST116", "42703", "PGRST204"];
         if (permanent.indexOf(code) >= 0) {
           console.warn("[sync] 건너뜀:", job.table, code, res.error.message);
           return true;
@@ -457,7 +460,23 @@
       color: res.data.color,
       bannedUntil: res.data.banned_until ? t(res.data.banned_until) : 0,
       bizProfile: res.data.biz_name ? { name: res.data.biz_name, type: res.data.biz_type } : null,
+      refCode: res.data.ref_code || "",
     };
+  }
+
+  /* ---------- 마지막 접속 도장 ----------
+   * "가입만 하고 안 쓰는 사람"과 "진짜 쓰는 사람"을 가르는 유일한 근거예요.
+   * 하루에 한 번만 찍습니다. 실패해도 앱은 아무 영향 없어요.
+   */
+  var SEEN_KEY = "bartalk_seen";
+  async function touchSeen() {
+    if (!ready()) return;
+    try {
+      var today = new Date().toDateString();
+      if (localStorage.getItem(SEEN_KEY) === today) return;
+      var res = await sb.rpc("touch_me");
+      if (!res.error) localStorage.setItem(SEEN_KEY, today);
+    } catch (e) {}
   }
 
   async function pullBlocks() {
@@ -889,10 +908,11 @@
       window.addEventListener("online", function () { flush(); pullAll("online"); });
       window.addEventListener("offline", function () { setStatus("offline"); });
       document.addEventListener("visibilitychange", function () {
-        if (!document.hidden) { flush(); schedulePull("visible"); }
+        if (!document.hidden) { flush(); schedulePull("visible"); touchSeen(); }
       });
     }
     if (!subscribed) { subscribed = true; subscribe(); }
+    touchSeen();
     await flush();
     await pullAll("init");
   }
@@ -1075,16 +1095,32 @@
 
     async saveProfile(user) {
       if (!ready()) return;
-      enqueue({
-        table: "profiles", op: "upsert",
-        row: {
-          id: S.uid,
-          nick: user.nick || "익명",
-          color: user.color || 0,
-          biz_name: user.bizProfile ? user.bizProfile.name : null,
-          biz_type: user.bizProfile ? user.bizProfile.type : null,
-        },
-      });
+      var row = {
+        id: S.uid,
+        nick: user.nick || "익명",
+        color: user.color || 0,
+        biz_name: user.bizProfile ? user.bizProfile.name : null,
+        biz_type: user.bizProfile ? user.bizProfile.type : null,
+      };
+      // 추천인 코드. 적은 사람만 같이 보냅니다.
+      // (referral.sql 을 아직 안 넣은 서버에 빈 값을 보내 실패하는 일이 없게)
+      // 서버가 실제 있는 코드인지 확인하고, 한 번 정해지면 바꿔 보내도 무시해요.
+      if (user.refCode) row.ref_code = user.refCode;
+      enqueue({ table: "profiles", op: "upsert", row: row });
+    },
+
+    /* 추천인 코드가 진짜 있는 코드인지 물어봐요.
+       맞으면 영업하시는 분 이름, 아니면 빈 문자열이 돌아옵니다.
+       referral.sql 을 아직 안 넣었으면 null 을 돌려줘서
+       "확인할 수 없음"과 "틀린 코드"를 구분할 수 있게 했어요. */
+    async checkRefCode(code) {
+      if (!code) return "";
+      if (!ready()) return null;   // 오프라인 — 틀렸다고 단정하지 않아요
+      try {
+        var res = await sb.rpc("ref_owner", { p_code: String(code).trim().toUpperCase() });
+        if (res.error) return null;
+        return res.data || "";
+      } catch (e) { return null; }
     },
 
     async savePost(p) {
@@ -1147,6 +1183,13 @@
         },
       });
       if (m.isJoined) api.joinMeet(m.id, true);
+    },
+
+    /* 주최자가 자기 모임을 지울 때. host_id 를 함께 대조하므로
+       남의 모임은 서버가 거부합니다. (참여자·댓글은 DB 가 함께 지워요) */
+    deleteMeet(id) {
+      if (!ready()) return;
+      enqueue({ table: "meets", op: "delete", match: { id: id, host_id: S.uid } });
     },
 
     joinMeet(meetId, joined) {
@@ -1359,6 +1402,28 @@
       var res = await sb.rpc("admin_stats");
       if (res.error || !res.data) return null;
       return res.data;
+    },
+
+    /* 추천인(영업) 성적표. referral.sql 을 안 넣었으면 null 이 돌아와요. */
+    async adminReferrals() {
+      if (!ready() || !S.isAdmin) return null;
+      var rows = await sb.rpc("admin_referrals");
+      if (rows.error) return null;
+      var sum = await sb.rpc("admin_referral_summary");
+      return {
+        summary: (sum.error ? null : sum.data) || { members: 0, no_code: 0, active_7d: 0, active_30d: 0 },
+        codes: (rows.data || []).map(function (r) {
+          return {
+            code: r.code, owner: r.owner || "", memo: r.memo || "", active: r.active !== false,
+            signups: Number(r.signups) || 0,
+            joined7: Number(r.joined_7d) || 0,
+            active7: Number(r.active_7d) || 0,
+            active30: Number(r.active_30d) || 0,
+            writers: Number(r.writers) || 0,
+            lastJoin: r.last_join ? t(r.last_join) : 0,
+          };
+        }),
+      };
     },
 
     async adminUsers(q, limit) {

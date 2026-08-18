@@ -39,6 +39,7 @@ tools/fetch-bars.mjs     실제 바 목록 받아오기 (카카오·네이버) �
 supabase/official.sql    ★ 공식 계정 + 콘텐츠 예약 발행 (아래 "공식 계정" 항목)
 supabase/auto-comment.sql  AI 자동 댓글 (official.sql 다음에 실행)
 supabase/ranking.sql       랭킹 (안 넣어도 앱은 돌아갑니다 — 내 기록만 보여요)
+supabase/referral.sql      ★ 추천인(영업) 코드 + 활성 사용자 집계 (아래 "추천인 코드" 항목)
 api/publish.js           예약 발행 크론 엔드포인트
 tools/queue.mjs          콘텐츠 큐 관리 CLI
 tools/lib/               ↳ 도감 로더 · 초안 템플릿 · 예약 시각 · Supabase 클라이언트
@@ -137,6 +138,10 @@ Supabase 대시보드 > **Authentication > Sign In / Providers** 에서 **Anonym
 ```bash
 curl -X POST "https://dvharpjpemxpbrhhlolx.supabase.co/auth/v1/signup" -H "apikey: <anon key>" -H "Content-Type: application/json" -d "{}"
 ```
+
+> 📌 **지금 로그인 화면에는 구글·이메일만 보입니다.**
+> 카카오·네이버 버튼은 `index.html` 의 로그인 화면에서 주석으로 막아두었어요.
+> 동작 코드는 그대로 있으니, 다시 열려면 그 주석만 풀면 됩니다.
 
 ### 1. 이메일 (이미 켜져 있음)
 
@@ -244,6 +249,55 @@ curl https://barapp.kr/api/naver-login?probe=1
 select * from reports where status = '접수' order by created_at desc;
 select * from admin_actions order by created_at desc limit 50;
 ```
+
+---
+
+## 추천인 코드 (영업 관리)
+
+가입 화면에 **추천인 코드** 칸이 있습니다. 영업하시는 분마다 짧은 코드를 하나씩 나눠주면,
+누가 몇 명을 데려왔는지 · 그 사람들이 **진짜 앱을 쓰는지**까지 앱 안에서 볼 수 있습니다.
+
+### 1. SQL 넣기
+
+`supabase/referral.sql` 을 SQL Editor 에 붙여넣고 실행하세요. (`admin.sql` 다음)
+처음 쓸 코드 4개가 함께 들어갑니다 — **G2G · J7J · N4N · T3T**.
+헷갈리는 글자(O·0·I·1·S·5)는 뺐고, 소문자로 적어도 대문자로 바뀝니다.
+
+### 2. 코드에 이름 붙이기
+
+```sql
+-- 코드에 실제 이름 붙이기
+update public.referral_codes set owner = '김바텐', memo = '010-0000-0000' where code = 'G2G';
+
+-- 코드 새로 만들기
+insert into public.referral_codes (code, owner) values ('P8P', '박바텐');
+
+-- 코드 그만 쓰기 (지금까지 실적은 그대로 남아요)
+update public.referral_codes set active = false where code = 'P8P';
+```
+
+
+### 3. 성적 보기
+
+마이페이지 > 🛡️ 관리자 페이지 > **대시보드 > 영업 · 추천인**
+
+| 칸 | 뜻 |
+|---|---|
+| 데려온 회원 | 그 코드를 적고 가입한 사람 전부 |
+| 7일 활성 | 최근 7일 안에 앱을 켠 사람 — **이 숫자가 진짜 사용자입니다** |
+| 30일 활성 | 최근 30일 안에 앱을 켠 사람 |
+| 글 쓴 사람 | 글·댓글·리뷰를 하나라도 남긴 사람 |
+
+"50명 데려왔다"는 **데려온 회원**, 그게 진짜인지는 **7일 활성**이 답합니다.
+둘의 차이가 크면 가입만 시키고 안 쓰는 경우예요. 현황 CSV 를 내보내면 코드별 표가 함께 나옵니다.
+
+### 알아두실 점
+
+- 코드는 **한 번 저장되면 바꿀 수 없습니다.** (나중에 남의 실적을 가로채는 일을 막기 위해서)
+- 없는 코드를 적으면 가입은 되고 코드만 빈칸으로 저장됩니다. 화면에 "없는 코드예요"라고 알려줘요.
+- 이미 가입한 분도 **계정설정 > 추천인 코드**에서 뒤늦게 넣을 수 있습니다.
+- 활성(마지막 접속)은 이 SQL 을 넣은 날부터 쌓입니다. 그전 회원은 앱을 한 번 켜야 잡혀요.
+- 코드 명단 전체는 운영자만 볼 수 있고, 앱에서는 코드를 만들 수 없습니다.
 
 ---
 
@@ -539,6 +593,8 @@ node tools/fetch-bars.mjs --seoul    # 서울만 (빠르게 확인)
 ```bash
 npx serve .
 ```
+
+인터넷 없이 열어보고 싶으면 `node tools/serve.js` (→ `http://localhost:4173`) 도 됩니다.
 
 서비스 워커는 `http://localhost` 또는 HTTPS에서만 동작합니다. `file://`로 열면 PWA 기능이 꺼집니다.
 

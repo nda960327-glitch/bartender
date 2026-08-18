@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.35.0";
+  const APP_BUILD = "2.36.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -840,7 +840,7 @@
 
   /* ---------- 상태 ---------- */
   const DEFAULT_USER = {
-    nick: "", color: 2, points: 0, onboarded: false,
+    nick: "", color: 2, points: 0, onboarded: false, refCode: "",
     myPostIds: [], mySpiritIds: [], favJobs: [], keywords: [], pointLog: [],
     blocked: [], hiddenPosts: [], hiddenSpirits: [],
   };
@@ -891,6 +891,7 @@
     serverReports: [],
     overrides: store.get("overrides", {}),
     adminStats: null,
+    adminRefs: null,      // 추천인(영업) 성적표. "none" = referral.sql 미설치
     adminUserList: null,
     adminUsersLoading: false,
     adminUserTimer: null,
@@ -1688,10 +1689,67 @@
     $$("#ob-colors .color-dot").forEach((d) =>
       d.addEventListener("click", () => { state.obColor = +d.dataset.i; renderOnboard(); }));
     $("#ob-adult").classList.toggle("on", !!state.obAdult);
+    renderRefMsg("#ob-ref", "#ob-ref-msg");
     const ok = $("#ob-nick").value.trim().length >= 1 && !!state.obAdult;
     $("#ob-start").disabled = !ok;
     $("#ob-start").classList.toggle("ready", ok);
   }
+
+  /* ---------- 추천인 코드 ----------
+   * 코드는 있어도 되고 없어도 됩니다. 틀렸다고 가입을 막지는 않아요.
+   * 다만 "이 코드는 없는 코드예요" 라고 알려줘서, 잘못 적은 채로
+   * 넘어가 영업하신 분 실적이 빠지는 일이 없게 합니다.
+   *
+   * refSeen — 한 번 물어본 코드는 기억해둡니다.
+   *   이름: 맞는 코드 / "": 없는 코드 / null: 지금은 확인 못 함
+   */
+  const refSeen = {};
+  const refTimers = {};
+
+  function refInput(id) { const el = $(id); return el ? String(el.value || "").trim().toUpperCase() : ""; }
+  // 서버가 확인해준 진짜 코드인지 (저장할지 말지를 이걸로 정합니다)
+  function refChecked(code) { return !!code && !!refSeen[code]; }
+
+  function renderRefMsg(inputId, msgId, mode) {
+    const el = $(msgId);
+    if (!el) return;
+    const code = refInput(inputId);
+    if (!code) { el.hidden = true; return; }
+    el.hidden = false;
+    if (!(code in refSeen)) {
+      el.className = "ref-msg dim";
+      el.textContent = "코드를 확인하는 중이에요…";
+    } else if (refSeen[code] === null) {
+      el.className = "ref-msg dim";
+      el.textContent = "지금은 코드를 확인할 수 없어요. 그대로 진행하셔도 됩니다.";
+    } else if (refSeen[code]) {
+      el.className = "ref-msg ok";
+      el.textContent = mode === "settings"
+        ? `✅ ${refSeen[code]} 님의 코드가 맞아요.`
+        : `✅ ${refSeen[code]} 님의 추천으로 가입해요.`;
+    } else {
+      el.className = "ref-msg bad";
+      el.textContent = "❌ 없는 코드예요. 다시 확인해주세요. (비워둬도 괜찮아요)";
+    }
+  }
+
+  // 타이핑이 멈춘 뒤에 한 번만 서버에 물어봐요. (한 글자마다 묻지 않게)
+  function onRefTyped(inputId, msgId, mode, after) {
+    const el = $(inputId);
+    const code = refInput(inputId);
+    if (el && el.value !== code) el.value = code;   // 소문자로 적어도 대문자로
+    clearTimeout(refTimers[inputId]);
+    renderRefMsg(inputId, msgId, mode);
+    if (after) after();
+    if (!code || code in refSeen) return;
+    refTimers[inputId] = setTimeout(async () => {
+      refSeen[code] = await Sync.checkRefCode(code);
+      if (refInput(inputId) !== code) return;       // 그새 고쳐 적었으면 무시
+      renderRefMsg(inputId, msgId, mode);
+      if (after) after();
+    }, 400);
+  }
+
   function startApp() {
     const nick = $("#ob-nick").value.trim();
     if (!nick) return;
@@ -1699,6 +1757,10 @@
     state.user.nick = nick;
     state.user.color = state.obColor;
     state.user.onboarded = true;
+    // 서버가 "맞는 코드"라고 확인해준 것만 저장합니다.
+    // 확인이 안 된 코드를 담아 보내면 프로필 저장 자체가 실패할 수 있어요.
+    const code = refInput("#ob-ref");
+    if (refChecked(code)) state.user.refCode = code;
     saveUser();
     startSync();
     noteMyColor();
@@ -1880,7 +1942,8 @@
     saveReports();
     // 운영자가 Supabase 대시보드에서 확인할 수 있도록 서버에도 접수해요.
     const target = type === "post" ? state.posts.find((x) => x.id === targetId)
-      : type === "spirit" ? state.spirits.find((x) => x.id === targetId) : null;
+      : type === "spirit" ? state.spirits.find((x) => x.id === targetId)
+      : type === "meet" ? state.meets.find((x) => x.id === targetId) : null;
     Sync.saveReport(type, targetId, title, reason, target && target.authorId);
   }
   function reportPost(p) {
@@ -1940,6 +2003,14 @@
         : '<div class="empty-state">차단한 사용자가 없어요.</div>'}`;
     $$("#blocked-area [data-unblock]").forEach((b) =>
       b.addEventListener("click", () => unblockKey(b.dataset.unblock)));
+  }
+
+  function reportMeet(m) {
+    openSheet("모임 신고", ["스팸/광고", "욕설/비방", "부적절한 모임", "허위 정보", "기타"], null, (reason) => {
+      fileReport("meet", m.id, m.title, reason, !!m.mine);
+      show("meet");
+      toast(`신고가 접수되었어요 (${reason}). 관리자 확인 후 규정에 따라 처리돼요.`);
+    });
   }
 
   function reportSpirit(sp) {
@@ -2260,12 +2331,17 @@
   ];
 
   // kind: post | spirit | meet | comment ...
+  // 첫 항목만 대상에 맞게 부릅니다. ("모임만 삭제" — 모임을 보며 "글만 삭제"는 어색하니까요)
+  const KIND_NOUN = { post: "글", spirit: "도감", meet: "모임", comment: "댓글", review: "리뷰", "meet-comment": "댓글" };
   function openAdminSheet(kind, id, title, targetUser, afterDone) {
     if (!isAdmin()) return;
     const labels = BAN_OPTIONS.map(([l]) => l);
+    labels[0] = `${KIND_NOUN[kind] || "글"}만 삭제`;
     openSheet(`🛡️ 관리자 조치 — ${title.slice(0, 18)}${title.length > 18 ? "…" : ""}`,
       labels, null, async (picked) => {
-        const days = (BAN_OPTIONS.find(([l]) => l === picked) || [])[1];
+        // 이름이 아니라 몇 번째를 골랐는지로 찾습니다. (첫 항목 이름이 대상마다 달라서)
+        const days = (BAN_OPTIONS[labels.indexOf(picked)] || [])[1];
+        if (days === undefined) return;
         const reason = await btPrompt("사유를 남겨주세요\n(기록에 저장됩니다)", "커뮤니티 규칙 위반", { title: "🛡️ 관리자 조치" });
         if (reason === null) return;
 
@@ -2451,6 +2527,8 @@
         ])}
       </div>
 
+      ${refDashHTML()}
+
       <div class="sp-body" style="border-bottom:8px solid var(--bg-gray);padding-bottom:6px">
         <h3>관리 화면</h3>
         <div class="admin-links">
@@ -2513,10 +2591,13 @@
     $("#admin-refresh").addEventListener("click", () => {
       state.adminStats = null;
       state.adminLogRows = null;
+      state.adminRefs = null;
       loadAdminStats(true);
       loadAdminRecent();
+      loadAdminRefs(true);
       toast("현황을 다시 불러왔어요.");
     });
+    bindRefDash();
     $("#admin-log").addEventListener("click", openAdminLogSheet);
     $$("#admin-area .admin-log-row").forEach((b) => b.addEventListener("click", openAdminLogSheet));
     $("#admin-rules").addEventListener("click", openSanctionSheet);
@@ -2529,9 +2610,109 @@
       ["1:1 대화", st.conversations],
       ["미처리 신고", st.reports_pending], ["전체 신고", st.reports_total],
       ["뽑은 시각", new Date().toLocaleString("ko-KR")],
-    ]));
+    ].concat(refCsvRows())));
     $("#admin-whoami").addEventListener("click", openAdminWhoAmI);
     if (!state.adminLogRows) loadAdminRecent();
+  }
+
+  /* ---------- 영업(추천인) 성적표 ----------
+   * 궁금한 건 두 가지예요.
+   *   1) 몇 명이 영업을 하고 있나  → 코드 개수
+   *   2) 그 사람이 데려온 50명이 진짜 쓰는 사람인가
+   *      → "데려온 수"가 아니라 "최근 7일 안에 앱을 켠 수"로 봅니다.
+   * 가입만 시켜놓고 아무도 안 쓰면 활성 숫자가 0에 가깝게 나와요.
+   */
+  function refDashHTML() {
+    const d = state.adminRefs;
+    if (d === "none") return "";     // referral.sql 을 아직 안 넣은 상태
+    const body = !d
+      ? '<p class="sheet-note" style="text-align:left;margin:4px 0 12px">불러오는 중이에요…</p>'
+      : !d.codes.length
+        ? '<p class="sheet-note" style="text-align:left;margin:4px 0 12px">아직 만든 추천인 코드가 없어요.</p>'
+        : d.codes.map((c) => `
+          <button class="row-link admin-ref-row" data-code="${esc(c.code)}" style="padding:13px 0">
+            <span class="row-label" style="font-size:15px">
+              <b style="letter-spacing:1px">${esc(c.code)}</b> · ${esc(c.owner || "이름 없음")}${c.active ? "" : " (중단)"}
+            </span>
+            <span class="flex-1"></span>
+            <span class="row-badge">가입 ${fmtNum(c.signups)} · <b style="color:var(--official)">활성 ${fmtNum(c.active7)}</b></span>
+            <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+          </button>`).join("");
+
+    const sum = d && d.summary;
+    return `
+      <div class="sp-body" style="border-bottom:8px solid var(--bg-gray);padding-bottom:6px">
+        <button class="admin-h3" id="admin-ref-help">
+          <h3 style="margin:0">영업 · 추천인 <span style="font-size:12.5px;font-weight:500;color:var(--text-sub)">· 활성 = 최근 7일 접속</span></h3>
+          <span class="admin-h3-go">설명 ›</span>
+        </button>
+        ${body}
+        ${sum ? `<p class="sheet-note" style="text-align:left;margin:2px 0 12px">
+          코드 없이 가입 ${fmtNum(sum.no_code)}명 · 전체 활성 ${fmtNum(sum.active_7d)}명(7일) / ${fmtNum(sum.active_30d)}명(30일)</p>` : ""}
+      </div>`;
+  }
+
+  function bindRefDash() {
+    const help = $("#admin-ref-help");
+    if (help) help.addEventListener("click", openRefHelpSheet);
+    $$("#admin-area .admin-ref-row").forEach((b) =>
+      b.addEventListener("click", () => openRefSheet(b.dataset.code)));
+    if (state.adminRefs === null) loadAdminRefs();
+  }
+
+  async function loadAdminRefs(force) {
+    if (!isAdmin()) return;
+    if (state.adminRefs && !force) return;
+    const d = await Sync.adminReferrals();
+    // null 이면 supabase/referral.sql 을 아직 안 넣은 것이므로 칸을 통째로 감춰요.
+    state.adminRefs = d || "none";
+    if (state.view === "admin" && !state.adminSub && state.adminTab === "dash") renderAdminDash();
+  }
+
+  function refRate(part, whole) { return whole ? Math.round((part / whole) * 100) + "%" : "-"; }
+
+  // 현황 CSV 아래에 코드별 성적을 붙여요. (엑셀로 열어서 정산하실 때 씁니다)
+  function refCsvRows() {
+    const d = state.adminRefs;
+    if (!d || d === "none" || !d.codes.length) return [];
+    return [[], ["코드", "영업", "데려온 회원", "7일 가입", "7일 활성", "30일 활성", "글쓴 사람"]]
+      .concat(d.codes.map((c) =>
+        [c.code, c.owner, c.signups, c.joined7, c.active7, c.active30, c.writers]));
+  }
+
+  function openRefSheet(code) {
+    const d = state.adminRefs;
+    const c = d && d.codes && d.codes.find((x) => x.code === code);
+    if (!c) return;
+    openSheetHTML(`
+      <h3>${esc(c.code)} · ${esc(c.owner || "이름 없음")}</h3>
+      ${c.memo ? `<p class="sheet-note" style="text-align:left;margin:0 0 10px">${esc(c.memo)}</p>` : ""}
+      <div class="sheet-row"><span>데려온 회원</span><b class="r">${fmtNum(c.signups)}명</b></div>
+      <div class="sheet-row"><span>최근 7일 가입</span><b class="r">${fmtNum(c.joined7)}명</b></div>
+      <div class="sheet-row"><span>7일 활성 (진짜 쓰는 사람)</span><b class="r" style="color:var(--official)">${fmtNum(c.active7)}명 · ${refRate(c.active7, c.signups)}</b></div>
+      <div class="sheet-row"><span>30일 활성</span><b class="r">${fmtNum(c.active30)}명 · ${refRate(c.active30, c.signups)}</b></div>
+      <div class="sheet-row"><span>글·댓글·리뷰를 쓴 사람</span><b class="r">${fmtNum(c.writers)}명 · ${refRate(c.writers, c.signups)}</b></div>
+      <div class="sheet-row"><span>마지막 가입</span><span class="r">${c.lastJoin ? fmtRel(c.lastJoin) : "없음"}</span></div>
+      <div class="sheet-row"><span>코드 상태</span><span class="r">${c.active ? "사용 중" : "중단됨"}</span></div>
+      <p class="sheet-note" style="text-align:left;margin:10px 0 0">
+        데려온 50명 중 7일 활성이 ${refRate(c.active7, c.signups)} 라는 뜻이에요.
+        숫자만 채운 가입인지, 실제로 쓰는 사람인지는 이 줄만 보면 됩니다.</p>`);
+  }
+
+  function openRefHelpSheet() {
+    openSheetHTML(`
+      <h3>영업 성적, 이렇게 봅니다</h3>
+      <p class="sheet-note" style="text-align:left;margin:0 0 10px">
+        가입 화면에서 추천인 코드를 적으면 누가 데려온 회원인지 남아요.
+        코드는 Supabase 대시보드에서 <b>supabase/referral.sql</b> 로 관리합니다.</p>
+      <div class="sheet-row"><span>데려온 회원</span><span class="r">그 코드를 적고 가입한 사람 전부</span></div>
+      <div class="sheet-row"><span>활성</span><span class="r">최근 7일 안에 앱을 켠 사람</span></div>
+      <div class="sheet-row"><span>글 쓴 사람</span><span class="r">글·댓글·리뷰를 남긴 사람</span></div>
+      <p class="sheet-note" style="text-align:left;margin:10px 0 0">
+        "50명 데려왔다"는 말은 <b>데려온 회원</b> 칸이고,
+        그게 진짜인지는 <b>활성</b> 칸이 답합니다. 둘의 차이가 크면
+        가입만 시키고 안 쓰는 경우예요.<br><br>
+        ※ 활성은 이 기능을 넣은 날부터 쌓입니다. 그전 회원은 앱을 한 번 켜야 잡혀요.</p>`);
   }
 
   // data-go / data-filter 가 붙은 요소를 관리 화면 이동으로 연결해요.
@@ -4944,6 +5125,7 @@
       if (!await btConfirm("모임을 삭제할까요?\n참여자들에게는 취소로 표시돼요.", { yes: "삭제" })) return;
       state.meets = state.meets.filter((x) => x.id !== m.id);
       saveMeets();
+      Sync.deleteMeet(m.id);   // 서버에서도 지워요 (안 지우면 다음 새로고침에 되살아납니다)
       show("meet");
       toast("모임을 삭제했어요.");
     });
@@ -5737,6 +5919,28 @@
     updateNickBtn();
     renderColorGrid();
     renderBizProfile();
+    renderRefSetting();
+  }
+
+  /* ---------- 계정설정의 추천인 코드 ----------
+   * 이 기능이 생기기 전에 가입한 분들도 뒤늦게 넣을 수 있게 해둡니다.
+   * 이미 넣은 분에게는 입력칸 대신 등록된 코드를 보여줘요.
+   */
+  function renderRefSetting() {
+    const has = !!state.user.refCode;
+    $("#ref-set-box").hidden = has;
+    $("#ref-done-box").hidden = !has;
+    if (has) { $("#ref-done-code").textContent = state.user.refCode; return; }
+    $("#ref-input").value = "";
+    $("#ref-msg").hidden = true;
+    updateRefBtn();
+  }
+  function updateRefBtn() {
+    const code = refInput("#ref-input");
+    const ok = code.length >= 2 && refChecked(code);
+    const btn = $("#btn-ref-save");
+    btn.disabled = !ok;
+    btn.classList.toggle("ready", ok);
   }
 
   /* ---------- 비즈니스 프로필 (홍보 계정) ---------- */
@@ -6450,6 +6654,8 @@
 
   // 온보딩
   $("#ob-nick").addEventListener("input", renderOnboard);
+  $("#ob-ref").addEventListener("input", () => onRefTyped("#ob-ref", "#ob-ref-msg"));
+  $("#ob-ref").addEventListener("blur", () => onRefTyped("#ob-ref", "#ob-ref-msg"));
   $("#ob-adult").addEventListener("click", () => { state.obAdult = !state.obAdult; renderOnboard(); });
   $("#ob-start").addEventListener("click", startApp);
   $("#ob-nick").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("#ob-start").disabled) startApp(); });
@@ -6588,6 +6794,24 @@
   // 새 도구/신고/리포트
   $("#tool-random").addEventListener("click", randomCocktail);
   $("#btn-taste").addEventListener("click", () => show("taste"));
+  /* 모임 상세의 🚩 — 게시글과 같은 자리, 같은 순서로 둡니다.
+     운영자에게는 여기서 바로 삭제·정지가 열려요. (관리자 페이지까지 안 가도 되게) */
+  $("#meet-report").addEventListener("click", () => {
+    const m = state.meets.find((x) => x.id === state.curMeet);
+    if (!m) return;
+    const opts = [];
+    if (!m.mine) opts.push("🚩 신고하기");
+    if (isAdmin() && m.remote) opts.push("🛡️ 관리자 조치 (삭제·정지)");
+    if (!opts.length) { toast("내 모임은 신고할 수 없어요."); return; }
+    openSheet("이 모임", opts, null, (v) => {
+      if (v.includes("신고")) reportMeet(m);
+      else openAdminSheet("meet", m.id, m.title, m.authorId, () => {
+        state.meets = state.meets.filter((x) => x.id !== m.id);
+        saveMeets();
+        show("meet");
+      });
+    });
+  });
   $("#post-report").addEventListener("click", () => {
     const p = state.posts.find((x) => x.id === state.curPost);
     if (!p) return;
@@ -6920,6 +7144,21 @@
     Sync.saveProfile(state.user);
     updateNickBtn();
     toast("닉네임이 변경되었어요.");
+  });
+  // 추천인 코드 (뒤늦게 넣는 경우)
+  const onRefSetting = () => onRefTyped("#ref-input", "#ref-msg", "settings", updateRefBtn);
+  $("#ref-input").addEventListener("input", onRefSetting);
+  $("#ref-input").addEventListener("blur", onRefSetting);
+  $("#btn-ref-save").addEventListener("click", async () => {
+    const code = refInput("#ref-input");
+    if (!refChecked(code) || state.user.refCode) return;
+    const owner = refSeen[code];
+    if (!await btConfirm(`추천인을 ${owner ? owner + " 님" : code} 으로 등록할까요?\n한 번 저장하면 바꿀 수 없어요.`, { yes: "등록" })) return;
+    state.user.refCode = code;
+    saveUser();
+    Sync.saveProfile(state.user);
+    renderRefSetting();
+    toast("추천인 코드를 등록했어요. 고마워요!");
   });
   // 비즈니스 프로필
   $("#biz-name").addEventListener("input", updateBizBtn);
@@ -8257,6 +8496,8 @@
     if (data.profile) {
       state.user.bannedUntil = data.profile.bannedUntil || 0;
       if (data.profile.bizProfile && !state.user.bizProfile) state.user.bizProfile = data.profile.bizProfile;
+      // 추천인 코드는 서버가 정답입니다 (한 번 정해지면 서버에서 안 바뀌어요)
+      if (data.profile.refCode) state.user.refCode = data.profile.refCode;
       // 새 기기에서 같은 계정으로 로그인한 경우.
       // 서버에 이미 닉네임이 있으면 온보딩을 다시 시키지 않아요.
       // (기기를 바꿔도 그대로 이어지는 것이 로그인의 이유입니다)
