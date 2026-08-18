@@ -1552,7 +1552,16 @@
         var res = await sb.from(table).delete().eq("id", id).select("id");
         if (res.error) return { ok: false, error: res.error.message };
         if (!res.data || !res.data.length) {
-          return { ok: false, error: "권한이 없거나 이미 삭제된 항목이에요." };
+          /* 0건 삭제는 두 가지 뜻입니다. 뭉뚱그리면 뭘 고쳐야 할지 알 수가 없어요.
+             ① 그 줄이 아직 있는데 서버가 삭제를 거부함 → 운영자 삭제 권한이 없는 것
+             ② 그 줄이 이미 없음 → 누가 먼저 지웠고 화면만 옛날 것 */
+          var chk = await sb.from(table).select("id").eq("id", id).maybeSingle();
+          if (chk.data) {
+            return { ok: false, error:
+              "서버가 삭제를 거부했어요. 운영자 삭제 권한이 빠져 있습니다.\n" +
+              "Supabase > SQL Editor 에서 supabase/admin.sql 을 다시 실행해주세요." };
+          }
+          return { ok: false, error: "이미 지워진 항목이에요. 목록을 새로고침할게요." };
         }
         await api.logAdmin("삭제", kind, id, (meta && meta.title) || "", (meta && meta.reason) || "", meta && meta.targetUser);
         return { ok: true };

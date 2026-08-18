@@ -9,7 +9,7 @@
 -- ============================================================
 
 create table if not exists public.content_overrides (
-  kind       text   not null check (kind in ('spirit', 'job')),
+  kind       text   not null check (kind in ('spirit', 'job', 'meet')),
   ref_id     bigint not null,
   patch      jsonb  not null default '{}'::jsonb,   -- 바꿀 항목만 담음
   hidden     boolean not null default false,        -- true 면 목록에서 감춤
@@ -18,8 +18,17 @@ create table if not exists public.content_overrides (
   primary key (kind, ref_id)
 );
 
+-- 이미 만들어져 있던 표라면 위 create 문이 그냥 넘어갑니다.
+-- 그래서 종류 목록('meet' 추가)은 따로 한 번 더 맞춰줘요.
+do $$
+begin
+  alter table public.content_overrides drop constraint if exists content_overrides_kind_check;
+  alter table public.content_overrides
+    add constraint content_overrides_kind_check check (kind in ('spirit', 'job', 'meet'));
+end $$;
+
 comment on table public.content_overrides is
-  '앱에 내장된 도감·채용 항목을 운영자가 수정하기 위한 덮어쓰기 표. patch 에 담긴 필드만 교체됩니다.';
+  '앱에 내장된 도감·채용·모임 항목을 운영자가 수정하거나 감추기 위한 덮어쓰기 표. patch 에 담긴 필드만 교체됩니다.';
 
 create index if not exists content_overrides_kind_idx on public.content_overrides (kind);
 

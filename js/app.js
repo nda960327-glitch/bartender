@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.36.1";
+  const APP_BUILD = "2.36.2";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -2347,7 +2347,8 @@
 
         toast("처리 중이에요…");
         const del = await Sync.adminDelete(kind, id, { title, reason, targetUser });
-        if (!del.ok) { toast("삭제 실패: " + del.error); return; }
+        // 왜 안 됐는지가 여러 줄이라 토스트로는 다 안 보여요. 알림창으로 띄웁니다.
+        if (!del.ok) { await btAlert("삭제하지 못했어요.\n\n" + del.error); return; }
 
         let msg = "삭제했어요.";
         if (days !== 0) {
@@ -5000,6 +5001,8 @@
 
     const isPast = (m) => m.date < Date.now();
     const list = state.meets
+      // 운영자가 내린 모임은 모든 사람 화면에서 빠집니다 (앱 내장 예시 모임용)
+      .filter((m) => !ovHidden("meet", m.id))
       .filter((m) => !state.meetMine || m.isJoined)
       .filter((m) => state.meetRegion === "전체" || m.region === state.meetRegion)
       .sort((a, b) => (isPast(a) - isPast(b)) || (isPast(a) ? b.date - a.date : a.date - b.date));
@@ -5044,7 +5047,9 @@
     const m = state.meets.find((x) => x.id === state.curMeet);
     if (!m) return;
     // 휴지통은 지울 수 있는 사람에게만 보입니다 — 내 모임이거나, 내가 운영자일 때.
-    $("#meet-delete-top").hidden = !(m.mine || (isAdmin() && m.remote));
+    // (예전에는 서버에 있는 모임에만 보였는데, 앱에 미리 넣어둔 예시 모임에는
+    //  아무 버튼도 안 떠서 "지울 방법이 없다"가 됐어요. 이제 항상 보입니다.)
+    $("#meet-delete-top").hidden = !(m.mine || isAdmin());
     const full = m.joined >= m.max && !m.isJoined;
     $("#meet-detail").innerHTML = `
       <div class="md-wrap">
@@ -5136,19 +5141,43 @@
     if (!m) return;
     const asAdmin = !m.mine;
     if (asAdmin && !isAdmin()) return;
+    // 서버에 없는 모임(앱에 미리 넣어둔 예시)은 서버에서 지울 게 없어요.
+    const localOnly = !m.remote;
+    let forEveryone = false;   // 모든 사람 화면에서 내렸는지
 
     const ok = await btConfirm(
-      asAdmin ? `'${m.title}' 모임을 삭제할까요?\n운영자 권한으로 바로 지웁니다.`
-              : "모임을 삭제할까요?\n참여자들에게는 취소로 표시돼요.",
+      localOnly ? (isAdmin()
+        ? `'${m.title}' 모임을 목록에서 내릴까요?\n앱에 미리 넣어둔 예시 모임이라, 모든 사용자 화면에서 빠집니다.`
+        : `'${m.title}' 모임을 목록에서 지울까요?\n이 기기에서만 사라져요.`)
+      : asAdmin ? `'${m.title}' 모임을 삭제할까요?\n운영자 권한으로 바로 지웁니다.`
+                : "모임을 삭제할까요?\n참여자들에게는 취소로 표시돼요.",
       { yes: "삭제" });
     if (!ok) return;
 
-    if (asAdmin) {
+    if (localOnly) {
+      // 앱에 내장된 예시 모임입니다. 서버에는 없으니 지울 게 없어요.
+      // 운영자라면 "내렸다"는 사실만 서버에 남겨 모든 사람 화면에서 빠지게 합니다.
+      if (isAdmin()) {
+        toast("처리 중이에요…");
+        const res = await Sync.saveOverride("meet", m.id, {}, true);
+        if (res.ok) {
+          state.overrides = state.overrides || {};
+          state.overrides[`meet:${m.id}`] = { patch: {}, hidden: true, at: Date.now() };
+          saveOverrides();
+          forEveryone = true;
+        } else {
+          // 인터넷이 끊긴 것뿐이면 SQL 을 실행하라고 할 이유가 없어요.
+          const hint = /연결/.test(res.error) ? ""
+            : "\n\nSupabase > SQL Editor 에서 supabase/overrides.sql 을 다시 실행하면 해결돼요.";
+          await btAlert("모든 사람 화면에서 내리지는 못했어요. 이 기기에서만 지웁니다.\n\n" + res.error + hint);
+        }
+      }
+    } else if (asAdmin) {
       toast("삭제 중이에요…");
       const res = await Sync.adminDelete("meet", m.id, {
         title: m.title, reason: "운영자 직접 삭제", targetUser: m.authorId,
       });
-      if (!res.ok) { toast("삭제 실패: " + res.error); return; }
+      if (!res.ok) { await btAlert("삭제하지 못했어요.\n\n" + res.error); return; }
     } else {
       // 서버에서도 지워요 (안 지우면 다음 새로고침에 되살아납니다)
       Sync.deleteMeet(m.id);
@@ -5156,7 +5185,9 @@
     state.meets = state.meets.filter((x) => x.id !== m.id);
     saveMeets();
     show("meet");
-    toast(asAdmin ? "삭제했어요. 🛡️" : "모임을 삭제했어요.");
+    toast(!localOnly ? (asAdmin ? "삭제했어요. 🛡️" : "모임을 삭제했어요.")
+      : forEveryone ? "목록에서 내렸어요. 모든 사용자에게 반영됩니다. 🛡️"
+      : "이 기기 목록에서 지웠어요.");
   }
   function addMeetComment() {
     const text = $("#meet-comment-input").value.trim();
