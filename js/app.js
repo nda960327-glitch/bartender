@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.36.0";
+  const APP_BUILD = "2.36.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -5043,6 +5043,8 @@
     const meetNums = commenterNumbers(state.meets.find((x) => x.id === state.curMeet) || { comments: [] });
     const m = state.meets.find((x) => x.id === state.curMeet);
     if (!m) return;
+    // 휴지통은 지울 수 있는 사람에게만 보입니다 — 내 모임이거나, 내가 운영자일 때.
+    $("#meet-delete-top").hidden = !(m.mine || (isAdmin() && m.remote));
     const full = m.joined >= m.max && !m.isJoined;
     $("#meet-detail").innerHTML = `
       <div class="md-wrap">
@@ -5121,14 +5123,40 @@
     if (chatBtn) chatBtn.addEventListener("click", () =>
       openChatWith(m.hostColor, `meet:${m.id}`, `모임 '${m.title}' 주최자`, m.authorId));
     const delMeet = $("#meet-delete");
-    if (delMeet) delMeet.addEventListener("click", async () => {
-      if (!await btConfirm("모임을 삭제할까요?\n참여자들에게는 취소로 표시돼요.", { yes: "삭제" })) return;
-      state.meets = state.meets.filter((x) => x.id !== m.id);
-      saveMeets();
-      Sync.deleteMeet(m.id);   // 서버에서도 지워요 (안 지우면 다음 새로고침에 되살아납니다)
-      show("meet");
-      toast("모임을 삭제했어요.");
-    });
+    if (delMeet) delMeet.addEventListener("click", deleteMeetNow);
+  }
+
+  /* ---------- 모임 삭제 (한 번에) ----------
+   * 내 모임이면 그냥 지우고, 남의 모임인데 내가 운영자면 운영자 권한으로 지웁니다.
+   * 물어보는 건 "정말요?" 한 번뿐이에요. 사유는 '운영자 직접 삭제'로 기록에 남습니다.
+   * (사유를 직접 적거나 주최자를 정지까지 하려면 🚩 > 관리자 조치를 쓰세요)
+   */
+  async function deleteMeetNow() {
+    const m = state.meets.find((x) => x.id === state.curMeet);
+    if (!m) return;
+    const asAdmin = !m.mine;
+    if (asAdmin && !isAdmin()) return;
+
+    const ok = await btConfirm(
+      asAdmin ? `'${m.title}' 모임을 삭제할까요?\n운영자 권한으로 바로 지웁니다.`
+              : "모임을 삭제할까요?\n참여자들에게는 취소로 표시돼요.",
+      { yes: "삭제" });
+    if (!ok) return;
+
+    if (asAdmin) {
+      toast("삭제 중이에요…");
+      const res = await Sync.adminDelete("meet", m.id, {
+        title: m.title, reason: "운영자 직접 삭제", targetUser: m.authorId,
+      });
+      if (!res.ok) { toast("삭제 실패: " + res.error); return; }
+    } else {
+      // 서버에서도 지워요 (안 지우면 다음 새로고침에 되살아납니다)
+      Sync.deleteMeet(m.id);
+    }
+    state.meets = state.meets.filter((x) => x.id !== m.id);
+    saveMeets();
+    show("meet");
+    toast(asAdmin ? "삭제했어요. 🛡️" : "모임을 삭제했어요.");
   }
   function addMeetComment() {
     const text = $("#meet-comment-input").value.trim();
@@ -6794,6 +6822,7 @@
   // 새 도구/신고/리포트
   $("#tool-random").addEventListener("click", randomCocktail);
   $("#btn-taste").addEventListener("click", () => show("taste"));
+  $("#meet-delete-top").addEventListener("click", deleteMeetNow);
   /* 모임 상세의 🚩 — 게시글과 같은 자리, 같은 순서로 둡니다.
      운영자에게는 여기서 바로 삭제·정지가 열려요. (관리자 페이지까지 안 가도 되게) */
   $("#meet-report").addEventListener("click", () => {
