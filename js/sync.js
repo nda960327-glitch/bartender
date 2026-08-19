@@ -16,7 +16,10 @@
   var CFG = window.BARTALK_CONFIG || {};
   var SDK_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
   var QUEUE_KEY = "bartalk_syncq";
-  var MAX_QUEUE = 200;
+  /* 전송 대기 줄의 최대 길이.
+     넘치면 오래된 것부터 버립니다 = 그 글은 영영 안 올라갑니다.
+     예시 글·모임을 한꺼번에 올리면 200건을 훌쩍 넘겨서 앞부분이 잘렸어요. */
+  var MAX_QUEUE = 600;
 
   var S = {
     enabled: !!(CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY),
@@ -1189,19 +1192,21 @@
       enqueue({ table: "posts", op: "update", row: { views: views }, match: { id: id } });
     },
 
-    async saveComment(postId, c, parentId) {
+    async saveComment(postId, c, parentId, opts) {
       if (!ready()) return;
       var img = await resolveImg(c);
-      enqueue({
+      var job = {
         table: "comments", op: "upsert",
         row: {
           id: c.id, post_id: postId, parent_id: parentId || null, author_id: S.uid,
           color: c.color, text: c.text, img: img,
           created_at: new Date(c.time).toISOString(),
         },
-        // 글쓴이(답글이면 그 댓글을 쓴 사람)에게 알려줍니다.
-        notify: { type: "comment", commentId: c.id },
-      });
+      };
+      // 글쓴이(답글이면 그 댓글을 쓴 사람)에게 알려줍니다.
+      // 예시 글을 한꺼번에 올릴 때는 알림을 끕니다 — 안 그러면 내 폰에만 수십 개가 쏟아져요.
+      if (!(opts && opts.silent)) job.notify = { type: "comment", commentId: c.id };
+      enqueue(job);
     },
 
     toggleLike(postId, liked) {

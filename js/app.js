@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.39.0";
+  const APP_BUILD = "2.39.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -2769,6 +2769,10 @@
             <span class="row-label">📜 제재 기준 보기</span><span class="flex-1"></span>
             <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
           </button>
+          <button class="row-link" id="admin-upload-seed">
+            <span class="row-label">☁️ 예시 글·모임 서버에 올리기</span><span class="flex-1"></span>
+            <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
           <button class="row-link" id="admin-preview">
             <span class="row-label">👀 다른 사람 화면으로 보기</span><span class="flex-1"></span>
             <span class="row-badge">${state.previewUser ? "켜짐" : "꺼짐"}</span>
@@ -2803,6 +2807,7 @@
     bindRefDash();
     $("#admin-log").addEventListener("click", openAdminLogSheet);
     $$("#admin-area .admin-log-row").forEach((b) => b.addEventListener("click", openAdminLogSheet));
+    $("#admin-upload-seed").addEventListener("click", uploadSeedContent);
     $("#admin-preview").addEventListener("click", openPreviewSheet);
     $("#admin-rules").addEventListener("click", openSanctionSheet);
     $("#admin-csv").addEventListener("click", () => exportCSV("바텐톡-현황", [
@@ -5742,6 +5747,56 @@
     store.set("previewUser", state.previewUser);
     toast(on ? "다른 사람 화면으로 봅니다. 👀" : "내 화면으로 돌아왔어요.");
     rerenderCurrentView();
+  }
+
+  /* ---------- 예시 글·모임 서버에 올리기 ----------
+   * 앱에 들어 있던 글과 모임은 각자 폰 안에만 있어서, 댓글을 달아도
+   * 서로 안 보이고 모임에 신청해도 주최자가 모릅니다.
+   * 서버에 한 번 올려두면 그때부터 진짜로 공유돼요.
+   *
+   * 서버 규칙상 올리는 사람이 작성자가 됩니다. 그래서 운영자만 하고,
+   * 무슨 일이 일어나는지 먼저 알려준 뒤에 진행합니다.
+   */
+  async function uploadSeedContent() {
+    if (!Sync.enabled || !Sync.signedIn) { toast("서버에 연결된 상태에서만 올릴 수 있어요."); return; }
+    const posts = state.posts.filter((p) => !p.remote);
+    const meets = state.meets.filter((m) => !m.remote);
+    if (!posts.length && !meets.length) { toast("올릴 것이 없어요. 이미 다 올라가 있습니다."); return; }
+
+    const ok = await btConfirm(
+      `글 ${posts.length}개와 모임 ${meets.length}개를 서버에 올릴까요?\n\n` +
+      "· 올린 뒤부터 댓글·공감·모임 신청이 서로 공유돼요\n" +
+      "· 작성자는 모두 이 계정이 됩니다 (물방울 색이 하나로 합쳐져요)\n" +
+      "· 한 번만 하면 되고, 두 번 눌러도 겹쳐 올라가지 않아요",
+      { yes: "올리기" });
+    if (!ok) return;
+
+    toast("올리는 중이에요…");
+    let n = 0;
+    for (const p of posts) {
+      Sync.savePost(p); n++;
+      for (const c of p.comments || []) {
+        if (!c.id) c.id = newId();
+        Sync.saveComment(p.id, c, null, { silent: true }); n++;
+        for (const r of c.replies || []) {
+          if (!r.id) r.id = newId();
+          Sync.saveComment(p.id, r, c.id, { silent: true }); n++;
+        }
+      }
+    }
+    for (const m of meets) {
+      Sync.saveMeet(m); n++;
+      for (const c of m.comments || []) {
+        if (!c.id) c.id = newId();
+        Sync.saveMeetComment(m.id, c); n++;
+      }
+    }
+    // 댓글에 새로 붙인 번호를 기억해둬야 다음에 또 올려도 겹치지 않아요.
+    savePosts(); saveMeets();
+    await btAlert(`${fmtNum(n)}건을 서버로 보내고 있어요.\n\n` +
+      "인터넷 상태에 따라 1~2분쯤 걸립니다.\n" +
+      "다 올라가면 '다른 사람 화면으로 보기'를 켜서 확인해보세요.");
+    setTimeout(() => { Sync.refresh("import"); }, 4000);
   }
 
   // 지금 이 기기의 글이 남들에게 보이는지 세어봅니다.
