@@ -1208,13 +1208,62 @@
       enqueue({ table: "meets", op: "delete", match: { id: id, host_id: S.uid } });
     },
 
-    joinMeet(meetId, joined) {
+    joinMeet(meetId, joined, contact) {
       if (!ready()) return;
-      if (joined) enqueue({
-        table: "meet_participants", op: "upsert", row: { meet_id: meetId, user_id: S.uid },
-        notify: notifyOnce("mj:" + meetId, { type: "meetJoin", meetId: meetId }),
+      if (joined) {
+        enqueue({
+          table: "meet_participants", op: "upsert", row: { meet_id: meetId, user_id: S.uid },
+          notify: notifyOnce("mj:" + meetId, { type: "meetJoin", meetId: meetId }),
+        });
+        // 신청서(닉네임·연락처)는 따로 담습니다. 주최자만 볼 수 있어요.
+        if (contact && contact.nick && contact.phone) {
+          enqueue({
+            table: "meet_contacts", op: "upsert",
+            row: {
+              meet_id: meetId, user_id: S.uid,
+              nick: String(contact.nick).slice(0, 20),
+              phone: String(contact.phone).slice(0, 20),
+              memo: contact.memo ? String(contact.memo).slice(0, 200) : null,
+            },
+          });
+        }
+      } else {
+        enqueue({ table: "meet_participants", op: "delete", match: { meet_id: meetId, user_id: S.uid } });
+        enqueue({ table: "meet_contacts", op: "delete", match: { meet_id: meetId, user_id: S.uid } });
+      }
+    },
+
+    /* 참가 신청서 명단. 주최자·본인·운영자가 아니면 서버가 빈 목록을 줍니다. */
+    async meetRoster(meetId) {
+      if (!ready()) return null;
+      var res = await sb.from("meet_contacts")
+        .select("*").eq("meet_id", meetId).order("created_at");
+      if (res.error) return null;
+      return (res.data || []).map(function (r) {
+        return {
+          userId: r.user_id, nick: r.nick, phone: r.phone,
+          memo: r.memo || "", at: t(r.created_at), mine: r.user_id === S.uid,
+        };
       });
-      else enqueue({ table: "meet_participants", op: "delete", match: { meet_id: meetId, user_id: S.uid } });
+    },
+
+    /* 모임 수정. 주최자와 운영자만 통과합니다 (서버 정책이 판정). */
+    async editMeet(m) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      try {
+        var res = await sb.from("meets").update({
+          region: m.region, title: m.title, descr: m.desc || "",
+          place: m.place || "", meet_at: new Date(m.date).toISOString(),
+          max_people: m.max,
+        }).eq("id", m.id).select("id");
+        if (res.error) return { ok: false, error: res.error.message };
+        if (!res.data || !res.data.length) {
+          return { ok: false, error: "수정 권한이 없거나 이미 지워진 모임이에요." };
+        }
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "수정에 실패했어요." };
+      }
     },
 
     saveMeetComment(meetId, c) {

@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.37.1";
+  const APP_BUILD = "2.38.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -1013,7 +1013,14 @@
   }
 
   /* ---------- 시드 병합 (앱 업데이트 시 새 데이터 추가) ---------- */
-  const SEED_V = 9;      // 9 = 술도감 예시 리뷰 추가
+  /* 10 = 텅 빈 채로 깔린 기기를 되살립니다.
+   *
+   * 9 까지는 처음 설치한 기기에서 예시 글·모임이 통째로 지워졌어요
+   * (기본값 배열을 복사하지 않고 넘겨서 원본까지 비워졌습니다 — 위 state 주석 참고).
+   * 그 기기들은 "정리 끝"으로 기록돼 있어서 고친 코드를 받아도 그대로 비어 있습니다.
+   * 번호를 올리면 이 칸이 한 번 더 돌아 예시가 다시 채워집니다.
+   * 내 글과 서버 글은 dropOldSeed 가 건드리지 않으니 사라지지 않아요. */
+  const SEED_V = 10;
   if (store.get("seedv", 1) < SEED_V) {
     const mergeSeed = (arr, seed) => {
       const ids = new Set(arr.map((x) => x.id));
@@ -5322,6 +5329,8 @@
     // (예전에는 서버에 있는 모임에만 보였는데, 앱에 미리 넣어둔 예시 모임에는
     //  아무 버튼도 안 떠서 "지울 방법이 없다"가 됐어요. 이제 항상 보입니다.)
     $("#meet-delete-top").hidden = !(m.mine || isAdmin());
+    // 수정도 지우기와 같은 사람에게 — 주최자와 운영자
+    $("#meet-edit").hidden = !(m.mine || isAdmin());
     const full = m.joined >= m.max && !m.isJoined;
     $("#meet-detail").innerHTML = `
       <div class="md-wrap">
@@ -5339,6 +5348,7 @@
         </div>
         <div class="md-desc">${esc(m.desc)}</div>
         ${m.mine ? `
+        <button class="join-btn" id="meet-roster">📋 신청자 명단 보기 (${m.joined - 1}명)</button>
         <button class="join-btn joined" id="meet-delete">모임 삭제하기</button>` : m.date < Date.now() ? `
         <button class="join-btn full" disabled>종료된 모임이에요</button>` : `
         <button class="join-btn ${m.isJoined ? "joined" : ""} ${full ? "full" : ""}" id="meet-join">
@@ -5383,24 +5393,123 @@
     const joinBtn = $("#meet-join");
     if (joinBtn) joinBtn.addEventListener("click", () => {
       if (full) return;
-      m.isJoined = !m.isJoined;
-      m.joined += m.isJoined ? 1 : -1;
-      saveMeets();
-      Sync.joinMeet(m.id, m.isJoined);
-      renderMeetDetail();
-      if (m.isJoined) {
-        toast("모임에 참여했어요! 🎉");
-        addNoti("🍻", `'${m.title}' 모임에 참여했어요. ${fmtDate(m.date)} 잊지 마세요!`);
-        if ("Notification" in window && Notification.permission === "default")
-          Notification.requestPermission().catch(() => {});
-        checkBadges();
-      } else toast("참여를 취소했어요.");
+      if (m.isJoined) { leaveMeet(m); return; }
+      openJoinSheet(m);
     });
+    const rosterBtn = $("#meet-roster");
+    if (rosterBtn) rosterBtn.addEventListener("click", () => openRosterSheet(m));
     const chatBtn = $("#meet-host-chat");
     if (chatBtn) chatBtn.addEventListener("click", () =>
       openChatWith(m.hostColor, `meet:${m.id}`, `모임 '${m.title}' 주최자`, m.authorId));
     const delMeet = $("#meet-delete");
     if (delMeet) delMeet.addEventListener("click", deleteMeetNow);
+  }
+
+  /* ---------- 모임 참가 신청 ----------
+   * 그냥 "참여하기"만 누르면 주최자는 몇 명인지만 알고 누군지는 모릅니다.
+   * 자리 잡아놓고 안 오는 걸 막으려면 연락이 닿아야 해요.
+   * 연락처는 주최자와 본인, 운영자만 볼 수 있습니다. (supabase/meet-contacts.sql)
+   */
+  function openJoinSheet(m) {
+    const saved = state.user.joinInfo || {};
+    openSheetHTML(`
+      <h3>🙋 참가 신청</h3>
+      <p class="sheet-note" style="text-align:left;margin:0 0 12px">
+        <b>${esc(m.title)}</b><br>${fmtDate(m.date)} · ${esc(m.place)}</p>
+      <label class="form-label">이름 / 닉네임</label>
+      <input type="text" class="input" id="jn-nick" maxlength="20" placeholder="주최자에게 보여줄 이름" value="${esc(saved.nick || state.user.nick || "")}">
+      <label class="form-label">연락처</label>
+      <input type="tel" class="input" id="jn-phone" maxlength="20" inputmode="tel" placeholder="010-0000-0000" value="${esc(saved.phone || "")}">
+      <label class="form-label">주최자에게 한마디 <span class="label-opt">선택</span></label>
+      <textarea class="input textarea sm" id="jn-memo" maxlength="200" placeholder="예) 30분쯤 늦게 도착할 것 같아요"></textarea>
+      <p class="sheet-note" style="text-align:left;margin:10px 0 0">
+        연락처는 <b>주최자에게만</b> 보여요. 다른 참가자에게는 보이지 않습니다.</p>
+      <button class="big-btn accent ready" id="jn-go" style="margin-top:14px">참가 신청하기</button>`);
+
+    const bd = document.querySelector(".sheet-backdrop");
+    bd.querySelector("#jn-go").addEventListener("click", () => {
+      const nick = bd.querySelector("#jn-nick").value.trim();
+      const phone = bd.querySelector("#jn-phone").value.trim();
+      const memo = bd.querySelector("#jn-memo").value.trim();
+      if (nick.length < 1) { toast("이름을 적어주세요."); return; }
+      if (phone.replace(/[^0-9]/g, "").length < 8) { toast("연락처를 정확히 적어주세요."); return; }
+      if (!isClean(nick, memo)) return;
+      bd.remove();
+
+      // 다음 모임에서 다시 적지 않아도 되게 기억해둡니다 (이 기기에만)
+      state.user.joinInfo = { nick, phone };
+      m.isJoined = true;
+      m.joined += 1;
+      saveMeets(); saveUser();
+      Sync.joinMeet(m.id, true, { nick, phone, memo });
+      renderMeetDetail();
+      toast("참가 신청했어요! 🎉");
+      addNoti("🍻", `'${m.title}' 모임에 참여했어요. ${fmtDate(m.date)} 잊지 마세요!`);
+      if ("Notification" in window && Notification.permission === "default")
+        Notification.requestPermission().catch(() => {});
+      checkBadges();
+    });
+  }
+
+  async function leaveMeet(m) {
+    if (!await btConfirm("참여를 취소할까요?\n적어주신 연락처도 함께 지워져요.", { yes: "취소하기" })) return;
+    m.isJoined = false;
+    m.joined = Math.max(0, m.joined - 1);
+    saveMeets();
+    Sync.joinMeet(m.id, false);
+    renderMeetDetail();
+    toast("참여를 취소했어요.");
+  }
+
+  /* 주최자만 보는 신청자 명단. 전화번호를 눌러 바로 걸 수 있게 해둡니다. */
+  async function openRosterSheet(m) {
+    openSheetHTML(`<h3>📋 신청자 명단</h3>
+      <p class="sheet-note" style="text-align:left;margin:0 0 10px">불러오는 중이에요…</p>`);
+    const rows = await Sync.meetRoster(m.id);
+    const bd = document.querySelector(".sheet-backdrop");
+    if (!bd) return;
+    const sheet = bd.querySelector(".sheet");
+    const close = () => bd.remove();
+
+    if (rows === null) {
+      sheet.innerHTML = `<button class="sheet-close" type="button" aria-label="닫기">✕</button>
+        <h3>📋 신청자 명단</h3>
+        <p class="sheet-note" style="text-align:left">명단을 불러오지 못했어요.<br>supabase/meet-contacts.sql 을 실행했는지 확인해주세요.</p>`;
+      sheet.querySelector(".sheet-close").addEventListener("click", close);
+      return;
+    }
+
+    const others = rows.filter((r) => !r.mine);
+    sheet.innerHTML = `<button class="sheet-close" type="button" aria-label="닫기">✕</button>
+      <h3>📋 신청자 명단 <span style="font-size:12.5px;font-weight:500;color:var(--text-sub)">· ${others.length}명</span></h3>
+      ${others.length ? "" : `<p class="sheet-note" style="text-align:left">아직 신청한 사람이 없어요.<br>
+        <span style="color:var(--text-muted)">이 기능이 생기기 전에 참여한 분은 연락처가 없어서 여기 안 나옵니다.</span></p>`}
+      ${others.map((r) => `
+        <div class="roster-row">
+          <div class="roster-who">
+            <b>${esc(r.nick)}</b>
+            <span class="roster-time">${fmtRel(r.at)} 신청</span>
+          </div>
+          ${r.memo ? `<div class="roster-memo">${esc(r.memo)}</div>` : ""}
+          <div class="roster-acts">
+            <a class="roster-call" href="tel:${esc(r.phone.replace(/[^0-9+]/g, ""))}">📞 ${esc(r.phone)}</a>
+            <button class="text-btn roster-copy" data-p="${esc(r.phone)}">복사</button>
+          </div>
+        </div>`).join("")}
+      ${others.length ? `<button class="text-btn" id="roster-copy-all" style="width:100%;margin-top:12px">명단 전체 복사</button>` : ""}`;
+
+    sheet.querySelector(".sheet-close").addEventListener("click", close);
+    sheet.querySelectorAll(".roster-copy").forEach((b) =>
+      b.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(b.dataset.p); toast("복사했어요."); }
+        catch { toast("복사에 실패했어요."); }
+      }));
+    const all = sheet.querySelector("#roster-copy-all");
+    if (all) all.addEventListener("click", async () => {
+      const txt = others.map((r) => `${r.nick} ${r.phone}${r.memo ? " — " + r.memo : ""}`).join("\n");
+      try { await navigator.clipboard.writeText(txt); toast("명단을 복사했어요."); }
+      catch { toast("복사에 실패했어요."); }
+    });
   }
 
   /* ---------- 모임 삭제 (한 번에) ----------
@@ -5495,8 +5604,69 @@
     $("#mw-submit").disabled = !ok;
     $("#mw-submit").classList.toggle("ready", !!ok);
   }
+  /* 모임 수정 — 만들기 화면을 그대로 씁니다.
+     화면을 하나 더 만들면 항목이 어긋나기 시작해요. 같은 화면을 채워서 엽니다. */
+  function openMeetEdit(m) {
+    state.editMeet = m.id;
+    state.mwRegion = m.region;
+    const d = new Date(m.date);
+    const p2 = (n) => String(n).padStart(2, "0");
+    $("#mw-title").value = m.title;
+    $("#mw-date").value = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+    $("#mw-time").value = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
+    $("#mw-place").value = m.place || "";
+    $("#mw-max").value = m.max;
+    $("#mw-desc").value = m.desc || "";
+    $("#view-meet-write .topbar-title").textContent = "모임 수정";
+    $("#mw-submit").textContent = "수정하기";
+    renderMeetWrite();
+    show("meet-write");
+  }
+
+  // 만들기 화면을 빈 상태로 되돌려요 (수정하다 나갔을 때 값이 남지 않게)
+  function resetMeetWrite() {
+    state.editMeet = null;
+    state.mwRegion = null;
+    ["mw-title", "mw-date", "mw-time", "mw-place", "mw-max", "mw-desc"].forEach((i) => { $("#" + i).value = ""; });
+    const t = $("#view-meet-write .topbar-title");
+    if (t) t.textContent = "모임 만들기";
+    $("#mw-submit").textContent = "모임 만들기";
+  }
+
+  async function saveMeetEdit() {
+    const m = state.meets.find((x) => x.id === state.editMeet);
+    if (!m) { resetMeetWrite(); show("meet"); return; }
+    if (isBanned() || !isClean($("#mw-title").value, $("#mw-desc").value)) return;
+
+    const dateStr = $("#mw-date").value + "T" + ($("#mw-time").value || "19:00");
+    const next = {
+      id: m.id, region: state.mwRegion, title: $("#mw-title").value.trim(),
+      date: new Date(dateStr).getTime(), place: $("#mw-place").value.trim(),
+      max: +$("#mw-max").value, desc: $("#mw-desc").value.trim(),
+    };
+    if (next.max < m.joined) {
+      toast(`이미 ${m.joined}명이 참여 중이라 인원을 그보다 줄일 수 없어요.`);
+      return;
+    }
+
+    if (m.remote) {
+      toast("저장 중이에요…");
+      const res = await Sync.editMeet(next);
+      if (!res.ok) { await btAlert("수정하지 못했어요.\n\n" + res.error); return; }
+    }
+    Object.assign(m, next);
+    saveMeets();
+    resetMeetWrite();
+    renderMeetDetail();
+    show("meet-detail");
+    toast("모임을 수정했어요. ✏️");
+    // 참여자에게도 바뀐 내용을 알려줘요. 시간·장소가 바뀌면 안 오면 큰일이니까요.
+    if (m.joined > 1) addNoti("🍻", `'${m.title}' 모임 내용을 수정했어요. 참여자에게도 바뀐 내용이 보입니다.`);
+  }
+
   function submitMeet() {
     if ($("#mw-submit").disabled) return;
+    if (state.editMeet) { saveMeetEdit(); return; }
     if (isBanned() || !isClean($("#mw-title").value, $("#mw-desc").value)) return;
     if (overDailyLimit("meet", 3, "모임 만들기")) return;
     const dateStr = $("#mw-date").value + "T" + ($("#mw-time").value || "19:00");
@@ -7033,6 +7203,13 @@
   // 관리자 화면은 하위 관리 화면이 있어서, 뒤로가기가 먼저 그걸 닫아요.
   $$(".back-btn").forEach((b) => b.addEventListener("click", () => {
     if (b.id === "admin-back" && adminBack()) return;
+    // 모임을 수정하다 나가면 보던 모임으로 돌아가고, 적던 값은 비웁니다.
+    if (state.view === "meet-write" && state.editMeet) {
+      resetMeetWrite();
+      show("meet-detail");
+      return;
+    }
+    if (state.view === "meet-write") resetMeetWrite();
     show(b.dataset.back);
   }));
   $("#btn-alerts").addEventListener("click", () => show("alerts"));
@@ -7203,6 +7380,10 @@
   $("#tool-random").addEventListener("click", randomCocktail);
   $("#btn-taste").addEventListener("click", () => show("taste"));
   $("#meet-delete-top").addEventListener("click", deleteMeetNow);
+  $("#meet-edit").addEventListener("click", () => {
+    const m = state.meets.find((x) => x.id === state.curMeet);
+    if (m) openMeetEdit(m);
+  });
   /* 모임 상세의 🚩 — 게시글과 같은 자리, 같은 순서로 둡니다.
      운영자에게는 여기서 바로 삭제·정지가 열려요. (관리자 페이지까지 안 가도 되게) */
   $("#meet-report").addEventListener("click", () => {
@@ -7261,7 +7442,8 @@
   $("#calc-price").addEventListener("input", calcCompute);
 
   // 모임
-  $("#fab-meet").addEventListener("click", () => { renderMeetWrite(); show("meet-write"); });
+  // + 로 들어올 땐 항상 빈 화면부터 (수정하다 나간 값이 남아 있으면 안 돼요)
+  $("#fab-meet").addEventListener("click", () => { resetMeetWrite(); renderMeetWrite(); show("meet-write"); });
   ["mw-title", "mw-date", "mw-place", "mw-max"].forEach((i) =>
     $("#" + i).addEventListener("input", updateMwSubmit));
   $("#mw-submit").addEventListener("click", submitMeet);
