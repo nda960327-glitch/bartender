@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.37.0";
+  const APP_BUILD = "2.37.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -862,9 +862,14 @@
 
   let state = {
     user: Object.assign({}, DEFAULT_USER, store.get("user", {})),
-    posts: store.get("posts", SEED_POSTS),
-    spirits: store.get("spirits", SEED_SPIRITS),
-    meets: store.get("meets", SEED_MEETS),
+    /* ⚠️ 반드시 복사본(.slice())을 넘겨야 합니다.
+       처음 설치한 기기에는 저장된 값이 없어서 이 기본값이 그대로 state 가 됩니다.
+       원본을 그대로 주면 state.posts 와 SEED_POSTS 가 같은 배열이 되어,
+       아래 시드 정리(dropOldSeed)가 state 를 비울 때 시드까지 같이 비워집니다.
+       그러면 새로 설치한 사람은 커뮤니티와 모임이 텅 빈 채로 시작해요. */
+    posts: store.get("posts", SEED_POSTS.slice()),
+    spirits: store.get("spirits", SEED_SPIRITS.slice()),
+    meets: store.get("meets", SEED_MEETS.slice()),
     cart: store.get("cart", []),
     orders: store.get("orders", []),
     bars: store.get("bars", []),        // 내가 등록한 곳만. 기본 목록은 barsAll() 이 합칩니다
@@ -915,6 +920,10 @@
     push: store.get("push", true),
     view: "home",
     commTab: "all",
+    /* 다른 사람 화면으로 보기.
+       켜면 "서버에 올라간 것"만 남깁니다 — 다른 사람 폰에 실제로 보이는 것과 같아요.
+       내 폰에만 있는 글·앱에 내장된 예시는 빠집니다. */
+    previewUser: store.get("previewUser", false),
     writeCat: "free",
     pendingImg: null,
     curPost: null,
@@ -2746,6 +2755,11 @@
             <span class="row-label">📜 제재 기준 보기</span><span class="flex-1"></span>
             <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
           </button>
+          <button class="row-link" id="admin-preview">
+            <span class="row-label">👀 다른 사람 화면으로 보기</span><span class="flex-1"></span>
+            <span class="row-badge">${state.previewUser ? "켜짐" : "꺼짐"}</span>
+            <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
           <button class="row-link" id="admin-csv">
             <span class="row-label">📄 현황 CSV 내보내기</span><span class="flex-1"></span>
             <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
@@ -2775,6 +2789,7 @@
     bindRefDash();
     $("#admin-log").addEventListener("click", openAdminLogSheet);
     $$("#admin-area .admin-log-row").forEach((b) => b.addEventListener("click", openAdminLogSheet));
+    $("#admin-preview").addEventListener("click", openPreviewSheet);
     $("#admin-rules").addEventListener("click", openSanctionSheet);
     $("#admin-csv").addEventListener("click", () => exportCSV("바텐톡-현황", [
       ["항목", "값"],
@@ -5258,6 +5273,7 @@
     const list = state.meets
       // 운영자가 내린 모임은 모든 사람 화면에서 빠집니다 (앱 내장 예시 모임용)
       .filter((m) => !ovHidden("meet", m.id))
+      .filter((m) => !state.previewUser || m.remote)
       .filter((m) => !state.meetMine || m.isJoined)
       .filter((m) => state.meetRegion === "전체" || m.region === state.meetRegion)
       .sort((a, b) => (isPast(a) - isPast(b)) || (isPast(a) ? b.date - a.date : a.date - b.date));
@@ -5266,7 +5282,7 @@
       mBar.hidden = !state.meetMine;
       mBar.textContent = "참여한 모임만 보는 중 · 전체 보기";
     }
-    $("#meet-list").innerHTML = list.length
+    $("#meet-list").innerHTML = previewBarHTML() + (list.length
       ? list.map((m) => {
         const past = isPast(m);
         const full = m.joined >= m.max;
@@ -5286,7 +5302,8 @@
           </div>
         </div>`;
       }).join("")
-      : '<div class="empty-state">이 지역엔 아직 모임이 없어요.<br>오른쪽 아래 + 버튼으로 첫 모임을 만들어보세요!</div>';
+      : '<div class="empty-state">이 지역엔 아직 모임이 없어요.<br>오른쪽 아래 + 버튼으로 첫 모임을 만들어보세요!</div>');
+    bindPreviewBar($("#meet-list"));
     $$("#meet-list .meet-item").forEach((el) =>
       el.addEventListener("click", () => openMeet(+el.dataset.id)));
   }
@@ -5506,6 +5523,7 @@
     const q = $("#post-search").value.trim();
     const hidden = state.user.hiddenPosts || [];
     let list = state.posts.filter((p) => !hidden.includes(p.id) && !isBlockedPost(p));
+    if (state.previewUser) list = list.filter((p) => p.remote);
     if (state.commTab === "hot") list = list.filter((p) => p.cat === "hot" || p.likes + p.comments.length >= 10);
     else if (state.commTab !== "all") list = list.filter((p) => p.cat === state.commTab);
     if (q) list = list.filter((p) => has(p.title, q) || has(p.body, q));
@@ -5515,11 +5533,82 @@
     const ph = { all: "커뮤니티 전체 검색", hot: "커뮤니티 인기 검색", free: "커뮤니티 자유 검색", promo: "커뮤니티 홍보 검색" };
     $("#post-search").placeholder = ph[state.commTab];
 
-    $("#post-list").innerHTML = list.length
+    $("#post-list").innerHTML = previewBarHTML() + (list.length
       ? list.map(postItemHTML).join("")
-      : '<div class="empty-state">게시글이 없어요.</div>';
+      : '<div class="empty-state">게시글이 없어요.</div>');
+    bindPreviewBar($("#post-list"));
     $$("#post-list .post-item").forEach((el) =>
       el.addEventListener("click", () => openPost(+el.dataset.id)));
+  }
+
+  /* ---------- 다른 사람 화면으로 보기 ----------
+   * "내 폰에는 보이는데 남의 폰에는 없다"를 눈으로 확인하는 장치예요.
+   * 켜면 서버에 실제로 올라간 것만 남습니다. 그게 남들이 보는 전부입니다.
+   */
+  function previewBarHTML() {
+    if (!state.previewUser) return "";
+    return `<button class="preview-bar" id="preview-off">
+      👀 <b>다른 사람 화면</b>으로 보는 중 · 서버에 올라간 것만 보여요
+      <span class="preview-off">끄기</span></button>`;
+  }
+  function bindPreviewBar(root) {
+    const b = root && root.querySelector("#preview-off");
+    if (b) b.addEventListener("click", () => setPreviewUser(false));
+  }
+  function setPreviewUser(on) {
+    state.previewUser = !!on;
+    store.set("previewUser", state.previewUser);
+    toast(on ? "다른 사람 화면으로 봅니다. 👀" : "내 화면으로 돌아왔어요.");
+    rerenderCurrentView();
+  }
+
+  // 지금 이 기기의 글이 남들에게 보이는지 세어봅니다.
+  function previewCounts() {
+    const server = { post: 0, meet: 0 }, local = { post: 0, meet: 0 }, mineLocal = { post: 0, meet: 0 };
+    state.posts.forEach((p) => {
+      if (p.remote) server.post++;
+      else { local.post++; if (p.mine) mineLocal.post++; }
+    });
+    state.meets.forEach((m) => {
+      if (m.remote) server.meet++;
+      else { local.meet++; if (m.mine) mineLocal.meet++; }
+    });
+    return { server, local, mineLocal };
+  }
+
+  function openPreviewSheet() {
+    const c = previewCounts();
+    const mine = c.mineLocal.post + c.mineLocal.meet;
+    openSheetHTML(`
+      <h3>👀 다른 사람 화면으로 보기</h3>
+      <p class="sheet-note" style="text-align:left;margin:0 0 10px">
+        서버에 올라간 것만 다른 사람 폰에 보입니다. 나머지는 이 기기 안에만 있어요.</p>
+      <div class="sheet-row"><span>서버에 있는 글</span><b class="r">${fmtNum(c.server.post)}개</b></div>
+      <div class="sheet-row"><span>이 기기에만 있는 글</span><b class="r" ${c.local.post ? 'style="color:var(--accent)"' : ""}>${fmtNum(c.local.post)}개</b></div>
+      <div class="sheet-row"><span>서버에 있는 모임</span><b class="r">${fmtNum(c.server.meet)}개</b></div>
+      <div class="sheet-row"><span>이 기기에만 있는 모임</span><b class="r" ${c.local.meet ? 'style="color:var(--accent)"' : ""}>${fmtNum(c.local.meet)}개</b></div>
+      <button class="big-btn ${state.previewUser ? "" : "accent ready"}" id="pv-toggle" style="margin-top:14px">
+        ${state.previewUser ? "내 화면으로 돌아가기" : "다른 사람 화면으로 보기"}</button>
+      ${mine ? `<button class="text-btn" id="pv-push" style="width:100%;margin-top:10px">내가 쓴 ${mine}건 서버에 올리기</button>` : ""}
+      <p class="sheet-note" style="text-align:left;margin:12px 0 0">
+        <b>이 기기에만 있는 글</b>은 두 가지예요.<br>
+        ① 앱에 미리 넣어둔 예시 글 — 앱 안에 있어서 같은 버전을 쓰는 사람에게는 보이고,
+        예전 버전을 쓰는 사람에게는 안 보여요.<br>
+        ② 인터넷이 끊긴 채로 쓴 내 글 — 위 버튼으로 올리면 모두에게 보입니다.<br><br>
+        봇(공식 계정) 글은 서버에 올라가야 남들에게 보여요. 예약만 걸린 글은
+        <b>관리자 &gt; 봇 탭</b>에서 "지금 발행"을 눌러야 나갑니다.</p>`);
+
+    const bd = document.querySelector(".sheet-backdrop");
+    bd.querySelector("#pv-toggle").addEventListener("click", () => {
+      bd.remove();
+      setPreviewUser(!state.previewUser);
+    });
+    const push = bd.querySelector("#pv-push");
+    if (push) push.addEventListener("click", () => {
+      bd.remove();
+      backfillLocal();
+      toast("서버로 올리는 중이에요. 잠시 후 확인해주세요.");
+    });
   }
   function postItemHTML(p) {
     return `

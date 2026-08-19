@@ -480,6 +480,19 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .ref-msg.ok  { color: var(--official); }
 .ref-msg.bad { color: var(--accent); }
 .ref-msg.dim { color: var(--text-sub); }
+/* 다른 사람 화면으로 보는 중임을 계속 알려주는 띠 */
+.preview-bar {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 11px 20px; border: 0; cursor: pointer; text-align: left;
+  background: var(--bg-banner); color: var(--text);
+  font-size: 13.5px; font-family: inherit; line-height: 1.5;
+}
+.preview-bar b { font-weight: 700; }
+.preview-off {
+  margin-left: auto; flex: none; font-weight: 700; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 8px; padding: 3px 9px; font-size: 12.5px;
+}
+
 /* ---------- 도감 공동 편집 ---------- */
 .wiki-img-row { display: flex; gap: 12px; align-items: center; }
 .wiki-img-prev {
