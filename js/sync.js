@@ -153,6 +153,31 @@
   /* ---------- 형식 변환: DB → 앱 ---------- */
   var t = function (iso) { return iso ? Date.parse(iso) : Date.now(); };
 
+  function toAppListing(r) {
+    return {
+      id: Number(r.id), kind: r.kind, authorId: r.author_id,
+      title: r.title, org: r.org || "", region: r.region || "전국",
+      place: r.place || "", phone: r.phone || "", link: r.link || "",
+      fee: r.fee || "", startsOn: r.starts_on || "", endsOn: r.ends_on || "",
+      body: r.body || "", img: r.img || "",
+      at: t(r.created_at), mine: r.author_id === S.uid,
+    };
+  }
+
+  function toAppPro(r) {
+    return {
+      userId: r.user_id, name: r.name, region: r.region || "서울",
+      shop: r.shop || "", years: Number(r.years) || 0,
+      photo: r.photo || "", intro: r.intro || "",
+      sigName: r.sig_name || "", sigRecipe: r.sig_recipe || "",
+      sigNote: r.sig_note || "", sigImg: r.sig_img || "",
+      awards: Array.isArray(r.awards) ? r.awards : [],
+      portfolio: Array.isArray(r.portfolio) ? r.portfolio : [],
+      open: r.open !== false,
+      at: t(r.updated_at), mine: r.user_id === S.uid,
+    };
+  }
+
   function toAppEdit(row) {
     return {
       id: Number(row.id),
@@ -1350,6 +1375,113 @@
         .select("*").order("created_at", { ascending: false }).limit(limit || 50);
       if (res.error) return null;
       return (res.data || []).map(toAppEdit);
+    },
+
+    /* ---------- 학원 · 대회 정보 ---------- */
+    async listings(kind) {
+      if (!ready()) return null;
+      var res = await sb.from("listings").select("*").eq("kind", kind)
+        .order("created_at", { ascending: false }).limit(200);
+      if (res.error) return null;
+      return (res.data || []).map(toAppListing);
+    },
+
+    async saveListing(l) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      try {
+        if (l.img && l.img.indexOf("data:") === 0) {
+          var url = await uploadPhoto(l.img);
+          if (url) l.img = url; else l.img = null;
+        }
+        var row = {
+          id: l.id, kind: l.kind, author_id: S.uid, title: l.title,
+          org: l.org || null, region: l.region || "전국", place: l.place || null,
+          phone: l.phone || null, link: l.link || null, fee: l.fee || null,
+          starts_on: l.startsOn || null, ends_on: l.endsOn || null,
+          body: l.body || "", img: l.img || null,
+        };
+        // 새로 올릴 때는 author_id 가 나여야 하고, 고칠 때는 서버가 권한을 봅니다.
+        var res = l.isNew
+          ? await sb.from("listings").insert(row).select("id")
+          : await sb.from("listings").update(row).eq("id", l.id).select("id");
+        if (res.error) return { ok: false, error: res.error.message };
+        if (!res.data || !res.data.length) return { ok: false, error: "수정 권한이 없어요." };
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "저장에 실패했어요." };
+      }
+    },
+
+    async deleteListing(id) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      var res = await sb.from("listings").delete().eq("id", id).select("id");
+      if (res.error) return { ok: false, error: res.error.message };
+      if (!res.data || !res.data.length) return { ok: false, error: "지울 권한이 없어요." };
+      return { ok: true };
+    },
+
+    /* ---------- 바텐더 프로필 ---------- */
+    async pros(region) {
+      if (!ready()) return null;
+      var q = sb.from("bartender_profiles").select("*").order("updated_at", { ascending: false }).limit(200);
+      if (region && region !== "전체") q = q.eq("region", region);
+      var res = await q;
+      if (res.error) return null;
+      return (res.data || []).map(toAppPro);
+    },
+
+    async myPro() {
+      if (!ready()) return null;
+      var res = await sb.from("bartender_profiles").select("*").eq("user_id", S.uid).maybeSingle();
+      if (res.error || !res.data) return null;
+      return toAppPro(res.data);
+    },
+
+    async savePro(p) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      try {
+        // 사진들을 먼저 올려 주소로 바꿉니다 (base64 를 그대로 담으면 너무 무거워요)
+        var photo = p.photo, sigImg = p.sigImg;
+        if (photo && photo.indexOf("data:") === 0) photo = await uploadPhoto(photo);
+        if (sigImg && sigImg.indexOf("data:") === 0) sigImg = await uploadPhoto(sigImg);
+        var pf = [];
+        for (var i = 0; i < (p.portfolio || []).length; i++) {
+          var it = p.portfolio[i];
+          var img = it.img;
+          if (img && img.indexOf("data:") === 0) img = await uploadPhoto(img);
+          if (img) pf.push({ img: img, caption: it.caption || "" });
+        }
+        var res = await sb.from("bartender_profiles").upsert({
+          user_id: S.uid, name: p.name, region: p.region || "서울",
+          shop: p.shop || null, years: p.years || 0,
+          photo: photo || null, intro: p.intro || "",
+          sig_name: p.sigName || null, sig_recipe: p.sigRecipe || null,
+          sig_note: p.sigNote || null, sig_img: sigImg || null,
+          awards: p.awards || [], portfolio: pf,
+          open: p.open !== false,
+        }).select("user_id");
+        if (res.error) return { ok: false, error: res.error.message };
+        return { ok: true, photo: photo, sigImg: sigImg, portfolio: pf };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "저장에 실패했어요." };
+      }
+    },
+
+    /* 운영자가 허위·부적절한 프로필을 내립니다. 정책이 운영자만 통과시켜요. */
+    async adminHidePro(uid) {
+      if (!ready() || !S.isAdmin) return { ok: false, error: "운영자만 할 수 있어요." };
+      var res = await sb.from("bartender_profiles").delete().eq("user_id", uid).select("user_id");
+      if (res.error) return { ok: false, error: res.error.message };
+      if (!res.data || !res.data.length) return { ok: false, error: "이미 없는 프로필이에요." };
+      await api.logAdmin("삭제", "pro", 0, "바텐더 프로필", "", uid);
+      return { ok: true };
+    },
+
+    async deletePro() {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      var res = await sb.from("bartender_profiles").delete().eq("user_id", S.uid).select("user_id");
+      if (res.error) return { ok: false, error: res.error.message };
+      return { ok: true };
     },
 
     async saveReview(spiritId, r) {

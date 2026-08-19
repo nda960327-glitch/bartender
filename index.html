@@ -126,12 +126,13 @@
         </button>
       </div>
       <div class="quick-grid">
+        <!-- 술도감·모임은 아래 탭에 있어서 여기서는 뺐습니다 (같은 걸 두 번 두지 않아요) -->
         <button class="quick-item pressable" data-go="jobs"><span class="quick-ic">💼</span><span>채용정보</span></button>
-        <button class="quick-item pressable" data-go="dogam"><span class="quick-ic">🥃</span><span>술도감</span></button>
-        <button class="quick-item pressable" data-go="meet"><span class="quick-ic">🍻</span><span>모임</span></button>
         <button class="quick-item pressable" data-go="market"><span class="quick-ic">🛒</span><span>스토어</span></button>
         <button class="quick-item pressable" data-go="bars"><span class="quick-ic">📍</span><span>바 찾기</span></button>
-        <button class="quick-item pressable" data-go="rank"><span class="quick-ic">🏆</span><span>랭킹</span></button>
+        <button class="quick-item pressable" data-go="pros"><span class="quick-ic">🧑‍🍳</span><span>바텐더</span></button>
+        <button class="quick-item pressable" data-go="academy"><span class="quick-ic">📚</span><span>학원정보</span></button>
+        <button class="quick-item pressable" data-go="contest"><span class="quick-ic">🏆</span><span>대회정보</span></button>
       </div>
 
       <div class="home-sec">
@@ -679,7 +680,7 @@
       </div>
       <div class="card menu-list">
         <button class="row-link pressable" data-go="recipes"><span class="row-label">내 레시피 노트</span><span class="flex-1"></span><span class="row-badge" id="recipe-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
-        <button class="row-link pressable" data-go="rank"><span class="row-label">랭킹</span><span class="flex-1"></span><span class="row-badge" id="rank-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="row-link pressable" id="btn-mypro"><span class="row-label">내 바텐더 프로필</span><span class="flex-1"></span><span class="row-badge" id="mypro-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-taste"><span class="row-label">내 취향 리포트</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-cellar"><span class="row-label">내 술장</span><span class="flex-1"></span><span class="row-badge" id="cellar-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-mybars"><span class="row-label">단골 바</span><span class="flex-1"></span><span class="row-badge" id="mybar-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
@@ -997,16 +998,182 @@
     <div class="scroll-area gray-bg" id="bar-detail"></div>
   </section>
 
-  <!-- ===================== 랭킹 ===================== -->
-  <section class="view" id="view-rank" hidden>
+  <!-- ============ 학원 · 대회 정보 (한 화면을 종류만 바꿔 씁니다) ============ -->
+  <section class="view" id="view-listing" hidden>
     <header class="topbar">
       <button class="icon-btn back-btn" data-back="home">
         <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
       </button>
-      <h1 class="topbar-title">🏆 랭킹</h1>
+      <h1 class="topbar-title" id="listing-title">📚 학원정보</h1>
       <span class="topbar-spacer"></span>
     </header>
-    <div class="scroll-area gray-bg" id="rank-area"></div>
+    <div class="chip-scroll" id="listing-regions"></div>
+    <div class="scroll-area gray-bg" id="listing-area"></div>
+    <button class="fab pressable" id="fab-listing" aria-label="정보 올리기">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </section>
+
+  <!-- ===================== 학원 · 대회 올리기 ===================== -->
+  <section class="view" id="view-listing-write" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="listing">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title" id="lw-title">정보 올리기</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area form-area">
+      <label class="form-label" id="lw-name-label">학원 이름</label>
+      <input type="text" class="input" id="lw-title-in" maxlength="80" placeholder="예) OO조주학원 강남점">
+      <label class="form-label">지역</label>
+      <div class="chip-wrap" id="lw-region"></div>
+      <label class="form-label" id="lw-org-label">운영 <span class="label-opt">선택</span></label>
+      <input type="text" class="input" id="lw-org" maxlength="40" placeholder="예) OO협회">
+      <div class="form-2col">
+        <div>
+          <label class="form-label" id="lw-start-label">시작일 <span class="label-opt">선택</span></label>
+          <input type="date" class="input" id="lw-start">
+        </div>
+        <div>
+          <label class="form-label" id="lw-end-label">마감일 <span class="label-opt">선택</span></label>
+          <input type="date" class="input" id="lw-end">
+        </div>
+      </div>
+      <label class="form-label">장소 · 주소 <span class="label-opt">선택</span></label>
+      <input type="text" class="input" id="lw-place" maxlength="100" placeholder="예) 서울 강남구 ...">
+      <label class="form-label">연락처 <span class="label-opt">선택</span></label>
+      <input type="tel" class="input" id="lw-phone" maxlength="20" inputmode="tel" placeholder="02-000-0000">
+      <label class="form-label" id="lw-fee-label">수강료 <span class="label-opt">선택</span></label>
+      <input type="text" class="input" id="lw-fee" maxlength="40" placeholder="예) 주 2회 · 30만원">
+      <label class="form-label">홈페이지 · 신청 링크 <span class="label-opt">선택</span></label>
+      <input type="url" class="input" id="lw-link" maxlength="300" placeholder="https://">
+      <label class="form-label">사진 <span class="label-opt">선택</span></label>
+      <div class="wiki-img-row">
+        <img class="wiki-img-prev" id="lw-img-prev" alt="" hidden>
+        <div class="wiki-img-btns">
+          <button class="text-btn" id="lw-img-btn">📷 사진 고르기</button>
+          <button class="text-btn muted" id="lw-img-rm" hidden>사진 지우기</button>
+        </div>
+      </div>
+      <input type="file" id="lw-file" accept="image/*" hidden>
+      <label class="form-label">설명</label>
+      <textarea class="input textarea" id="lw-body" maxlength="3000" placeholder="커리큘럼, 시험 일정, 참가 조건 등 아는 대로 적어주세요."></textarea>
+      <button class="big-btn accent" id="lw-submit" disabled>올리기</button>
+      <div style="height:24px"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 바텐더 목록 ===================== -->
+  <section class="view" id="view-pros" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="home">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">🧑‍🍳 바텐더</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="chip-scroll" id="pro-regions"></div>
+    <div class="scroll-area gray-bg" id="pros-area"></div>
+    <button class="fab pressable" id="fab-pro" aria-label="내 프로필">
+      <svg viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>
+    </button>
+  </section>
+
+  <!-- ===================== 바텐더 프로필 상세 ===================== -->
+  <section class="view" id="view-pro" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="pros">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <span class="flex-1"></span>
+      <button class="icon-btn" id="pro-edit" hidden aria-label="프로필 수정">
+        <svg viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>
+      </button>
+      <button class="icon-btn" id="pro-report" aria-label="더보기">
+        <svg viewBox="0 0 24 24"><path d="M5 21V4h13l-2.5 4L18 12H5"/></svg>
+      </button>
+    </header>
+    <div class="scroll-area" id="pro-area"></div>
+  </section>
+
+  <!-- ===================== 내 프로필 만들기 ===================== -->
+  <section class="view" id="view-pro-edit" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="pros">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">내 바텐더 프로필</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area form-area">
+      <label class="form-label">프로필 사진</label>
+      <div class="wiki-img-row">
+        <img class="wiki-img-prev pro-photo-prev" id="pe-photo-prev" alt="" hidden>
+        <div class="wiki-img-btns">
+          <button class="text-btn" id="pe-photo-btn">📷 사진 고르기</button>
+          <button class="text-btn muted" id="pe-photo-rm" hidden>사진 지우기</button>
+        </div>
+      </div>
+      <input type="file" id="pe-photo-file" accept="image/*" hidden>
+
+      <label class="form-label">이름 · 활동명</label>
+      <input type="text" class="input" id="pe-name" maxlength="20" placeholder="예) 김바텐">
+      <label class="form-label">지역</label>
+      <div class="chip-wrap" id="pe-region"></div>
+      <div class="form-2col">
+        <div>
+          <label class="form-label">일하는 곳 <span class="label-opt">선택</span></label>
+          <input type="text" class="input" id="pe-shop" maxlength="30" placeholder="예) 문라이트라운지">
+        </div>
+        <div>
+          <label class="form-label">경력(년)</label>
+          <input type="number" class="input" id="pe-years" min="0" max="60" inputmode="numeric" placeholder="3">
+        </div>
+      </div>
+      <label class="form-label">소개 <span class="label-opt">선택</span></label>
+      <textarea class="input textarea sm" id="pe-intro" maxlength="1000" placeholder="어떤 술을 좋아하고 어떤 바를 만들고 싶은지 적어주세요."></textarea>
+
+      <h2 class="section-title mt">🍸 시그니처 칵테일</h2>
+      <label class="form-label">이름</label>
+      <input type="text" class="input" id="pe-sig-name" maxlength="40" placeholder="예) 한강 선셋">
+      <label class="form-label">재료 · 만드는 법 <span class="label-opt">선택</span></label>
+      <textarea class="input textarea sm" id="pe-sig-recipe" maxlength="1000" placeholder="진 45ml&#10;자몽 20ml&#10;..."></textarea>
+      <label class="form-label">어떤 술인가요 <span class="label-opt">선택</span></label>
+      <textarea class="input textarea sm" id="pe-sig-note" maxlength="500" placeholder="맛과 만든 이유를 짧게"></textarea>
+      <label class="form-label">사진 <span class="label-opt">선택</span></label>
+      <div class="wiki-img-row">
+        <img class="wiki-img-prev" id="pe-sig-prev" alt="" hidden>
+        <div class="wiki-img-btns">
+          <button class="text-btn" id="pe-sig-btn">📷 사진 고르기</button>
+          <button class="text-btn muted" id="pe-sig-rm" hidden>사진 지우기</button>
+        </div>
+      </div>
+      <input type="file" id="pe-sig-file" accept="image/*" hidden>
+
+      <h2 class="section-title mt">🏆 대회 입상 이력</h2>
+      <div id="pe-awards"></div>
+      <button class="text-btn" id="pe-award-add" style="width:100%;margin-top:8px">+ 입상 이력 추가</button>
+
+      <h2 class="section-title mt">📸 포트폴리오</h2>
+      <p class="warn-text" style="font-size:13.5px;color:var(--text-sub)">만든 칵테일, 바 사진, 메뉴판 무엇이든 올려주세요.</p>
+      <div class="pf-grid" id="pe-portfolio"></div>
+      <button class="text-btn" id="pe-pf-add" style="width:100%;margin-top:8px">+ 사진 추가</button>
+      <input type="file" id="pe-pf-file" accept="image/*" hidden>
+
+      <h2 class="section-title mt">공개 설정</h2>
+      <div class="push-row">
+        <div class="push-text">
+          <b>바텐더 목록에 보이기</b>
+          <span>끄면 나만 볼 수 있어요.</span>
+        </div>
+        <button class="toggle on" id="pe-open" role="switch" aria-checked="true"><span class="knob"></span></button>
+      </div>
+
+      <button class="big-btn accent" id="pe-save" disabled style="margin-top:16px">저장하기</button>
+      <button class="text-btn muted" id="pe-delete" hidden style="width:100%;margin-top:10px">프로필 삭제하기</button>
+      <div style="height:24px"></div>
+    </div>
   </section>
 
 

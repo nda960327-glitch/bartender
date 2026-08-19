@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.38.1";
+  const APP_BUILD = "2.39.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -885,9 +885,6 @@
     barLocMsg: "",         // 위치를 왜 못 잡았는지 (화면에 띄웁니다)
     barLocHow: "",         // 어떻게 켜는지 안내
     curBar: null,
-    rankRows: null,        // 서버에서 받은 랭킹. null 이면 아직 안 받았어요
-    rankState: "idle",     // idle | loading | ok | off | error
-    rankError: "",
     imgCache: store.get("imgCache", {}),
     reports: store.get("reports", []),
     members: store.get("members", []),
@@ -920,6 +917,17 @@
     push: store.get("push", true),
     view: "home",
     commTab: "all",
+    /* 학원·대회 (한 화면을 종류만 바꿔 씁니다) */
+    listKind: "academy",   // academy | contest
+    listRegion: "전체",
+    listings: null,        // null=아직 / "off"=pro.sql 미설치 / 배열
+    lwEdit: null, lwRegion: null, lwImg: "",
+    /* 바텐더 프로필 */
+    proRegion: "전체",
+    pros: null,
+    curPro: null,
+    myPro: undefined,      // undefined=아직 안 물어봄 / null=없음 / 객체
+    peDraft: null,
     /* 다른 사람 화면으로 보기.
        켜면 "서버에 올라간 것"만 남깁니다 — 다른 사람 폰에 실제로 보이는 것과 같아요.
        내 폰에만 있는 글·앱에 내장된 예시는 빠집니다. */
@@ -1489,8 +1497,6 @@
     clearTimeout(pointPushTimer);
     pointPushTimer = setTimeout(() => {
       Sync.pushPoints(state.user.points);
-      state.rankRows = null;      // 다음에 랭킹을 열면 새로 받도록
-      state.rankState = "idle";
     }, 4000);
   }
   /* 키워드 알림. 서버에서 도착한 남의 글에만 반응합니다.
@@ -1660,7 +1666,7 @@
       (view === "doc" && (state.docFrom === "onboard" || state.docFrom === "login"));
     $("#bottom-nav").style.display = hideNav ? "none" : "";
     const navView = NAV_VIEWS.includes(view) ? view
-      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", market: "home", "market-detail": "home", cart: "home", search: "home", bars: "home", mybars: "mypage", bar: "home", rank: "home", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
+      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", market: "home", "market-detail": "home", cart: "home", search: "home", bars: "home", mybars: "mypage", bar: "home", listing: "home", "listing-write": "listing", pros: "home", pro: "pros", "pro-edit": "pros", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
     $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === navView));
     if (view === "home") renderHome();
     if (view === "market") renderStore();
@@ -1691,8 +1697,9 @@
     if (view === "bars") { renderBars(); autoNear(); loadBarSocial(); }
     if (view === "mybars") { renderMyBars(); loadBarSocial(); }
     if (view === "bar") renderBarDetail();
-    if (view === "rank") renderRank();
     if (view === "recipes") renderRecipes();
+    if (view === "listing") renderListing();
+    if (view === "pros") renderPros();
 
     /* 방금 그린 것은 이 기기에 있던 내용입니다.
        서버에 새 글이 있으면 곧바로 받아 다시 그려요. */
@@ -6431,7 +6438,7 @@
     showAppDownload();
     const rcN = Object.keys(state.user.myRecipes).length;
     $("#recipe-cnt").textContent = rcN ? rcN + "개" : "";
-    $("#rank-cnt").textContent = levelOf(state.user.points || 0).cur.name;
+    $("#mypro-cnt").textContent = state.myPro ? "등록됨" : "만들기";
     checkBadges();
     $("#badge-count").textContent = `${state.user.badges.length}/${BADGES.length}`;
     $("#badge-grid").innerHTML = BADGES.map((b) => {
@@ -7204,7 +7211,12 @@
     if (b.dataset.view === "meet") state.meetMine = false;
     show(b.dataset.view);
   }));
-  $$("[data-go]").forEach((b) => b.addEventListener("click", () => show(b.dataset.go)));
+  $$("[data-go]").forEach((b) => b.addEventListener("click", () => {
+    // 학원·대회는 한 화면을 종류만 바꿔 쓰므로 여기서 갈라줍니다.
+    const go = b.dataset.go;
+    if (go === "academy" || go === "contest") { openListing(go); return; }
+    show(go);
+  }));
   // 관리자 화면은 하위 관리 화면이 있어서, 뒤로가기가 먼저 그걸 닫아요.
   $$(".back-btn").forEach((b) => b.addEventListener("click", () => {
     if (b.id === "admin-back" && adminBack()) return;
@@ -7218,6 +7230,101 @@
     show(b.dataset.back);
   }));
   $("#btn-alerts").addEventListener("click", () => show("alerts"));
+
+  /* ---------- 학원 · 대회 ---------- */
+  $("#fab-listing").addEventListener("click", () => openListingWrite(null));
+  $("#lw-title-in").addEventListener("input", updateLwSubmit);
+  $("#lw-submit").addEventListener("click", submitListing);
+  $("#lw-img-btn").addEventListener("click", () => $("#lw-file").click());
+  $("#lw-file").addEventListener("change", (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) { toast("이미지 파일만 올릴 수 있어요."); e.target.value = ""; return; }
+    compressImage(f, setLwImg, 900, 0.72);
+  });
+  $("#lw-img-rm").addEventListener("click", () => { setLwImg(""); $("#lw-file").value = ""; });
+
+  /* ---------- 바텐더 프로필 ---------- */
+  $("#fab-pro").addEventListener("click", openMyProEdit);
+  $("#btn-mypro").addEventListener("click", openMyProEdit);
+  $("#pro-edit").addEventListener("click", openMyProEdit);
+  $("#pe-name").addEventListener("input", updatePeSave);
+  $("#pe-save").addEventListener("click", saveMyPro);
+  $("#pe-open").addEventListener("click", () => {
+    const on = !(state.peDraft.open !== false);
+    state.peDraft.open = on;
+    $("#pe-open").classList.toggle("on", on);
+    $("#pe-open").setAttribute("aria-checked", on ? "true" : "false");
+  });
+  $("#pe-award-add").addEventListener("click", () => {
+    state.peDraft.awards = state.peDraft.awards || [];
+    if (state.peDraft.awards.length >= 20) { toast("입상 이력은 20개까지 담을 수 있어요."); return; }
+    state.peDraft.awards.push({ year: "", title: "", prize: "" });
+    renderPeAwards();
+  });
+  $("#pe-photo-btn").addEventListener("click", () => $("#pe-photo-file").click());
+  $("#pe-photo-file").addEventListener("change", (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) { toast("이미지 파일만 올릴 수 있어요."); e.target.value = ""; return; }
+    compressImage(f, (v) => setPePhoto("photo", v), 700, 0.75);
+  });
+  $("#pe-photo-rm").addEventListener("click", () => { setPePhoto("photo", ""); $("#pe-photo-file").value = ""; });
+  $("#pe-sig-btn").addEventListener("click", () => $("#pe-sig-file").click());
+  $("#pe-sig-file").addEventListener("change", (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) { toast("이미지 파일만 올릴 수 있어요."); e.target.value = ""; return; }
+    compressImage(f, (v) => setPePhoto("sig", v), 900, 0.72);
+  });
+  $("#pe-sig-rm").addEventListener("click", () => { setPePhoto("sig", ""); $("#pe-sig-file").value = ""; });
+  $("#pe-pf-add").addEventListener("click", () => {
+    if ((state.peDraft.portfolio || []).length >= 12) { toast("사진은 12장까지 올릴 수 있어요."); return; }
+    $("#pe-pf-file").click();
+  });
+  $("#pe-pf-file").addEventListener("change", (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) { toast("이미지 파일만 올릴 수 있어요."); e.target.value = ""; return; }
+    compressImage(f, (v) => {
+      state.peDraft.portfolio = state.peDraft.portfolio || [];
+      state.peDraft.portfolio.push({ img: v, caption: "" });
+      renderPePortfolio();
+    }, 900, 0.72);
+    e.target.value = "";
+  });
+  $("#pe-delete").addEventListener("click", async () => {
+    if (!await btConfirm("프로필을 삭제할까요?\n사진과 입상 이력도 함께 지워져요.", { yes: "삭제" })) return;
+    const res = await Sync.deletePro();
+    if (!res.ok) { await btAlert("삭제하지 못했어요.\n\n" + res.error); return; }
+    state.myPro = null;
+    state.pros = null;
+    renderMyPage();
+    show("pros");
+    loadPros(true);
+    toast("프로필을 삭제했어요.");
+  });
+  $("#pro-report").addEventListener("click", () => {
+    const rows = Array.isArray(state.pros) ? state.pros : [];
+    const p = rows.find((x) => x.userId === state.curPro);
+    if (!p) return;
+    const opts = ["🚩 신고하기"];
+    if (isAdmin()) opts.push("🛡️ 프로필 내리기");
+    openSheet("이 프로필", opts, null, async (v) => {
+      if (v.includes("신고")) {
+        fileReport("pro", 0, p.name, "부적절한 프로필", false);
+        toast("신고가 접수되었어요. 관리자 확인 후 처리돼요.");
+        return;
+      }
+      if (!await btConfirm(`'${p.name}' 프로필을 내릴까요?`, { yes: "내리기" })) return;
+      const res = await Sync.adminHidePro(p.userId);
+      if (!res.ok) { await btAlert("실패했어요.\n\n" + res.error); return; }
+      state.pros = null;
+      show("pros");
+      loadPros(true);
+      toast("프로필을 내렸어요. 🛡️");
+    });
+  });
 
   /* ---------- 새 화면들 ---------- */
   $("#bar-add").addEventListener("click", openBarSheet);
@@ -8881,11 +8988,489 @@
   }
 
   /* ============================================================
-   *  랭킹
+   *  학원 정보 · 대회 정보
    *
-   *  포인트는 원래 이 기기에만 쌓였어요. 서버에 올려야 비교가 되므로
-   *  supabase/ranking.sql 을 넣은 곳에서만 전체 순위가 보입니다.
-   *  없으면 내 기록만 보여주고 조용히 안내해요.
+   *  둘은 성격이 같아서 화면 하나를 종류만 바꿔 씁니다.
+   *  누구나 올릴 수 있고, 올린 사람과 운영자가 고칩니다.
+   *  (supabase/pro.sql)
+   * ============================================================ */
+  const LIST_KIND = {
+    academy: {
+      title: "📚 학원정보", one: "학원", name: "학원 이름", org: "운영",
+      start: "개강일", end: "모집 마감", fee: "수강료",
+      empty: "아직 올라온 학원 정보가 없어요.",
+      hint: "다녀본 학원, 알아본 학원 아무거나 좋아요.\n수강료와 커리큘럼을 적어주면 다음 사람이 덜 헤맵니다.",
+    },
+    contest: {
+      title: "🏆 대회정보", one: "대회", name: "대회 이름", org: "주최",
+      start: "대회일", end: "접수 마감", fee: "참가비",
+      empty: "아직 올라온 대회 정보가 없어요.",
+      hint: "출전했던 대회, 준비 중인 대회를 알려주세요.\n접수 마감과 신청 링크가 제일 중요합니다.",
+    },
+  };
+  const listCfg = () => LIST_KIND[state.listKind] || LIST_KIND.academy;
+
+  function openListing(kind) {
+    state.listKind = kind;
+    state.listRegion = "전체";
+    state.listings = null;
+    show("listing");
+  }
+
+  function renderListing() {
+    const cfg = listCfg();
+    $("#listing-title").textContent = cfg.title;
+    $("#listing-regions").innerHTML = ["전체"].concat(REGIONS.slice(1)).concat(["전국"]).map((r) =>
+      `<button class="chip ${r === state.listRegion ? "active" : ""}" data-r="${r}">${r}</button>`).join("");
+    $$("#listing-regions .chip").forEach((ch) =>
+      ch.addEventListener("click", () => { state.listRegion = ch.dataset.r; renderListing(); }));
+
+    const all = state.listings;
+    // all 은 null(아직) · "off"(SQL 미설치) · 배열 셋 중 하나예요.
+    const rows = (Array.isArray(all) ? all : []).filter((l) =>
+      state.listRegion === "전체" || l.region === state.listRegion);
+
+    $("#listing-area").innerHTML = all === null
+      ? '<div class="empty-state">불러오는 중이에요…</div>'
+      : all === "off"
+        ? `<div class="card" style="margin-top:12px">
+             <h3 class="card-h">아직 준비 중이에요</h3>
+             <p class="sheet-note" style="text-align:left;margin:0">
+               운영자가 <b>supabase/pro.sql</b> 을 실행하면 여기에 ${esc(cfg.one)} 정보가 쌓입니다.</p>
+           </div>`
+        : rows.length
+          ? rows.map(listItemHTML).join("") + '<div style="height:88px"></div>'
+          : `<div class="card" style="padding:26px 20px;text-align:center;margin-top:12px">
+               <div style="font-size:40px;margin-bottom:8px">${cfg.title.slice(0, 2)}</div>
+               <h3 style="font-size:17px;margin-bottom:8px">${esc(cfg.empty)}</h3>
+               <p class="sheet-note" style="text-align:center;margin:0">${escMsg(cfg.hint)}</p>
+             </div>`;
+
+    $$("#listing-area .list-item").forEach((el) =>
+      el.addEventListener("click", () => openListingDetail(+el.dataset.id)));
+    if (all === null) loadListings();
+  }
+
+  function listItemHTML(l) {
+    const dday = l.endsOn ? daysLeft(l.endsOn) : null;
+    return `
+      <button class="card list-item pressable" data-id="${l.id}">
+        <div class="list-top">
+          <span class="meet-region">${esc(l.region)}</span>
+          ${dday !== null ? `<span class="meet-state ${dday < 0 ? "closed" : ""}">${dday < 0 ? "마감" : dday === 0 ? "오늘 마감" : "D-" + dday}</span>` : ""}
+          ${l.mine ? '<span class="my-tag">내가 올림</span>' : ""}
+        </div>
+        <div class="list-title">${esc(l.title)}</div>
+        <div class="list-meta">
+          ${l.org ? esc(l.org) + " · " : ""}${l.startsOn ? esc(fmtDay(l.startsOn)) : ""}${l.fee ? " · " + esc(l.fee) : ""}
+        </div>
+        ${l.place ? `<div class="list-meta">📍 ${esc(l.place)}</div>` : ""}
+      </button>`;
+  }
+
+  // "2026-09-01" 같은 날짜 문자열을 다룹니다 (시각이 없는 날짜라 문자열 그대로 와요)
+  function daysLeft(ymd) {
+    const t = Date.parse(ymd + "T23:59:59");
+    if (isNaN(t)) return null;
+    return Math.ceil((t - Date.now()) / 86400e3) - 1;
+  }
+  function fmtDay(ymd) {
+    const d = new Date(ymd + "T00:00:00");
+    if (isNaN(d.getTime())) return ymd;
+    return `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]})`;
+  }
+
+  async function loadListings(force) {
+    if (state.listings && !force) return;
+    if (!Sync.enabled || !Sync.signedIn) { state.listings = "off"; renderListing(); return; }
+    const rows = await Sync.listings(state.listKind);
+    state.listings = rows === null ? "off" : rows;
+    if (state.view === "listing") renderListing();
+  }
+
+  function openListingDetail(id) {
+    const rows = Array.isArray(state.listings) ? state.listings : [];
+    const l = rows.find((x) => x.id === id);
+    if (!l) return;
+    const cfg = listCfg();
+    const canEdit = l.mine || isAdmin();
+    openSheetHTML(`
+      <h3>${esc(l.title)}</h3>
+      ${l.img ? `<img class="list-img" src="${esc(l.img)}" alt="">` : ""}
+      ${l.org ? `<div class="sheet-row"><span>${esc(cfg.org)}</span><b class="r">${esc(l.org)}</b></div>` : ""}
+      <div class="sheet-row"><span>지역</span><b class="r">${esc(l.region)}</b></div>
+      ${l.startsOn ? `<div class="sheet-row"><span>${esc(cfg.start)}</span><b class="r">${esc(fmtDay(l.startsOn))}</b></div>` : ""}
+      ${l.endsOn ? `<div class="sheet-row"><span>${esc(cfg.end)}</span><b class="r">${esc(fmtDay(l.endsOn))}</b></div>` : ""}
+      ${l.fee ? `<div class="sheet-row"><span>${esc(cfg.fee)}</span><b class="r">${esc(l.fee)}</b></div>` : ""}
+      ${l.place ? `<div class="sheet-row"><span>장소</span><span class="r">${esc(l.place)}</span></div>` : ""}
+      ${l.body ? `<p class="list-body">${escMsg(l.body)}</p>` : ""}
+      ${l.phone ? `<a class="big-btn accent ready" style="display:block;text-align:center;text-decoration:none;margin-top:12px" href="tel:${esc(l.phone.replace(/[^0-9+]/g, ""))}">📞 ${esc(l.phone)}</a>` : ""}
+      ${l.link ? `<a class="big-btn outline" style="display:block;text-align:center;text-decoration:none;margin-top:8px" href="${esc(l.link)}" target="_blank" rel="noopener">🔗 홈페이지 열기</a>` : ""}
+      ${canEdit ? `
+        <button class="text-btn" id="ld-edit" style="width:100%;margin-top:12px">✏️ 고치기</button>
+        <button class="text-btn muted" id="ld-del" style="width:100%">삭제하기</button>` : ""}
+      <p class="sheet-note" style="text-align:left;margin:12px 0 0">
+        올린 사람이 적은 정보예요. 등록 전에 전화로 한 번 확인해보세요.</p>`);
+
+    const bd = document.querySelector(".sheet-backdrop");
+    const ed = bd.querySelector("#ld-edit");
+    if (ed) ed.addEventListener("click", () => { bd.remove(); openListingWrite(l); });
+    const del = bd.querySelector("#ld-del");
+    if (del) del.addEventListener("click", async () => {
+      if (!await btConfirm(`'${l.title}'을(를) 삭제할까요?`, { yes: "삭제" })) return;
+      const res = await Sync.deleteListing(l.id);
+      bd.remove();
+      if (!res.ok) { await btAlert("삭제하지 못했어요.\n\n" + res.error); return; }
+      state.listings = rows.filter((x) => x.id !== l.id);
+      renderListing();
+      toast("삭제했어요.");
+    });
+  }
+
+  /* ---------- 학원·대회 올리기 / 고치기 ---------- */
+  function openListingWrite(l) {
+    if (!Sync.enabled || !Sync.signedIn) { toast("로그인하면 정보를 올릴 수 있어요."); return; }
+    if (isBanned()) return;
+    const cfg = listCfg();
+    state.lwEdit = l ? l.id : null;
+    state.lwRegion = l ? l.region : null;
+    state.lwImg = l ? l.img : "";
+    $("#lw-title").textContent = l ? `${cfg.one} 정보 고치기` : `${cfg.one} 정보 올리기`;
+    $("#lw-name-label").textContent = cfg.name;
+    $("#lw-org-label").innerHTML = `${esc(cfg.org)} <span class="label-opt">선택</span>`;
+    $("#lw-start-label").innerHTML = `${esc(cfg.start)} <span class="label-opt">선택</span>`;
+    $("#lw-end-label").innerHTML = `${esc(cfg.end)} <span class="label-opt">선택</span>`;
+    $("#lw-fee-label").innerHTML = `${esc(cfg.fee)} <span class="label-opt">선택</span>`;
+    $("#lw-title-in").value = l ? l.title : "";
+    $("#lw-org").value = l ? l.org : "";
+    $("#lw-start").value = l ? l.startsOn : "";
+    $("#lw-end").value = l ? l.endsOn : "";
+    $("#lw-place").value = l ? l.place : "";
+    $("#lw-phone").value = l ? l.phone : "";
+    $("#lw-fee").value = l ? l.fee : "";
+    $("#lw-link").value = l ? l.link : "";
+    $("#lw-body").value = l ? l.body : "";
+    $("#lw-submit").textContent = l ? "고치기" : "올리기";
+    setLwImg(state.lwImg);
+    renderLwRegions();
+    show("listing-write");
+  }
+
+  function renderLwRegions() {
+    const regions = REGIONS.slice(1).concat(["전국"]);
+    $("#lw-region").innerHTML = regions.map((r) =>
+      `<button class="chip ${r === state.lwRegion ? "active" : ""}" data-r="${r}">${r}</button>`).join("");
+    $$("#lw-region .chip").forEach((ch) =>
+      ch.addEventListener("click", () => { state.lwRegion = ch.dataset.r; renderLwRegions(); updateLwSubmit(); }));
+    updateLwSubmit();
+  }
+  function setLwImg(v) {
+    state.lwImg = v || "";
+    $("#lw-img-prev").hidden = !state.lwImg;
+    if (state.lwImg) $("#lw-img-prev").src = state.lwImg;
+    $("#lw-img-rm").hidden = !state.lwImg;
+  }
+  function updateLwSubmit() {
+    const ok = $("#lw-title-in").value.trim().length >= 2 && !!state.lwRegion;
+    $("#lw-submit").disabled = !ok;
+    $("#lw-submit").classList.toggle("ready", ok);
+  }
+
+  async function submitListing() {
+    if ($("#lw-submit").disabled) return;
+    const title = $("#lw-title-in").value.trim();
+    const body = $("#lw-body").value.trim();
+    if (!isClean(title, body, $("#lw-org").value)) return;
+
+    const l = {
+      id: state.lwEdit || newId(),
+      isNew: !state.lwEdit,
+      kind: state.listKind,
+      title, body,
+      org: $("#lw-org").value.trim(),
+      region: state.lwRegion,
+      place: $("#lw-place").value.trim(),
+      phone: $("#lw-phone").value.trim(),
+      fee: $("#lw-fee").value.trim(),
+      link: $("#lw-link").value.trim(),
+      startsOn: $("#lw-start").value || null,
+      endsOn: $("#lw-end").value || null,
+      img: state.lwImg,
+    };
+    toast("저장 중이에요…");
+    const res = await Sync.saveListing(l);
+    if (!res.ok) { await btAlert("저장하지 못했어요.\n\n" + res.error); return; }
+    state.lwEdit = null;
+    state.listings = null;
+    show("listing");
+    loadListings(true);
+    toast(l.isNew ? "올렸어요. 고마워요! 🙌" : "고쳤어요. ✏️");
+    if (l.isNew) addPoints(30, `${listCfg().one} 정보 등록`);
+  }
+
+  /* ============================================================
+   *  바텐더 프로필
+   *
+   *  익명 커뮤니티지만, 자기 실력을 보여주고 싶은 자리는 따로 있어야 해요.
+   *  여기만 이름과 얼굴을 걸고, 대회 이력과 시그니처를 남깁니다.
+   * ============================================================ */
+  function renderPros() {
+    $("#pro-regions").innerHTML = REGIONS.map((r) =>
+      `<button class="chip ${r === state.proRegion ? "active" : ""}" data-r="${r}">${r}</button>`).join("");
+    $$("#pro-regions .chip").forEach((ch) =>
+      ch.addEventListener("click", () => { state.proRegion = ch.dataset.r; state.pros = null; renderPros(); }));
+
+    const rows = state.pros;
+    $("#pros-area").innerHTML = rows === null
+      ? '<div class="empty-state">불러오는 중이에요…</div>'
+      : rows === "off"
+        ? `<div class="card" style="margin-top:12px">
+             <h3 class="card-h">아직 준비 중이에요</h3>
+             <p class="sheet-note" style="text-align:left;margin:0">
+               운영자가 <b>supabase/pro.sql</b> 을 실행하면 바텐더 프로필이 열립니다.</p>
+           </div>`
+        : rows.length
+          ? rows.map(proItemHTML).join("") + '<div style="height:88px"></div>'
+          : `<div class="card" style="padding:26px 20px;text-align:center;margin-top:12px">
+               <div style="font-size:40px;margin-bottom:8px">🧑‍🍳</div>
+               <h3 style="font-size:17px;margin-bottom:8px">아직 등록된 바텐더가 없어요</h3>
+               <p class="sheet-note" style="text-align:center;margin:0 0 18px">
+                 첫 번째로 프로필을 만들어보세요.<br>사진 · 경력 · 시그니처 칵테일을 남길 수 있어요.</p>
+               <button class="big-btn accent ready" id="pros-first">내 프로필 만들기</button>
+             </div>`;
+
+    $$("#pros-area .pro-item").forEach((el) =>
+      el.addEventListener("click", () => openPro(el.dataset.uid)));
+    const first = $("#pros-first");
+    if (first) first.addEventListener("click", openMyProEdit);
+    if (rows === null) loadPros();
+  }
+
+  function proItemHTML(p) {
+    return `
+      <button class="card pro-item pressable" data-uid="${esc(p.userId)}">
+        <div class="pro-row">
+          ${p.photo ? `<img class="pro-thumb" src="${esc(p.photo)}" alt="">`
+            : `<span class="pro-thumb empty">🧑‍🍳</span>`}
+          <div class="pro-info">
+            <div class="pro-name">${esc(p.name)}${p.mine ? ' <span class="my-tag">나</span>' : ""}</div>
+            <div class="pro-sub">${esc(p.region)}${p.shop ? " · " + esc(p.shop) : ""}${p.years ? " · " + p.years + "년차" : ""}</div>
+            <div class="pro-tags">
+              ${p.awards.length ? `<span class="pro-tag">🏆 입상 ${p.awards.length}</span>` : ""}
+              ${p.sigName ? `<span class="pro-tag">🍸 ${esc(p.sigName)}</span>` : ""}
+              ${p.portfolio.length ? `<span class="pro-tag">📸 ${p.portfolio.length}</span>` : ""}
+            </div>
+          </div>
+        </div>
+      </button>`;
+  }
+
+  async function loadPros(force) {
+    if (state.pros && !force) return;
+    if (!Sync.enabled || !Sync.signedIn) { state.pros = "off"; renderPros(); return; }
+    const rows = await Sync.pros(state.proRegion);
+    state.pros = rows === null ? "off" : rows;
+    if (state.view === "pros") renderPros();
+  }
+
+  function openPro(uid) {
+    const rows = Array.isArray(state.pros) ? state.pros : [];
+    const p = rows.find((x) => x.userId === uid) || (state.myPro && state.myPro.userId === uid ? state.myPro : null);
+    if (!p) return;
+    state.curPro = uid;
+    renderProDetail(p);
+    show("pro");
+  }
+
+  function renderProDetail(p) {
+    $("#pro-edit").hidden = !p.mine;
+    $("#pro-report").hidden = !!p.mine;
+    $("#pro-area").innerHTML = `
+      <div class="pro-hero">
+        ${p.photo ? `<img class="pro-hero-img" src="${esc(p.photo)}" alt="">`
+          : `<span class="pro-hero-img empty">🧑‍🍳</span>`}
+        <h1 class="pro-hero-name">${esc(p.name)}</h1>
+        <p class="pro-hero-sub">${esc(p.region)}${p.shop ? " · " + esc(p.shop) : ""}${p.years ? " · " + p.years + "년차" : ""}</p>
+        ${p.open ? "" : '<p class="pro-hero-sub" style="color:var(--accent)">비공개 상태예요 (나만 보입니다)</p>'}
+      </div>
+      ${p.intro ? `<div class="pro-sec"><h3>소개</h3><p class="pro-text">${escMsg(p.intro)}</p></div>` : ""}
+      ${p.sigName ? `
+        <div class="pro-sec">
+          <h3>🍸 시그니처 칵테일</h3>
+          ${p.sigImg ? `<img class="pro-sig-img" src="${esc(p.sigImg)}" alt="">` : ""}
+          <div class="pro-sig-name">${esc(p.sigName)}</div>
+          ${p.sigRecipe ? `<p class="pro-text mono">${escMsg(p.sigRecipe)}</p>` : ""}
+          ${p.sigNote ? `<p class="pro-text">${escMsg(p.sigNote)}</p>` : ""}
+        </div>` : ""}
+      ${p.awards.length ? `
+        <div class="pro-sec">
+          <h3>🏆 대회 입상 이력</h3>
+          ${p.awards.map((a) => `
+            <div class="award-row">
+              <span class="award-year">${esc(a.year || "")}</span>
+              <span class="award-title">${esc(a.title || "")}</span>
+              <span class="award-prize">${esc(a.prize || "")}</span>
+            </div>`).join("")}
+        </div>` : ""}
+      ${p.portfolio.length ? `
+        <div class="pro-sec">
+          <h3>📸 포트폴리오</h3>
+          <div class="pf-grid">
+            ${p.portfolio.map((it) => `
+              <figure class="pf-item">
+                <img src="${esc(it.img)}" alt="">
+                ${it.caption ? `<figcaption>${esc(it.caption)}</figcaption>` : ""}
+              </figure>`).join("")}
+          </div>
+        </div>` : ""}
+      <div style="height:28px"></div>`;
+
+    $$("#pro-area .pf-item img, #pro-area .pro-sig-img, #pro-area .pro-hero-img").forEach((im) => {
+      if (im.tagName !== "IMG") return;
+      im.style.cursor = "zoom-in";
+      im.addEventListener("click", () => openLightbox(im.src));
+    });
+  }
+
+  /* ---------- 내 프로필 만들기 ---------- */
+  async function openMyProEdit() {
+    if (!Sync.enabled || !Sync.signedIn) { toast("로그인하면 프로필을 만들 수 있어요."); return; }
+    if (isBanned()) return;
+    if (state.myPro === undefined) {
+      toast("불러오는 중이에요…");
+      state.myPro = await Sync.myPro();
+    }
+    const p = state.myPro || {
+      name: state.user.nick || "", region: "서울", shop: "", years: 0,
+      photo: "", intro: "", sigName: "", sigRecipe: "", sigNote: "", sigImg: "",
+      awards: [], portfolio: [], open: true,
+    };
+    state.peDraft = JSON.parse(JSON.stringify(p));
+    fillProEdit();
+    show("pro-edit");
+  }
+
+  function fillProEdit() {
+    const d = state.peDraft;
+    $("#pe-name").value = d.name || "";
+    $("#pe-shop").value = d.shop || "";
+    $("#pe-years").value = d.years || "";
+    $("#pe-intro").value = d.intro || "";
+    $("#pe-sig-name").value = d.sigName || "";
+    $("#pe-sig-recipe").value = d.sigRecipe || "";
+    $("#pe-sig-note").value = d.sigNote || "";
+    $("#pe-open").classList.toggle("on", d.open !== false);
+    $("#pe-open").setAttribute("aria-checked", d.open !== false ? "true" : "false");
+    $("#pe-delete").hidden = !state.myPro;
+    setPePhoto("photo", d.photo);
+    setPePhoto("sig", d.sigImg);
+    renderPeRegions();
+    renderPeAwards();
+    renderPePortfolio();
+    updatePeSave();
+  }
+
+  function setPePhoto(which, v) {
+    const d = state.peDraft;
+    if (which === "photo") d.photo = v || "";
+    else d.sigImg = v || "";
+    const prev = which === "photo" ? $("#pe-photo-prev") : $("#pe-sig-prev");
+    const rm = which === "photo" ? $("#pe-photo-rm") : $("#pe-sig-rm");
+    const val = which === "photo" ? d.photo : d.sigImg;
+    prev.hidden = !val;
+    if (val) prev.src = val;
+    rm.hidden = !val;
+  }
+
+  function renderPeRegions() {
+    const regions = REGIONS.slice(1);
+    $("#pe-region").innerHTML = regions.map((r) =>
+      `<button class="chip ${r === state.peDraft.region ? "active" : ""}" data-r="${r}">${r}</button>`).join("");
+    $$("#pe-region .chip").forEach((ch) =>
+      ch.addEventListener("click", () => { state.peDraft.region = ch.dataset.r; renderPeRegions(); }));
+  }
+
+  function renderPeAwards() {
+    const list = state.peDraft.awards || [];
+    $("#pe-awards").innerHTML = list.length ? list.map((a, i) => `
+      <div class="award-edit">
+        <input type="text" class="input sm" data-ai="${i}" data-f="year" maxlength="8" placeholder="2025" value="${esc(a.year || "")}">
+        <input type="text" class="input sm grow" data-ai="${i}" data-f="title" maxlength="60" placeholder="대회 이름" value="${esc(a.title || "")}">
+        <input type="text" class="input sm" data-ai="${i}" data-f="prize" maxlength="20" placeholder="대상" value="${esc(a.prize || "")}">
+        <button class="award-rm" data-rm="${i}" aria-label="삭제">✕</button>
+      </div>`).join("")
+      : '<p class="sheet-note" style="text-align:left;margin:0">입상 이력이 있으면 추가해주세요. 없어도 괜찮아요.</p>';
+
+    $$("#pe-awards [data-ai]").forEach((el) =>
+      el.addEventListener("input", () => {
+        state.peDraft.awards[+el.dataset.ai][el.dataset.f] = el.value;
+      }));
+    $$("#pe-awards [data-rm]").forEach((b) =>
+      b.addEventListener("click", () => {
+        state.peDraft.awards.splice(+b.dataset.rm, 1);
+        renderPeAwards();
+      }));
+  }
+
+  function renderPePortfolio() {
+    const list = state.peDraft.portfolio || [];
+    $("#pe-portfolio").innerHTML = list.map((it, i) => `
+      <figure class="pf-item edit">
+        <img src="${esc(it.img)}" alt="">
+        <input type="text" class="input sm" data-pi="${i}" maxlength="40" placeholder="설명 (선택)" value="${esc(it.caption || "")}">
+        <button class="award-rm" data-pfrm="${i}" aria-label="삭제">✕</button>
+      </figure>`).join("");
+    $$("#pe-portfolio [data-pi]").forEach((el) =>
+      el.addEventListener("input", () => { state.peDraft.portfolio[+el.dataset.pi].caption = el.value; }));
+    $$("#pe-portfolio [data-pfrm]").forEach((b) =>
+      b.addEventListener("click", () => {
+        state.peDraft.portfolio.splice(+b.dataset.pfrm, 1);
+        renderPePortfolio();
+      }));
+  }
+
+  function updatePeSave() {
+    const ok = $("#pe-name").value.trim().length >= 1;
+    $("#pe-save").disabled = !ok;
+    $("#pe-save").classList.toggle("ready", ok);
+  }
+
+  async function saveMyPro() {
+    if ($("#pe-save").disabled) return;
+    const d = state.peDraft;
+    d.name = $("#pe-name").value.trim();
+    d.shop = $("#pe-shop").value.trim();
+    d.years = Math.max(0, Math.min(60, +$("#pe-years").value || 0));
+    d.intro = $("#pe-intro").value.trim();
+    d.sigName = $("#pe-sig-name").value.trim();
+    d.sigRecipe = $("#pe-sig-recipe").value.trim();
+    d.sigNote = $("#pe-sig-note").value.trim();
+    d.awards = (d.awards || []).filter((a) => (a.title || "").trim());
+    if (!isClean(d.name, d.intro, d.sigName, d.sigNote, d.shop)) return;
+
+    toast("저장 중이에요…");
+    const res = await Sync.savePro(d);
+    if (!res.ok) { await btAlert("저장하지 못했어요.\n\n" + res.error); return; }
+    // 업로드된 사진 주소로 바꿔 담아둡니다 (다음에 열 때 base64 를 또 올리지 않게)
+    d.photo = res.photo || "";
+    d.sigImg = res.sigImg || "";
+    d.portfolio = res.portfolio || [];
+    const first = !state.myPro;
+    state.myPro = JSON.parse(JSON.stringify(d));
+    state.pros = null;
+    renderMyPage();
+    show("pros");
+    loadPros(true);
+    toast(first ? "프로필을 만들었어요! 🎉" : "저장했어요. ✏️");
+    if (first) addPoints(50, "바텐더 프로필 등록");
+  }
+
+  /* ============================================================
+   *  등급
+   *
+   *  순위표(랭킹 화면)는 없앴습니다. 남과 줄 세우는 것보다
+   *  학원·대회·프로필처럼 실제로 도움이 되는 쪽이 낫다고 봤어요.
+   *  등급 자체는 포인트 화면에서 계속 씁니다.
    * ============================================================ */
   const LEVELS = [
     { min: 0, name: "새내기", ic: "🌱" },
@@ -8901,85 +9486,6 @@
     for (const l of LEVELS) if (points >= l.min) cur = l;
     const next = LEVELS.find((l) => l.min > points) || null;
     return { cur, next };
-  }
-
-  async function loadRank(force) {
-    if (state.rankState === "loading") return;
-    if (state.rankRows && !force) return;
-    if (!Sync.ready || !Sync.ready()) { state.rankState = "off"; renderRank(); return; }
-    state.rankState = "loading";
-    renderRank();
-    const res = await Sync.topBartenders();
-    if (res.ok) { state.rankRows = res.rows; state.rankState = "ok"; }
-    else { state.rankState = res.error === "not-installed" ? "off" : "error"; state.rankError = res.error || ""; }
-    renderRank();
-  }
-
-  function renderRank() {
-    const me = state.user.points || 0;
-    const { cur, next } = levelOf(me);
-    const pct = next ? Math.min(100, Math.round(((me - cur.min) / (next.min - cur.min)) * 100)) : 100;
-    const rows = state.rankRows || [];
-    const myRow = rows.find((r) => r.me);
-
-    $("#rank-area").innerHTML = `
-      <div class="card rank-me">
-        <div class="rank-lv">${cur.ic} ${esc(cur.name)}</div>
-        <div class="rank-pt">${fmtNum(me)}P</div>
-        <div class="rank-bar"><span style="width:${pct}%"></span></div>
-        <div class="rank-next">${next
-          ? `다음 등급 <b>${esc(next.name)}</b>까지 ${fmtNum(next.min - me)}P`
-          : "최고 등급이에요. 👑"}</div>
-        ${myRow ? `<div class="rank-mine">전체 ${myRow.rank}위</div>` : ""}
-      </div>
-
-      <div class="card">
-        <h3 class="card-h">등급표</h3>
-        ${LEVELS.map((l) => `
-          <div class="card-row ${l.name === cur.name ? "on" : ""}">
-            <span class="card-k">${l.ic} ${esc(l.name)}</span>
-            <span class="card-v">${fmtNum(l.min)}P~</span>
-          </div>`).join("")}
-      </div>
-
-      ${state.rankState === "loading" ? '<div class="empty-state">순위를 불러오는 중이에요…</div>' : ""}
-      ${state.rankState === "off" ? `
-        <div class="card">
-          <h3 class="card-h">전체 순위</h3>
-          <p class="sheet-note" style="text-align:left;margin:0">
-            아직 서버에 순위 기능이 올라가지 않았어요.<br>
-            운영자가 <b>supabase/ranking.sql</b> 을 실행하면 여기에 전체 순위가 나옵니다.
-            그 전까지는 내 기록만 쌓여요.
-          </p>
-        </div>` : ""}
-      ${state.rankState === "error" ? `
-        <div class="card">
-          <h3 class="card-h">전체 순위</h3>
-          <p class="sheet-note" style="text-align:left;margin:0">불러오지 못했어요.<br>${esc(state.rankError)}</p>
-          <button class="big-btn outline" id="rank-retry" style="margin-top:10px">다시 시도</button>
-        </div>` : ""}
-      ${state.rankState === "ok" ? (rows.length ? `
-        <div class="card">
-          <h3 class="card-h">전체 순위 · 상위 ${rows.length}명</h3>
-          ${rows.map((r) => `
-            <div class="rank-row ${r.me ? "me" : ""}">
-              <span class="rank-no ${r.rank <= 3 ? "top" : ""}">${r.rank <= 3 ? ["🥇", "🥈", "🥉"][r.rank - 1] : r.rank}</span>
-              <span class="avatar" style="background:${COLORS[r.color % COLORS.length]}"></span>
-              <span class="rank-nick">${esc(r.nick)}${r.me ? ' <span class="me-tag">나</span>' : ""}</span>
-              <span class="rank-lvsm">${levelOf(r.points).cur.ic}</span>
-              <span class="rank-pts">${fmtNum(r.points)}P</span>
-            </div>`).join("")}
-        </div>` : '<div class="empty-state">아직 순위에 오른 사람이 없어요.</div>') : ""}
-
-      <p class="sheet-note" style="margin:2px 20px 24px">
-        포인트는 글·댓글·리뷰·도감 등록처럼 커뮤니티에 남는 활동에서 쌓여요.
-        출석만으로는 크게 오르지 않습니다.
-      </p>
-      <div style="height:16px"></div>`;
-
-    const retry = $("#rank-retry");
-    if (retry) retry.addEventListener("click", () => loadRank(true));
-    if (state.rankState === "idle") loadRank();
   }
 
   /* ============================================================
@@ -9398,6 +9904,8 @@
     else if (v === "post" && state.posts.some((p) => p.id === state.curPost)) renderPostDetail();
     else if (v === "meet-detail" && state.meets.some((m) => m.id === state.curMeet)) renderMeetDetail();
     else if (v === "spirit" && state.spirits.some((s) => s.id === state.curSpirit)) renderSpiritDetail();
+    else if (v === "listing") renderListing();
+    else if (v === "pros") renderPros();
     if (sa && keepTop && sa.scrollTop !== keepTop) sa.scrollTop = keepTop;
   }
 

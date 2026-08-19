@@ -493,6 +493,62 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
   border: 1px solid var(--accent); border-radius: 8px; padding: 3px 9px; font-size: 12.5px;
 }
 
+/* ---------- 학원 · 대회 정보 ---------- */
+.list-item { display: block; width: 100%; text-align: left; cursor: pointer; }
+.list-top { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; }
+.list-title { font-size: 16.5px; font-weight: 700; line-height: 1.4; margin-bottom: 5px; }
+.list-meta { font-size: 13.5px; color: var(--text-sub); line-height: 1.6; }
+.list-img { width: 100%; border-radius: 12px; margin-bottom: 12px; display: block; }
+.list-body { font-size: 14.5px; line-height: 1.75; margin: 12px 0 0; white-space: pre-wrap; }
+
+/* ---------- 바텐더 프로필 ---------- */
+.pro-item { display: block; width: 100%; text-align: left; cursor: pointer; }
+.pro-row { display: flex; gap: 13px; align-items: center; }
+.pro-thumb {
+  width: 62px; height: 62px; border-radius: 50%; object-fit: cover; flex: none;
+  background: var(--bg-gray); display: flex; align-items: center; justify-content: center; font-size: 28px;
+}
+.pro-info { min-width: 0; flex: 1; }
+.pro-name { font-size: 16.5px; font-weight: 700; }
+.pro-sub { font-size: 13.5px; color: var(--text-sub); margin-top: 2px; }
+.pro-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+.pro-tag {
+  font-size: 12px; font-weight: 600; color: var(--text-sub);
+  background: var(--chip-bg); border-radius: 7px; padding: 3px 8px;
+}
+.pro-hero { text-align: center; padding: 22px 20px 18px; }
+.pro-hero-img {
+  width: 108px; height: 108px; border-radius: 50%; object-fit: cover; margin: 0 auto 12px;
+  background: var(--bg-gray); display: flex; align-items: center; justify-content: center; font-size: 48px;
+}
+.pro-hero-name { font-size: 23px; font-weight: 800; letter-spacing: -0.4px; }
+.pro-hero-sub { font-size: 14px; color: var(--text-sub); margin-top: 5px; }
+.pro-sec { padding: 18px 20px; border-top: 8px solid var(--bg-gray); }
+.pro-sec h3 { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
+.pro-text { font-size: 14.5px; line-height: 1.75; white-space: pre-wrap; color: var(--text); }
+.pro-text.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13.5px; }
+.pro-sig-img { width: 100%; border-radius: 12px; margin-bottom: 10px; display: block; }
+.pro-sig-name { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+.award-row { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.award-row:last-child { border-bottom: 0; }
+.award-year { font-size: 13px; font-weight: 700; color: var(--text-sub); flex: none; width: 44px; }
+.award-title { font-size: 14.5px; flex: 1; min-width: 0; }
+.award-prize { font-size: 13.5px; font-weight: 700; color: var(--star); flex: none; }
+.award-edit { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+.award-edit .input.sm { width: 66px; padding: 10px 11px; font-size: 14px; margin: 0; }
+.award-edit .input.sm.grow { flex: 1; min-width: 0; width: auto; }
+.award-rm {
+  flex: none; width: 30px; height: 30px; border-radius: 50%; border: 0; cursor: pointer;
+  background: var(--chip-bg); color: var(--text-sub); font-size: 14px;
+}
+.pf-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.pf-item { margin: 0; position: relative; }
+.pf-item img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 12px; display: block; }
+.pf-item figcaption { font-size: 12.5px; color: var(--text-sub); margin-top: 5px; line-height: 1.4; }
+.pf-item.edit .input.sm { padding: 9px 11px; font-size: 13px; margin: 6px 0 0; width: 100%; }
+.pf-item.edit .award-rm { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,.55); color: #fff; }
+.pro-photo-prev { width: 92px; height: 92px; border-radius: 50%; }
+
 /* ---------- 모임 신청자 명단 (주최자 전용) ---------- */
 .roster-row { padding: 12px 0; border-bottom: 1px solid var(--line); }
 .roster-row:last-of-type { border-bottom: 0; }
