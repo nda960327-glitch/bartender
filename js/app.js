@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.38.0";
+  const APP_BUILD = "2.38.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -5347,6 +5347,8 @@
           <div class="md-info-row"><span class="ic">👤</span><span>주최 · ${esc(m.host)}</span></div>
         </div>
         <div class="md-desc">${esc(m.desc)}</div>
+        ${m.mine || isAdmin() ? `
+        <button class="join-btn" id="meet-edit-btn">✏️ 모임 수정하기</button>` : ""}
         ${m.mine ? `
         <button class="join-btn" id="meet-roster">📋 신청자 명단 보기 (${m.joined - 1}명)</button>
         <button class="join-btn joined" id="meet-delete">모임 삭제하기</button>` : m.date < Date.now() ? `
@@ -5398,6 +5400,9 @@
     });
     const rosterBtn = $("#meet-roster");
     if (rosterBtn) rosterBtn.addEventListener("click", () => openRosterSheet(m));
+    // 위쪽 ✏️ 아이콘을 못 찾는 분이 많아, 삭제 버튼 옆에도 같은 버튼을 둡니다.
+    const editBtn = $("#meet-edit-btn");
+    if (editBtn) editBtn.addEventListener("click", () => openMeetEdit(m));
     const chatBtn = $("#meet-host-chat");
     if (chatBtn) chatBtn.addEventListener("click", () =>
       openChatWith(m.hostColor, `meet:${m.id}`, `모임 '${m.title}' 주최자`, m.authorId));
