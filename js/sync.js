@@ -153,6 +153,22 @@
   /* ---------- 형식 변환: DB → 앱 ---------- */
   var t = function (iso) { return iso ? Date.parse(iso) : Date.now(); };
 
+  function toAppEdit(row) {
+    return {
+      id: Number(row.id),
+      kind: row.kind, refId: Number(row.ref_id),
+      title: row.title || "",
+      editorId: row.editor_id,
+      nick: row.editor_nick || "익명",
+      fields: row.fields || [],
+      before: row.before || {},
+      after: row.after || {},
+      note: row.note || "",
+      at: t(row.created_at),
+      mine: row.editor_id && row.editor_id === S.uid,
+    };
+  }
+
   function toAppComment(row, likedIds) {
     var c = {
       id: Number(row.id),
@@ -1224,6 +1240,67 @@
           created_at: new Date(s.time).toISOString(),
         },
       });
+    },
+
+    /* ---------- 도감 공동 편집 ----------
+     * 남이 올린 도감 항목을 고칠 때 씁니다. (내 항목은 saveSpirit 그대로)
+     * 작성자·등록 시각은 서버 방아쇠가 원래 값으로 지켜줍니다.
+     */
+    async editSpiritRow(s) {
+      if (!ready()) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      try {
+        var img = await resolveImg(s);
+        var res = await sb.from("spirits").update({
+          name: s.name, emoji: s.emoji, abv: s.abv || 0,
+          cat: s.cat || null, base: s.base || null, price: s.price || null,
+          ings: s.ings || null, recipe: s.recipe || null, note: s.note || "", img: img,
+        }).eq("id", s.id).select("id");
+        if (res.error) return { ok: false, error: res.error.message };
+        if (!res.data || !res.data.length) {
+          return { ok: false, error: "수정 권한이 없거나 이미 지워진 항목이에요.\nsupabase/wiki.sql 을 실행했는지 확인해주세요." };
+        }
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "수정에 실패했어요." };
+      }
+    },
+
+    /* 수정 기록 남기기. 기록에 실패해도 수정 자체는 살립니다
+       (기록 표가 없다고 도감을 못 고치게 만들 이유는 없어요). */
+    async logEdit(kind, refId, info) {
+      if (!ready()) return { ok: false };
+      try {
+        var res = await sb.from("content_edits").insert({
+          kind: kind, ref_id: refId,
+          title: (info && info.title) || null,
+          editor_id: S.uid,
+          editor_nick: (info && info.nick) || null,
+          fields: (info && info.fields) || [],
+          before: (info && info.before) || {},
+          after: (info && info.after) || {},
+          note: (info && info.note) || null,
+        });
+        return { ok: !res.error, error: res.error && res.error.message };
+      } catch (e) { return { ok: false }; }
+    },
+
+    /* 한 항목의 수정 내역 (최근 것부터) */
+    async editHistory(kind, refId, limit) {
+      if (!ready()) return null;
+      var res = await sb.from("content_edits")
+        .select("*").eq("kind", kind).eq("ref_id", refId)
+        .order("created_at", { ascending: false }).limit(limit || 30);
+      if (res.error) return null;
+      return (res.data || []).map(toAppEdit);
+    },
+
+    /* 도감 전체의 최근 수정 (관리자 화면 · 최근 바뀐 도감) */
+    async recentEdits(limit) {
+      if (!ready()) return null;
+      var res = await sb.from("content_edits")
+        .select("*").order("created_at", { ascending: false }).limit(limit || 50);
+      if (res.error) return null;
+      return (res.data || []).map(toAppEdit);
     },
 
     async saveReview(spiritId, r) {

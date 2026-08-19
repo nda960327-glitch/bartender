@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.36.2";
+  const APP_BUILD = "2.37.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -892,6 +892,7 @@
     overrides: store.get("overrides", {}),
     adminStats: null,
     adminRefs: null,      // 추천인(영업) 성적표. "none" = referral.sql 미설치
+    adminEdits: null,     // 최근 도감 수정. "none" = wiki.sql 미설치
     adminUserList: null,
     adminUsersLoading: false,
     adminUserTimer: null,
@@ -2147,11 +2148,39 @@
     ["img", "사진 주소", "text"],
   ];
 
+  /* 도감을 고칠 수 있는 사람 — 로그인했고 정지 중이 아니면 누구나.
+     quiet 를 주면 안내 문구를 띄우지 않고 조용히 판정만 합니다. */
+  function canEditDogam(quiet) {
+    if (!Sync.enabled || !Sync.signedIn) {
+      if (!quiet) toast("로그인하면 도감을 함께 고칠 수 있어요.");
+      return false;
+    }
+    if (state.user.bannedUntil === -1 ||
+        (state.user.bannedUntil && state.user.bannedUntil > Date.now())) {
+      if (!quiet) isBanned();      // 언제까지인지 알려줘요
+      return false;
+    }
+    return true;
+  }
+
   function openSpiritEditSheet(sp) {
-    const fields = sp.kind === "cocktail" ? CT_FIELDS : SP_FIELDS;
+    if (!canEditDogam()) return;
+    const fields = (sp.kind === "cocktail" ? CT_FIELDS : SP_FIELDS).filter(([k]) => k !== "img");
+    // 사진은 주소를 적는 게 아니라 폰에서 바로 골라 올립니다.
+    let img = sp.img || "";
+
     openSheetHTML(`
       <h3>✏️ 도감 수정 <span style="font-size:12.5px;font-weight:500;color:var(--text-sub)">· 모든 사용자에게 반영</span></h3>
-      <p class="sheet-note" style="text-align:left;margin:0 0 12px">바꾼 항목만 서버에 저장돼요. 언제든 원래 내용으로 되돌릴 수 있어요.</p>
+      <p class="sheet-note" style="text-align:left;margin:0 0 12px">함께 만드는 도감이에요. 바꾼 내용은 바로 반영되고, <b>누가 무엇을 바꿨는지 기록에 남습니다.</b></p>
+      <label class="form-label">사진</label>
+      <div class="wiki-img-row">
+        <img class="wiki-img-prev" id="sp-ov-prev" alt="" ${img ? `src="${esc(img)}"` : "hidden"}>
+        <div class="wiki-img-btns">
+          <button class="text-btn" id="sp-ov-pick">📷 사진 고르기</button>
+          <button class="text-btn muted" id="sp-ov-imgrm" ${img ? "" : "hidden"}>사진 지우기</button>
+        </div>
+      </div>
+      <input type="file" id="sp-ov-file" accept="image/*" hidden>
       ${fields.map(([k, label, type]) => `
         <label class="form-label">${label}</label>
         ${type === "textarea"
@@ -2160,25 +2189,165 @@
       <button class="big-btn accent ready" id="sp-ov-save" style="margin-top:14px">저장하기</button>`);
 
     const bd = document.querySelector(".sheet-backdrop");
+    const prev = bd.querySelector("#sp-ov-prev");
+    const rmBtn = bd.querySelector("#sp-ov-imgrm");
+    const setImg = (v) => {
+      img = v || "";
+      prev.hidden = !img;
+      if (img) prev.src = img;
+      rmBtn.hidden = !img;
+    };
+    bd.querySelector("#sp-ov-pick").addEventListener("click", () => bd.querySelector("#sp-ov-file").click());
+    bd.querySelector("#sp-ov-file").addEventListener("change", (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      if (!f.type.startsWith("image/")) { toast("이미지 파일만 올릴 수 있어요."); e.target.value = ""; return; }
+      compressImage(f, setImg, 900, 0.72);
+    });
+    rmBtn.addEventListener("click", () => { setImg(""); bd.querySelector("#sp-ov-file").value = ""; });
+
     bd.querySelector("#sp-ov-save").addEventListener("click", async () => {
-      const base = PRISTINE.get(sp.id) || {};
-      const patch = {};
+      // 지금 화면에 보이는 값(= 남들이 보고 있는 값)이 "바뀌기 전"입니다.
+      const before = {}, after = {}, changed = [];
+      let dirty = false;
       bd.querySelectorAll("[data-f]").forEach((el) => {
         const k = el.dataset.f;
         let v = el.value.trim();
         if (k === "abv") v = v === "" ? 0 : Number(v);
-        const orig = base[k] == null ? "" : base[k];
-        // 원본과 같은 값은 저장하지 않아요 (되돌리기가 깔끔해지도록)
-        if (String(v) !== String(orig)) patch[k] = v;
+        const cur = sp[k] == null ? "" : sp[k];
+        if (String(v) === String(cur)) return;
+        if (typeof v === "string" && !isClean(v)) { dirty = true; return; }
+        before[k] = cur; after[k] = v; changed.push(k);
       });
-      if (!Object.keys(patch).length) { toast("바뀐 내용이 없어요."); return; }
+      if (dirty) return;      // isClean 이 왜 안 되는지 이미 알려줬어요
+      if (img !== (sp.img || "")) { before.img = sp.img || ""; after.img = img; changed.push("img"); }
+      if (!changed.length) { toast("바뀐 내용이 없어요."); return; }
+
       toast("저장 중이에요…");
-      const res = await Sync.saveOverride("spirit", sp.id, patch, ovHidden("spirit", sp.id));
+      const res = await saveSpiritEdit(sp, after);
+      if (!res.ok) { bd.remove(); await btAlert("저장하지 못했어요.\n\n" + res.error); return; }
       bd.remove();
-      if (!res.ok) { toast("저장 실패: " + res.error); return; }
+      logSpiritEdit(sp, { fields: changed, before, after });
       toast("수정했어요. 모든 사용자에게 반영됩니다. ✏️");
       await Sync.refresh("override");
     });
+  }
+
+  /* 내장 도감은 "바뀔 부분"만 서버에 쌓고, 사용자가 올린 항목은 그 줄을 직접 고칩니다.
+     화면에서는 둘 다 똑같이 보이지만 저장되는 곳이 달라요. */
+  async function saveSpiritEdit(sp, after) {
+    if (isBuiltinSpirit(sp)) {
+      const base = PRISTINE.get(sp.id) || {};
+      const cur = ovOf("spirit", sp.id);
+      const patch = Object.assign({}, (cur && cur.patch) || {}, after);
+      // 원본과 같아진 항목은 빼둡니다 (되돌리기가 깔끔해지도록)
+      Object.keys(patch).forEach((k) => {
+        const orig = base[k] == null ? "" : base[k];
+        if (String(patch[k]) === String(orig)) delete patch[k];
+      });
+      // 사진은 base64 그대로 두면 무거우니 올려서 주소로 바꿔요.
+      if (patch.img && patch.img.indexOf("data:") === 0) {
+        const url = await Sync.uploadPhoto(patch.img);
+        if (!url) return { ok: false, error: "사진을 올리지 못했어요. 잠시 후 다시 시도해주세요." };
+        patch.img = url;
+        after.img = url;
+      }
+      return Sync.saveOverride("spirit", sp.id, patch, ovHidden("spirit", sp.id));
+    }
+    if (!sp.remote) return { ok: false, error: "아직 서버에 올라가지 않은 항목이에요." };
+    const row = Object.assign({}, sp, after);
+    const res = await Sync.editSpiritRow(row);
+    if (res.ok && row.img && row.img !== sp.img) after.img = row.img;   // 업로드된 주소로 교체
+    return res;
+  }
+
+  // 기록을 남길 때와 읽을 때가 어긋나면 기록이 안 보입니다. 한 곳에서 정해요.
+  const editKind = (sp) => (sp.kind === "cocktail" ? "cocktail" : "spirit");
+
+  function logSpiritEdit(sp, info) {
+    Sync.logEdit(editKind(sp), sp.id, {
+      title: sp.name, nick: state.user.nick || "익명",
+      fields: info.fields, before: info.before, after: info.after, note: info.note || null,
+    });
+  }
+
+  /* ---------- 수정 기록 ----------
+   * 함께 고치는 도감의 안전장치입니다. 누가 언제 무엇을 바꿨는지 모두가 볼 수 있고,
+   * 이상하면 그 시점 값으로 되돌립니다. 되돌리기도 새 수정으로 기록에 남아요.
+   */
+  const FIELD_LABEL = {
+    name: "이름", abv: "도수", cat: "분류", base: "베이스", price: "가격대",
+    ings: "재료", recipe: "만드는 법", note: "설명", img: "사진",
+  };
+  const fieldLabel = (k) => FIELD_LABEL[k] || k;
+  const shortVal = (v) => {
+    const s = String(v == null || v === "" ? "(없음)" : v);
+    if (/^https?:|^data:/.test(s)) return "사진";
+    return s.length > 40 ? s.slice(0, 40) + "…" : s;
+  };
+
+  async function openEditHistory(sp) {
+    openSheetHTML(`<h3>🕘 수정 기록</h3>
+      <p class="sheet-note" style="text-align:left;margin:0 0 10px">불러오는 중이에요…</p>`);
+    const rows = await Sync.editHistory(editKind(sp), sp.id, 30);
+    const bd = document.querySelector(".sheet-backdrop");
+    if (!bd) return;
+    const sheet = bd.querySelector(".sheet");
+
+    if (rows === null) {
+      sheet.innerHTML = `<button class="sheet-close" type="button" aria-label="닫기">✕</button>
+        <h3>🕘 수정 기록</h3>
+        <p class="sheet-note" style="text-align:left">기록을 불러오지 못했어요.<br>supabase/wiki.sql 을 실행했는지 확인해주세요.</p>`;
+      sheet.querySelector(".sheet-close").addEventListener("click", () => bd.remove());
+      return;
+    }
+
+    sheet.innerHTML = `<button class="sheet-close" type="button" aria-label="닫기">✕</button>
+      <h3>🕘 수정 기록 <span style="font-size:12.5px;font-weight:500;color:var(--text-sub)">· ${esc(sp.name)}</span></h3>
+      ${rows.length ? "" : '<p class="sheet-note" style="text-align:left">아직 고친 사람이 없어요. 첫 번째가 되어보세요.</p>'}
+      ${rows.map((r, i) => `
+        <div class="wiki-edit">
+          <div class="wiki-edit-head">
+            <b>${esc(r.nick)}${r.mine ? " (나)" : ""}</b>
+            <span class="wiki-edit-time">${fmtRel(r.at)}${r.note ? " · " + esc(r.note) : ""}</span>
+          </div>
+          ${r.fields.map((k) => `
+            <div class="wiki-diff">
+              <span class="wiki-f">${esc(fieldLabel(k))}</span>
+              <span class="wiki-old">${esc(shortVal(r.before[k]))}</span>
+              <span class="wiki-arw">→</span>
+              <span class="wiki-new">${esc(shortVal(r.after[k]))}</span>
+            </div>`).join("")}
+          ${canEditDogam(true) ? `<button class="text-btn wiki-undo" data-i="${i}">↩️ 이 수정 되돌리기</button>` : ""}
+        </div>`).join("")}`;
+
+    sheet.querySelector(".sheet-close").addEventListener("click", () => bd.remove());
+    sheet.querySelectorAll(".wiki-undo").forEach((b) =>
+      b.addEventListener("click", () => undoEdit(sp, rows[+b.dataset.i], bd)));
+  }
+
+  async function undoEdit(sp, rec, bd) {
+    if (!canEditDogam() || !rec) return;
+    const what = rec.fields.map(fieldLabel).join(", ");
+    if (!await btConfirm(`${rec.nick} 님이 바꾼 ${what}을(를)\n예전 값으로 되돌릴까요?`, { yes: "되돌리기" })) return;
+
+    // 되돌리기도 그냥 또 하나의 수정입니다. 그래서 똑같이 기록에 남아요.
+    const after = {}, before = {}, changed = [];
+    rec.fields.forEach((k) => {
+      const cur = sp[k] == null ? "" : sp[k];
+      const old = rec.before[k] == null ? "" : rec.before[k];
+      if (String(cur) === String(old)) return;      // 이미 그 값이면 건너뜀
+      before[k] = cur; after[k] = old; changed.push(k);
+    });
+    if (!changed.length) { toast("이미 예전 값이에요."); return; }
+
+    toast("되돌리는 중이에요…");
+    const res = await saveSpiritEdit(sp, after);
+    if (bd) bd.remove();
+    if (!res.ok) { await btAlert("되돌리지 못했어요.\n\n" + res.error); return; }
+    logSpiritEdit(sp, { fields: changed, before, after, note: `${rec.nick} 님의 수정을 되돌림` });
+    toast("되돌렸어요. ↩️");
+    await Sync.refresh("override");
   }
 
   async function toggleSpiritHidden(sp) {
@@ -2528,6 +2697,8 @@
         ])}
       </div>
 
+      ${wikiDashHTML()}
+
       ${refDashHTML()}
 
       <div class="sp-body" style="border-bottom:8px solid var(--bg-gray);padding-bottom:6px">
@@ -2593,11 +2764,14 @@
       state.adminStats = null;
       state.adminLogRows = null;
       state.adminRefs = null;
+      state.adminEdits = null;
       loadAdminStats(true);
       loadAdminRecent();
       loadAdminRefs(true);
+      loadAdminEdits(true);
       toast("현황을 다시 불러왔어요.");
     });
+    bindWikiDash();
     bindRefDash();
     $("#admin-log").addEventListener("click", openAdminLogSheet);
     $$("#admin-area .admin-log-row").forEach((b) => b.addEventListener("click", openAdminLogSheet));
@@ -2614,6 +2788,84 @@
     ].concat(refCsvRows())));
     $("#admin-whoami").addEventListener("click", openAdminWhoAmI);
     if (!state.adminLogRows) loadAdminRecent();
+  }
+
+  /* ---------- 도감 훼손 감시 ----------
+   * 누구나 고칠 수 있게 열어둔 이상, "누가 방금 뭘 바꿨나"를 한눈에 볼 수 있어야
+   * 안심하고 열어둘 수 있습니다. 이상하면 눌러서 그 항목으로 바로 갑니다.
+   */
+  function wikiDashHTML() {
+    const rows = state.adminEdits;
+    if (rows === "none") return "";     // wiki.sql 미설치
+    const body = !rows
+      ? '<p class="sheet-note" style="text-align:left;margin:4px 0 12px">불러오는 중이에요…</p>'
+      : !rows.length
+        ? '<p class="sheet-note" style="text-align:left;margin:4px 0 12px">아직 고친 사람이 없어요.</p>'
+        : rows.slice(0, 6).map((r) => `
+          <button class="row-link admin-edit-row" data-id="${r.refId}" style="padding:13px 0">
+            <span class="row-label" style="font-size:15px">${esc(r.nick)} · ${esc(r.title || "-")}
+              <span style="color:var(--text-sub);font-size:13px">${esc(r.fields.map(fieldLabel).join(", "))}</span></span>
+            <span class="flex-1"></span>
+            <span class="row-badge">${fmtRel(r.at)}</span>
+            <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+          </button>`).join("");
+
+    // 한 사람이 짧은 시간에 몰아서 고치면 도배일 수 있어요.
+    let warn = "";
+    if (rows && rows.length) {
+      const day = Date.now() - 24 * 3600 * 1000;
+      const by = {};
+      rows.filter((r) => r.at > day).forEach((r) => { by[r.nick] = (by[r.nick] || 0) + 1; });
+      const top = Object.keys(by).sort((a, b) => by[b] - by[a])[0];
+      if (top && by[top] >= 10) {
+        warn = `<p class="sheet-note" style="text-align:left;margin:2px 0 12px;color:var(--accent)">
+          ⚠️ ${esc(top)} 님이 하루 사이 ${by[top]}건을 고쳤어요. 한 번 확인해보세요.</p>`;
+      }
+    }
+
+    return `
+      <div class="sp-body" style="border-bottom:8px solid var(--bg-gray);padding-bottom:6px">
+        <button class="admin-h3" id="admin-wiki-help">
+          <h3 style="margin:0">도감 수정 <span style="font-size:12.5px;font-weight:500;color:var(--text-sub)">· 누구나 고칠 수 있어요</span></h3>
+          <span class="admin-h3-go">설명 ›</span>
+        </button>
+        ${body}
+        ${warn}
+      </div>`;
+  }
+
+  function bindWikiDash() {
+    const help = $("#admin-wiki-help");
+    if (help) help.addEventListener("click", openWikiHelpSheet);
+    $$("#admin-area .admin-edit-row").forEach((b) =>
+      b.addEventListener("click", () => {
+        const sp = state.spirits.find((x) => x.id === +b.dataset.id);
+        if (!sp) { toast("그 항목을 찾지 못했어요."); return; }
+        openSpirit(sp.id);
+      }));
+    if (state.adminEdits === null) loadAdminEdits();
+  }
+
+  async function loadAdminEdits(force) {
+    if (!isAdmin()) return;
+    if (state.adminEdits && !force) return;
+    const rows = await Sync.recentEdits(50);
+    state.adminEdits = rows || "none";
+    if (state.view === "admin" && !state.adminSub && state.adminTab === "dash") renderAdminDash();
+  }
+
+  function openWikiHelpSheet() {
+    openSheetHTML(`
+      <h3>도감은 함께 채웁니다</h3>
+      <p class="sheet-note" style="text-align:left;margin:0 0 10px">
+        로그인한 사람은 누구나 도감 내용과 사진을 고칠 수 있어요. 고치면 바로 반영됩니다.</p>
+      <div class="sheet-row"><span>기록</span><span class="r">누가 언제 무엇을 바꿨는지 전부 남아요</span></div>
+      <div class="sheet-row"><span>되돌리기</span><span class="r">항목 > 🚩 > 수정 기록에서 한 번에</span></div>
+      <div class="sheet-row"><span>감추기·완전 삭제</span><span class="r">운영자만</span></div>
+      <div class="sheet-row"><span>정지된 회원</span><span class="r">아예 수정 불가</span></div>
+      <p class="sheet-note" style="text-align:left;margin:10px 0 0">
+        훼손하는 사람이 보이면 <b>회원 관리에서 정지</b>시키면 됩니다. 정지되는 순간
+        그 사람은 도감을 못 고쳐요. 되돌리기는 기록에서 언제든 가능합니다.</p>`);
   }
 
   /* ---------- 영업(추천인) 성적표 ----------
@@ -4867,7 +5119,10 @@
         }
       }));
     $("#spirit-delete").hidden = !sp.mine;
-    $("#spirit-report").hidden = !!sp.mine;
+    // 연필은 고칠 수 있는 사람에게 늘 보입니다. 함께 채우는 도감이니 눈에 띄어야 해요.
+    $("#spirit-edit").hidden = !canEditDogam(true);
+    // 🚩는 이제 신고 전용이 아니라 "이 항목" 메뉴예요 (수정 기록 보기가 들어 있어요)
+    $("#spirit-report").hidden = false;
     $$("#spirit-detail .mult-btn").forEach((b) =>
       b.addEventListener("click", () => { state.ctMult = +b.dataset.m; renderSpiritDetail(); }));
     const hero = $("#spirit-detail .sp-hero-media img.thumb-img");
@@ -6805,28 +7060,33 @@
     const sp = state.spirits.find((x) => x.id === state.curSpirit);
     if (!sp) return;
 
+    /* 도감은 함께 만드는 사전입니다. 그래서 수정과 기록 보기는 모두에게 열려 있고,
+       감추기·완전 삭제·정지 같은 되돌리기 힘든 것만 운영자에게 남겨둡니다. */
+    const opts = [];
+    if (canEditDogam(true)) opts.push("✏️ 내용 수정");
+    opts.push("🕘 수정 기록 보기");
+    if (!sp.mine) opts.push("🚩 신고하기");
     if (isAdmin()) {
-      const opts = [];
-      if (!sp.mine) opts.push("🚩 신고하기");
       if (isBuiltinSpirit(sp)) {
-        // 앱에 내장된 항목 — 서버에 덮어쓰기를 저장해 모든 사용자에게 반영
-        opts.push("✏️ 내용 수정", ovHidden("spirit", sp.id) ? "👁️ 다시 보이기" : "🙈 목록에서 감추기");
+        opts.push(ovHidden("spirit", sp.id) ? "👁️ 다시 보이기" : "🙈 목록에서 감추기");
         if (ovOf("spirit", sp.id)) opts.push("↩️ 원래 내용으로 되돌리기");
       } else if (sp.remote) {
         opts.push("🛡️ 관리자 조치 (삭제·정지)");
       }
-      openSheet("이 도감 항목", opts, null, (v) => {
-        if (v.includes("신고")) reportSpirit(sp);
-        else if (v.includes("수정")) openSpiritEditSheet(sp);
-        else if (v.includes("감추기") || v.includes("보이기")) toggleSpiritHidden(sp);
-        else if (v.includes("되돌리기")) revertSpirit(sp);
-        else openAdminSheet("spirit", sp.id, sp.name, sp.authorId, () => show("dogam"));
-      });
-      return;
     }
 
-    if (sp.mine) { toast("내가 등록한 항목은 신고할 수 없어요."); return; }
-    reportSpirit(sp);
+    openSheet("이 도감 항목", opts, null, (v) => {
+      if (v.includes("내용 수정")) openSpiritEditSheet(sp);
+      else if (v.includes("수정 기록")) openEditHistory(sp);
+      else if (v.includes("신고")) reportSpirit(sp);
+      else if (v.includes("감추기") || v.includes("보이기")) toggleSpiritHidden(sp);
+      else if (v.includes("되돌리기")) revertSpirit(sp);
+      else openAdminSheet("spirit", sp.id, sp.name, sp.authorId, () => show("dogam"));
+    });
+  });
+  $("#spirit-edit").addEventListener("click", () => {
+    const sp = state.spirits.find((x) => x.id === state.curSpirit);
+    if (sp) openSpiritEditSheet(sp);
   });
   $("#review-send").addEventListener("click", addReview);
   $("#review-input").addEventListener("keydown", (e) => { if (e.key === "Enter") addReview(); });

@@ -480,6 +480,29 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .ref-msg.ok  { color: var(--official); }
 .ref-msg.bad { color: var(--accent); }
 .ref-msg.dim { color: var(--text-sub); }
+/* ---------- 도감 공동 편집 ---------- */
+.wiki-img-row { display: flex; gap: 12px; align-items: center; }
+.wiki-img-prev {
+  width: 76px; height: 76px; border-radius: 14px; object-fit: cover;
+  background: var(--bg-gray); flex: none;
+}
+.wiki-img-btns { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.wiki-edit { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.wiki-edit:last-child { border-bottom: 0; }
+.wiki-edit-head { display: flex; align-items: baseline; gap: 8px; font-size: 14.5px; }
+.wiki-edit-time { font-size: 12.5px; color: var(--text-sub); }
+.wiki-diff {
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+  font-size: 13.5px; margin-top: 5px; line-height: 1.5;
+}
+.wiki-f {
+  font-size: 12px; font-weight: 700; color: var(--text-sub);
+  background: var(--chip-bg); border-radius: 6px; padding: 1px 6px; flex: none;
+}
+.wiki-old { color: var(--text-muted); text-decoration: line-through; }
+.wiki-arw { color: var(--text-muted); }
+.wiki-new { color: var(--text); font-weight: 600; }
+.wiki-undo { margin-top: 6px; font-size: 13px; }
 .emoji-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .emoji-opt {
   width: 50px; height: 50px; border-radius: 14px; border: 2px solid transparent;

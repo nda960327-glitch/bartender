@@ -40,6 +40,7 @@ supabase/official.sql    ★ 공식 계정 + 콘텐츠 예약 발행 (아래 "�
 supabase/auto-comment.sql  AI 자동 댓글 (official.sql 다음에 실행)
 supabase/ranking.sql       랭킹 (안 넣어도 앱은 돌아갑니다 — 내 기록만 보여요)
 supabase/referral.sql      ★ 추천인(영업) 코드 + 활성 사용자 집계 (아래 "추천인 코드" 항목)
+supabase/wiki.sql          ★ 도감 공동 편집 + 수정 기록 (아래 "도감 공동 편집" 항목)
 api/publish.js           예약 발행 크론 엔드포인트
 tools/queue.mjs          콘텐츠 큐 관리 CLI
 tools/lib/               ↳ 도감 로더 · 초안 템플릿 · 예약 시각 · Supabase 클라이언트
@@ -229,7 +230,8 @@ curl https://barapp.kr/api/naver-login?probe=1
 | 사용자 등록 술·칵테일, 리뷰 | 근무일지, 장바구니·주문 |
 | 신고, 차단 목록, 프로필 | 앱 설정(다크모드·알림), 1:1 채팅 |
 
-앱에 내장된 술·칵테일 기준 데이터(500종 이상)는 서버로 가지 않고 앱 안에 그대로 있습니다.
+앱에 내장된 술·칵테일 기준 데이터(500종 이상)는 앱 파일 안에 있습니다.
+사람들이 고친 부분만 서버(`content_overrides`)에 쌓여 원본 위에 얹혀 보여요 — 아래 "도감 공동 편집" 참고.
 
 ### 운영 (신고 처리)
 
@@ -249,6 +251,57 @@ curl https://barapp.kr/api/naver-login?probe=1
 select * from reports where status = '접수' order by created_at desc;
 select * from admin_actions order by created_at desc limit 50;
 ```
+
+---
+
+## 도감 공동 편집 (나무위키식)
+
+도감은 **로그인한 사람 누구나** 고칠 수 있습니다. 내용도 사진도요.
+고치면 바로 모든 사용자에게 반영되고, **누가 언제 무엇을 바꿨는지 전부 기록**됩니다.
+
+### 1. SQL 넣기
+
+[`supabase/wiki.sql`](supabase/wiki.sql) 을 SQL Editor 에 붙여넣고 실행하세요.
+`schema.sql` → `admin.sql` → `overrides.sql` → `wiki.sql` 순서입니다.
+
+### 2. 쓰는 법
+
+| 하고 싶은 것 | 어디서 |
+|---|---|
+| 내용·사진 고치기 | 도감 항목 > 오른쪽 위 **✏️** |
+| 누가 뭘 바꿨나 보기 | 도감 항목 > 🚩 > **🕘 수정 기록 보기** |
+| 잘못된 수정 되돌리기 | 수정 기록에서 **↩️ 이 수정 되돌리기** |
+| 전체 감시 | 관리자 페이지 > 대시보드 > **도감 수정** |
+
+사진은 주소를 적는 게 아니라 폰에서 바로 골라 올립니다.
+
+### 3. 훼손을 막는 장치
+
+| 장치 | 내용 |
+|---|---|
+| 기록 | 모든 수정이 `content_edits` 에 남고, **아무도 지울 수 없습니다** |
+| 되돌리기 | 누구나 한 번에 되돌릴 수 있어요. 되돌리기도 기록에 남습니다 |
+| 정지 | 정지된 계정은 아예 수정 불가 (서버가 막습니다) |
+| 감추기·완전 삭제 | 운영자만 |
+| 도배 경보 | 한 사람이 하루 10건 넘게 고치면 대시보드에 경고가 뜹니다 |
+| 비속어 | 기존 필터를 그대로 통과해야 저장됩니다 |
+
+훼손하는 사람이 보이면 **관리자 페이지 > 회원 관리에서 정지**시키면 됩니다.
+정지되는 순간 그 사람은 도감을 못 고쳐요. 되돌리기는 기록에서 언제든 가능합니다.
+
+```sql
+-- 한 사람이 오늘 몇 건이나 고쳤나 (도배 의심)
+select editor_nick, editor_id, count(*) from public.content_edits
+where created_at > now() - interval '1 day' group by 1,2 order by 3 desc;
+
+-- 이 항목을 앱 원본으로 완전히 복귀 (모든 수정 취소)
+delete from public.content_overrides where kind = 'spirit' and ref_id = 101;
+```
+
+> 특정 직원에게만 열고 싶어지면 `wiki.sql` 의 `overrides_insert` / `overrides_update` /
+> `spirits_update` 정책에서 `not public.is_banned()` 를
+> `public.is_admin() or exists (select 1 from public.editors where user_id = auth.uid())`
+> 같은 조건으로 바꾸면 됩니다. 앱 화면은 그대로 두어도 서버가 막아줍니다.
 
 ---
 
