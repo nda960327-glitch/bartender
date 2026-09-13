@@ -149,6 +149,8 @@
         <div class="tool-grid">
           <button class="tool-item pressable" data-go="finder"><span class="tool-ic">🔍</span><span class="tool-name">재료로 칵테일 찾기</span><span class="tool-desc">있는 재료로 뭐 만들지?</span></button>
           <button class="tool-item pressable" data-go="quiz"><span class="tool-ic">🎯</span><span class="tool-name">레시피 퀴즈</span><span class="tool-desc">조주 실력 테스트</span></button>
+          <button class="tool-item pressable" data-go="cbt"><span class="tool-ic">📝</span><span class="tool-name">필기 기출 CBT</span><span class="tool-desc">조주기능사 회차별 모의고사</span></button>
+          <button class="tool-item pressable" data-go="cards"><span class="tool-ic">🃏</span><span class="tool-name">실기 암기 카드</span><span class="tool-desc">조주기능사 레시피 외우기</span></button>
           <button class="tool-item pressable" data-go="calc"><span class="tool-ic">🧮</span><span class="tool-name">원가 계산기</span><span class="tool-desc">잔당 원가·판매가</span></button>
           <button class="tool-item pressable" id="tool-random"><span class="tool-ic">🎲</span><span class="tool-name">오늘 뭐 마시지?</span><span class="tool-desc">랜덤 칵테일 뽑기</span></button>
         </div>
@@ -910,6 +912,32 @@
       <span class="topbar-spacer"></span>
     </header>
     <div class="scroll-area" id="quiz-area"></div>
+  </section>
+
+  <!-- ===================== 조주기능사 필기 CBT ===================== -->
+  <section class="view" id="view-cbt" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="home">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title" id="cbt-title">필기 기출 CBT</h1>
+      <span class="cbt-timer" id="cbt-timer" hidden></span>
+      <span class="topbar-spacer" id="cbt-spacer"></span>
+    </header>
+    <div class="scroll-area" id="cbt-area"></div>
+    <div class="cbt-bar" id="cbt-bar" hidden></div>
+  </section>
+
+  <!-- ===================== 조주기능사 실기 암기 카드 ===================== -->
+  <section class="view" id="view-cards" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="home">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title">실기 암기 카드</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area" id="cards-area"></div>
   </section>
 
   <!-- ===================== 원가 계산기 ===================== -->

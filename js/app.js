@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.39.1";
+  const APP_BUILD = "2.40.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -1666,7 +1666,7 @@
       (view === "doc" && (state.docFrom === "onboard" || state.docFrom === "login"));
     $("#bottom-nav").style.display = hideNav ? "none" : "";
     const navView = NAV_VIEWS.includes(view) ? view
-      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", calc: "home", market: "home", "market-detail": "home", cart: "home", search: "home", bars: "home", mybars: "mypage", bar: "home", listing: "home", "listing-write": "listing", pros: "home", pro: "pros", "pro-edit": "pros", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
+      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", cbt: "home", cards: "home", calc: "home", market: "home", "market-detail": "home", cart: "home", search: "home", bars: "home", mybars: "mypage", bar: "home", listing: "home", "listing-write": "listing", pros: "home", pro: "pros", "pro-edit": "pros", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
     $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === navView));
     if (view === "home") renderHome();
     if (view === "market") renderStore();
@@ -1683,6 +1683,8 @@
     }
     if (view === "finder") renderFinder();
     if (view === "quiz") renderQuiz();
+    if (view === "cbt") renderCbt();
+    if (view === "cards") renderCards();
     if (view === "calc") renderCalc();
     if (view === "jobs") renderJobs();
     if (view === "favjobs") renderFavJobs();
@@ -7191,6 +7193,389 @@
     $("#quiz-home").addEventListener("click", () => show("home"));
   }
 
+  /* ---------- 조주기능사 필기 CBT ---------- */
+  // 기출 600문항(약 130KB)은 이 화면에 들어올 때만 받아옵니다.
+  const CBT_MINUTES = 60;
+  const CBT_PASS = 36;
+  const CBT_SUBJECTS = [["주류학개론", 0, 30], ["주장관리개론", 30, 50], ["고객서비스영어", 50, 60]];
+  const CBT_MARKS = ["①", "②", "③", "④"];
+  let cbtTimer = null;
+  // 화면에 들어올 때만 받는 데이터 파일. 실패하면 다음에 들어올 때 다시 시도해요.
+  const lazyData = (() => {
+    const pending = {};
+    return (src, globalName) => {
+      if (window[globalName]) return Promise.resolve(true);
+      if (!pending[src]) {
+        pending[src] = new Promise((done) => {
+          const s = document.createElement("script");
+          s.src = src;
+          s.onload = () => done(!!window[globalName]);
+          s.onerror = () => { delete pending[src]; s.remove(); done(false); };
+          document.head.appendChild(s);
+        });
+      }
+      return pending[src];
+    };
+  })();
+  const cbtSubjectOf = (i) => CBT_SUBJECTS.findIndex(([, a, b]) => i >= a && i < b);
+
+  function cbtChrome(title, exam) {
+    $("#cbt-title").textContent = title;
+    $("#cbt-timer").hidden = !exam;
+    $("#cbt-spacer").hidden = exam;
+    $("#cbt-bar").hidden = !exam;
+    $("#bottom-nav").style.display = exam ? "none" : "";
+  }
+
+  async function renderCbt() {
+    // 시험 도중 다른 화면에 다녀와도 이어서 풀 수 있어요. (시간은 계속 흐릅니다)
+    if (state.cbt) { state.cbt.done ? renderCbtResult() : renderCbtQ(); return; }
+    cbtChrome("필기 기출 CBT", false);
+    $("#cbt-area").innerHTML = '<div class="empty-state">기출문제를 불러오는 중…</div>';
+    const ok = await lazyData("js/cbt-data.js", "CBT_DATA");
+    if (state.view !== "cbt" || state.cbt) return;
+    if (!ok) {
+      $("#cbt-area").innerHTML = '<div class="empty-state">문제를 불러오지 못했어요.<br>인터넷 연결을 확인해주세요.</div>';
+      return;
+    }
+    const rounds = window.CBT_DATA.rounds;
+    const years = [...new Set(rounds.map((r) => r.year))];
+    $("#cbt-area").innerHTML = `
+      <div class="cbt-intro">
+        <h2>조주기능사 필기 기출</h2>
+        <p>실제 시험처럼 60문항 · 60분 · 36문항(60점) 이상 합격.<br>회차를 골라 시작하세요.</p>
+      </div>
+      ${years.map((y) => `
+        <div class="comment-sec-title">${y}년</div>
+        <div class="cbt-rounds">
+          ${rounds.filter((r) => r.year === y).map((r) => `
+            <button class="cbt-round pressable" data-id="${r.id}"><b>${r.round}회</b><span>60문항 · 60분</span></button>`).join("")}
+        </div>`).join("")}
+      <p class="cbt-source">출처: 문제풀이닷컴 · 기출문제의 저작권은 출제기관(한국산업인력공단)에 있어요. 출제 당시 기준이라 지금의 법규·정답과 다를 수 있어요.</p>`;
+    $$("#cbt-area .cbt-round").forEach((b) => b.addEventListener("click", () => startCbt(b.dataset.id)));
+  }
+
+  function startCbt(id) {
+    const r = window.CBT_DATA.rounds.find((x) => x.id === id);
+    if (!r) return;
+    const now = Date.now();
+    state.cbt = { r, i: 0, picks: r.questions.map(() => -1), startedAt: now, endsAt: now + CBT_MINUTES * 60000, done: false };
+    renderCbtQ();
+    tickCbt();
+  }
+
+  function tickCbt() {
+    clearInterval(cbtTimer);
+    const paint = () => {
+      const ex = state.cbt;
+      if (!ex || ex.done) { clearInterval(cbtTimer); return; }
+      const left = Math.max(0, ex.endsAt - Date.now());
+      const el = $("#cbt-timer");
+      el.textContent = `${String(Math.floor(left / 60000)).padStart(2, "0")}:${String(Math.floor(left / 1000) % 60).padStart(2, "0")}`;
+      el.classList.toggle("urgent", left < 5 * 60000);
+      if (left === 0) {
+        submitCbt();
+        if (state.view === "cbt") btAlert("시험 시간이 끝나서 자동으로 제출했어요.");
+      }
+    };
+    paint();
+    cbtTimer = setInterval(paint, 1000);
+  }
+
+  function paintCbtStatus() {
+    const ex = state.cbt;
+    const answered = ex.picks.filter((p) => p >= 0).length;
+    $("#cbt-fill").style.width = `${(answered / ex.picks.length) * 100}%`;
+    $("#cbt-count").textContent = `${answered}/${ex.picks.length}`;
+  }
+
+  function renderCbtQ() {
+    const ex = state.cbt;
+    const q = ex.r.questions[ex.i];
+    const subj = cbtSubjectOf(ex.i);
+    cbtChrome(`${ex.r.year}년 ${ex.r.round}회`, true);
+    $("#cbt-area").innerHTML = `
+      <div class="cbt-progress"><i id="cbt-fill"></i></div>
+      <div class="cbt-q">
+        <div class="cbt-subject">${subj + 1}과목 · ${CBT_SUBJECTS[subj][0]}</div>
+        <h3><span class="cbt-no">${ex.i + 1}.</span> ${esc(q.q)}</h3>
+        ${q.p ? `<div class="cbt-passage">${esc(q.p)}</div>` : ""}
+        ${q.x ? '<div class="cbt-note">원문에 있던 그림이 빠진 문제예요. 보기만 보고 풀어주세요.</div>' : ""}
+        ${q.o.map((o, k) => `
+          <button class="cbt-opt${ex.picks[ex.i] === k ? " picked" : ""}" data-k="${k}">
+            <span class="cbt-mark">${CBT_MARKS[k]}</span><span>${esc(o)}</span>
+          </button>`).join("")}
+      </div>`;
+    $("#cbt-area").scrollTop = 0;
+    $$("#cbt-area .cbt-opt").forEach((b) => b.addEventListener("click", () => {
+      ex.picks[ex.i] = +b.dataset.k;
+      $$("#cbt-area .cbt-opt").forEach((x) => x.classList.toggle("picked", x === b));
+      paintCbtStatus();
+    }));
+    const last = ex.picks.length - 1;
+    $("#cbt-bar").innerHTML = `
+      <button class="cbt-nav" id="cbt-prev"${ex.i === 0 ? " disabled" : ""}>이전</button>
+      <button class="cbt-submit" id="cbt-submit">답안 제출 <small id="cbt-count"></small></button>
+      <button class="cbt-nav" id="cbt-next"${ex.i === last ? " disabled" : ""}>다음</button>`;
+    $("#cbt-prev").addEventListener("click", () => { if (ex.i > 0) { ex.i--; renderCbtQ(); } });
+    $("#cbt-next").addEventListener("click", () => { if (ex.i < last) { ex.i++; renderCbtQ(); } });
+    $("#cbt-submit").addEventListener("click", confirmSubmitCbt);
+    paintCbtStatus();
+  }
+
+  async function confirmSubmitCbt() {
+    const ex = state.cbt;
+    const blank = ex.picks.filter((p) => p < 0).length;
+    const ok = await btConfirm(blank ? `아직 안 푼 문제가 ${blank}개 있어요.\n그래도 제출할까요?` : "답안을 제출할까요?");
+    if (ok && state.cbt === ex && !ex.done) submitCbt();
+  }
+
+  function submitCbt() {
+    const ex = state.cbt;
+    ex.done = true;
+    ex.usedMs = Math.min(Date.now(), ex.endsAt) - ex.startedAt;
+    clearInterval(cbtTimer);
+    if (state.view === "cbt") renderCbtResult();
+  }
+
+  // 시험 중 뒤로가기는 한 번 물어보고, 결과 화면에서는 회차 목록으로 돌아갑니다.
+  function cbtBack() {
+    const ex = state.cbt;
+    if (!ex) return false;
+    if (ex.done) { state.cbt = null; renderCbt(); return true; }
+    btConfirm("시험을 그만둘까요?\n지금까지 고른 답은 사라져요.").then((ok) => {
+      if (!ok || state.cbt !== ex || ex.done) return;
+      clearInterval(cbtTimer);
+      state.cbt = null;
+      renderCbt();
+    });
+    return true;
+  }
+
+  function renderCbtResult() {
+    const ex = state.cbt;
+    const qs = ex.r.questions;
+    const right = qs.map((q, i) => ex.picks[i] === q.a);
+    const correct = right.filter(Boolean).length;
+    const pass = correct >= CBT_PASS;
+    const wrong = qs.map((_, i) => i).filter((i) => !right[i]);
+    cbtChrome(`${ex.r.year}년 ${ex.r.round}회 결과`, false);
+    $("#cbt-area").innerHTML = `
+      <div class="cbt-result ${pass ? "pass" : "fail"}">
+        <div class="cbt-badge">${pass ? "합격" : "불합격"}</div>
+        <div class="cbt-score">${Math.round((correct / qs.length) * 100)}<small>점</small></div>
+        <p>${qs.length}문항 중 ${correct}개 정답 · ${Math.max(1, Math.round(ex.usedMs / 60000))}분 걸렸어요</p>
+      </div>
+      <div class="cbt-subjects">
+        ${CBT_SUBJECTS.map(([name, a, b]) => `
+          <div class="cbt-subj"><span>${name}</span><b>${right.slice(a, b).filter(Boolean).length}<small>/${b - a}</small></b></div>`).join("")}
+      </div>
+      ${wrong.length ? `
+        <div class="comment-sec-title">틀린 문제 ${wrong.length}개</div>
+        <div class="cbt-wrongs">
+          ${wrong.map((i) => {
+            const q = qs[i];
+            const p = ex.picks[i];
+            return `
+            <div class="cbt-wrong">
+              <h4>${i + 1}. ${esc(q.q)}</h4>
+              ${q.p ? `<div class="cbt-passage">${esc(q.p)}</div>` : ""}
+              <div class="cbt-ans mine">${p >= 0 ? `내 답 ${CBT_MARKS[p]} ${esc(q.o[p])}` : "안 푼 문제"}</div>
+              <div class="cbt-ans right">정답 ${CBT_MARKS[q.a]} ${esc(q.o[q.a])}</div>
+            </div>`;
+          }).join("")}
+        </div>` : ""}
+      <div class="cbt-result-btns">
+        <button class="big-btn accent ready" id="cbt-retry">이 회차 다시 풀기</button>
+        <button class="big-btn" id="cbt-list">회차 목록</button>
+      </div>`;
+    $("#cbt-area").scrollTop = 0;
+    $("#cbt-retry").addEventListener("click", () => startCbt(ex.r.id));
+    $("#cbt-list").addEventListener("click", () => { state.cbt = null; renderCbt(); });
+  }
+
+  /* ---------- 조주기능사 실기 암기 카드 ---------- */
+  // 표준레시피의 영문 글라스 이름으로 아이콘을 고릅니다. 앞에서부터 먼저 맞는 것.
+  const GLASS_KINDS = [
+    ["Liqueur", "cordial"], ["Sherry", "cordial"], ["Old-fashioned", "rocks"], ["Pilsner", "pilsner"],
+    ["saucer", "coupe"], ["Flute", "flute"], ["Sour", "sour"], ["Wine", "wine"], ["Cocktail", "cocktail"],
+  ];
+  const GLASS_PATHS = {
+    cocktail: ["M14 12h36L32 33z", "M32 33v19M23 52h18"],
+    cordial: ["M25 12h14l-2 20h-10z", "M32 32v20M25 52h14"],
+    rocks: ["M16 22h32l-3 30H19z", ""],
+    highball: ["M21 8h22l-2 46H23z", ""],
+    pilsner: ["M20 8h24l-7 38h-10z", "M32 46v6M24 52h16"],
+    flute: ["M26 8h12l-2 26h-8z", "M32 34v18M25 52h14"],
+    coupe: ["M12 20h40c0 9-9 15-20 15S12 29 12 20z", "M32 35v17M23 52h18"],
+    sour: ["M20 14h24l-4 18H24z", "M32 32v20M24 52h16"],
+    wine: ["M21 8h22c0 15-5 24-11 24S21 23 21 8z", "M32 32v20M24 52h16"],
+  };
+  function glassSVG(glass) {
+    const kind = (GLASS_KINDS.find(([word]) => String(glass || "").includes(word)) || [, "highball"])[1];
+    const [bowl, stem] = GLASS_PATHS[kind];
+    return `<svg class="glass-ic" viewBox="0 0 64 64" aria-hidden="true"><path class="glass-liquid" d="${bowl}"/>${stem ? `<path d="${stem}"/>` : ""}</svg>`;
+  }
+  const METHOD_KINDS = [["Blend", "blend"], ["Float", "float"], ["Stir", "stir"], ["Shake", "shake"]];
+  const methodKey = (m) => (METHOD_KINDS.find(([word]) => String(m || "").includes(word)) || [, "build"])[1];
+  const cardsKnown = () => store.get("cardsKnown", {});
+
+  async function renderCards() {
+    if (state.cardDeck) { renderCardStudy(); return; }
+    $("#cards-area").innerHTML = '<div class="empty-state">카드를 불러오는 중…</div>';
+    const ok = await lazyData("js/cards-data.js", "CARDS_DATA");
+    if (state.view !== "cards" || state.cardDeck) return;
+    if (!ok) {
+      $("#cards-area").innerHTML = '<div class="empty-state">카드를 불러오지 못했어요.<br>인터넷 연결을 확인해주세요.</div>';
+      return;
+    }
+    paintCardList();
+  }
+
+  function paintCardList() {
+    const all = window.CARDS_DATA.cocktails;
+    const known = cardsKnown();
+    const ready = all.filter((c) => c.ings);
+    const done = ready.filter((c) => known[c.no]).length;
+    const f = state.cardFilter || "all";
+    const shown = all.filter((c) => f === "all" || (f === "todo" ? !known[c.no] : !!known[c.no]));
+    $("#cards-area").innerHTML = `
+      <div class="cards-hero">
+        <div class="cards-ring" style="--p:${ready.length ? done / ready.length : 0}"><b>${done}<small>/${ready.length}</small></b></div>
+        <div class="cards-hero-txt">
+          <h2>실기 레시피 암기</h2>
+          <p>카드를 탭해서 뒤집고, 외웠으면 오른쪽으로 밀어요.</p>
+        </div>
+      </div>
+      <div class="cards-actions">
+        <button class="big-btn accent ready" id="cards-todo">못 외운 카드</button>
+        <button class="big-btn" id="cards-all">전체 섞어서</button>
+      </div>
+      <div class="chip-wrap cards-filter">
+        ${[["all", "전체"], ["todo", "못 외움"], ["done", "외움"]].map(([k, label]) =>
+          `<button class="chip${f === k ? " active" : ""}" data-f="${k}">${label}</button>`).join("")}
+      </div>
+      <div class="cards-grid">
+        ${shown.map((c) => `
+          <button class="card-tile pressable${c.ings ? "" : " pending"}" data-no="${c.no}" data-m="${methodKey(c.method)}">
+            <span class="card-tile-no">${c.no}</span>
+            ${known[c.no] ? '<i class="card-tile-done">✓</i>' : ""}
+            ${glassSVG(c.glass)}
+            <b>${esc(c.name)}</b>
+            <span class="card-tile-meta">${c.ings ? esc(c.method) : "레시피 준비 중"}</span>
+          </button>`).join("")}
+      </div>`;
+    $$("#cards-area .chip").forEach((b) => b.addEventListener("click", () => { state.cardFilter = b.dataset.f; paintCardList(); }));
+    $("#cards-todo").addEventListener("click", () => {
+      const todo = ready.filter((c) => !known[c.no]);
+      if (!todo.length) { toast("준비된 카드를 모두 외웠어요! 🏆"); return; }
+      startCardDeck(shuffle(todo));
+    });
+    $("#cards-all").addEventListener("click", () => startCardDeck(shuffle(ready)));
+    $$("#cards-area .card-tile").forEach((b) => b.addEventListener("click", () => {
+      const c = all.find((x) => x.no === +b.dataset.no);
+      if (!c.ings) { toast("이 칵테일은 레시피를 확인하는 중이에요."); return; }
+      startCardDeck(shown.filter((x) => x.ings), c.no);
+    }));
+  }
+
+  function startCardDeck(list, openNo) {
+    if (!list.length) return;
+    const i = openNo ? Math.max(0, list.findIndex((c) => c.no === openNo)) : 0;
+    state.cardDeck = { list, i, flipped: !!openNo, known: 0, todo: 0 };
+    renderCardStudy();
+  }
+
+  function renderCardStudy() {
+    const d = state.cardDeck;
+    if (d.i >= d.list.length) { renderCardDone(); return; }
+    const c = d.list[d.i];
+    $("#cards-area").innerHTML = `
+      <div class="study">
+        <div class="study-top">
+          <div class="study-bar"><i style="width:${(d.i / d.list.length) * 100}%"></i></div>
+          <span class="study-count">${d.i + 1} / ${d.list.length}</span>
+        </div>
+        <div class="flip${d.flipped ? " on" : ""}" id="study-card" data-m="${methodKey(c.method)}">
+          <div class="flip-in">
+            <div class="flip-face front">
+              <span class="flip-no">No.${String(c.no).padStart(2, "0")}</span>
+              ${cardsKnown()[c.no] ? '<span class="flip-badge">✓ 외움</span>' : ""}
+              <div class="flip-glass">${glassSVG(c.glass)}</div>
+              <h2>${esc(c.name)}</h2>
+              <p class="flip-en">${esc(c.en)}</p>
+              <p class="flip-hint">탭해서 레시피 보기</p>
+            </div>
+            <div class="flip-face back">
+              <h3>${esc(c.name)} <small>${esc(c.en)}</small></h3>
+              <div class="spec-grid">
+                <div><span>글라스</span><b>${esc(c.glass)}</b></div>
+                <div><span>기법</span><b>${esc(c.method)}</b></div>
+                <div class="wide"><span>가니시</span><b>${esc(c.garnish || "없음")}</b></div>
+              </div>
+              <ul class="spec-ings">${c.ings.map(([name, amt]) => `<li><span>${esc(name)}</span><b>${esc(amt)}</b></li>`).join("")}</ul>
+            </div>
+          </div>
+        </div>
+        <div class="study-btns">
+          <button class="study-btn no" id="study-no">✕ <span>못 외웠어요</span></button>
+          <button class="study-btn yes" id="study-yes">✓ <span>외웠어요</span></button>
+        </div>
+      </div>`;
+    $("#study-no").addEventListener("click", () => markCard(false));
+    $("#study-yes").addEventListener("click", () => markCard(true));
+
+    // 탭하면 뒤집고, 좌우로 밀면 못 외움/외움으로 넘어갑니다.
+    const card = $("#study-card");
+    let x0 = null, dx = 0;
+    card.addEventListener("pointerdown", (e) => { x0 = e.clientX; dx = 0; card.setPointerCapture(e.pointerId); card.classList.add("drag"); });
+    card.addEventListener("pointermove", (e) => {
+      if (x0 === null) return;
+      dx = e.clientX - x0;
+      card.style.transform = `translateX(${dx}px) rotate(${dx / 20}deg)`;
+      card.dataset.swipe = dx > 40 ? "yes" : dx < -40 ? "no" : "";
+    });
+    card.addEventListener("pointerup", () => {
+      if (x0 === null) return;
+      x0 = null;
+      card.classList.remove("drag");
+      if (Math.abs(dx) > 90) { markCard(dx > 0); return; }
+      card.style.transform = "";
+      card.dataset.swipe = "";
+      if (Math.abs(dx) < 6) { d.flipped = !d.flipped; card.classList.toggle("on", d.flipped); }
+    });
+    card.addEventListener("pointercancel", () => { x0 = null; card.classList.remove("drag"); card.style.transform = ""; card.dataset.swipe = ""; });
+  }
+
+  function markCard(yes) {
+    const d = state.cardDeck;
+    const c = d.list[d.i];
+    const known = cardsKnown();
+    if (yes) known[c.no] = true;
+    else delete known[c.no];
+    store.set("cardsKnown", known);
+    if (yes) d.known++; else d.todo++;
+    d.i++;
+    d.flipped = false;
+    renderCardStudy();
+  }
+
+  function renderCardDone() {
+    const d = state.cardDeck;
+    const known = cardsKnown();
+    const again = d.list.filter((c) => !known[c.no]);
+    $("#cards-area").innerHTML = `
+      <div class="quiz-result">
+        <div class="qs-emoji">${again.length ? "💪" : "🏆"}</div>
+        <div class="qr-score">${d.known} / ${d.list.length}</div>
+        <p>${again.length ? `못 외운 카드 ${again.length}장, 한 번 더 봐요.` : "이번 카드는 전부 외웠어요!"}</p>
+        ${again.length ? '<button class="big-btn accent ready" id="cards-again">못 외운 카드 다시</button>' : ""}
+        <button class="big-btn" id="cards-back" style="margin-top:10px">카드 목록</button>
+      </div>`;
+    if (again.length) $("#cards-again").addEventListener("click", () => startCardDeck(shuffle(again)));
+    $("#cards-back").addEventListener("click", () => { state.cardDeck = null; paintCardList(); });
+  }
+
   /* ---------- 원가 계산기 ---------- */
   function renderCalc() {
     $("#calc-rows").innerHTML = `
@@ -7275,6 +7660,8 @@
   // 관리자 화면은 하위 관리 화면이 있어서, 뒤로가기가 먼저 그걸 닫아요.
   $$(".back-btn").forEach((b) => b.addEventListener("click", () => {
     if (b.id === "admin-back" && adminBack()) return;
+    if (state.view === "cbt" && cbtBack()) return;
+    if (state.view === "cards" && state.cardDeck) { state.cardDeck = null; renderCards(); return; }
     // 모임을 수정하다 나가면 보던 모임으로 돌아가고, 적던 값은 비웁니다.
     if (state.view === "meet-write" && state.editMeet) {
       resetMeetWrite();
