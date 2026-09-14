@@ -1,0 +1,42 @@
+# ============================================================
+#  하우스 패스 — 하루 한 번 정리 (만료 · 3일 전 알림 · 자동 갱신 결제)
+#
+#  Vercel Cron 은 Hobby 요금제에서 하루 1회만 되지만, 그래도 GitHub 쪽에 두는 게
+#  publish-queue.yml 과 같은 자리라 관리가 편합니다.
+#
+#  준비물 — GitHub 저장소 > Settings > Secrets and variables > Actions
+#    Secrets   CRON_SECRET  : Vercel 환경변수와 똑같이
+#    Variables PASS_CRON_URL: 기본값 https://barapp.kr/api/pass-cron
+# ============================================================
+name: 하우스 패스 정리
+
+on:
+  schedule:
+    - cron: "10 1 * * *"    # 매일 10:10 KST
+  workflow_dispatch:
+
+concurrency:
+  group: pass-cron
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 정리 엔드포인트 호출
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PASS_CRON_URL: ${{ vars.PASS_CRON_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::error::CRON_SECRET 시크릿이 설정되지 않았습니다."
+            exit 1
+          fi
+          URL="${PASS_CRON_URL:-https://barapp.kr/api/pass-cron}"
+          BODY=$(mktemp)
+          CODE=$(curl -sS -m 120 -o "$BODY" -w '%{http_code}' -H "x-cron-key: ${CRON_SECRET}" "${URL}")
+          echo "HTTP ${CODE}"; cat "$BODY"; echo
+          [ "$CODE" = "200" ] || { echo "::error::요청 실패 (HTTP ${CODE})"; exit 1; }
+          cat "$BODY" >> "$GITHUB_STEP_SUMMARY"

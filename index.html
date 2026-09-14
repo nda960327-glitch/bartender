@@ -126,11 +126,12 @@
         </button>
       </div>
 
-      <div class="home-sec">
+      <div class="home-sec" id="home-pass-sec">
         <div class="home-sec-head">
-          <h2>오늘의 칵테일 ✨</h2>
+          <h2>하우스 패스 🎫</h2>
+          <button class="more-btn" id="home-pass-more" hidden>내 패스</button>
         </div>
-        <div class="daily-card pressable" id="daily-cocktail"></div>
+        <div id="home-pass"></div>
       </div>
 
       <div class="home-sec">
@@ -682,6 +683,8 @@
         <button class="row-link pressable" id="btn-mypro"><span class="row-label">내 바텐더 프로필</span><span class="flex-1"></span><span class="row-badge" id="mypro-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-taste"><span class="row-label">내 취향 리포트</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-cellar"><span class="row-label">내 술장</span><span class="flex-1"></span><span class="row-badge" id="cellar-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="row-link pressable" id="btn-mypass"><span class="row-label">내 패스 🎫</span><span class="flex-1"></span><span class="row-badge" id="mypass-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="row-link pressable" id="btn-passadmin" hidden><span class="row-label">우리 가게 패스 관리</span><span class="flex-1"></span><span class="row-badge" id="passadmin-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-mybars"><span class="row-label">단골 바</span><span class="flex-1"></span><span class="row-badge" id="mybar-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-favjobs"><span class="row-label">관심알바</span><span class="flex-1"></span><span class="row-badge" id="favjob-cnt"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="row-link pressable" id="btn-myposts"><span class="row-label">내가 쓴 글</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
@@ -971,6 +974,36 @@
       </button>
     </header>
     <div class="scroll-area gray-bg" id="bar-detail"></div>
+  </section>
+
+  <!-- ===================== 하우스 패스 — 내 패스 (QR · 도장 · 잔수) ===================== -->
+  <section class="view" id="view-pass" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="mypage">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title" id="pass-title">내 패스</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="scroll-area gray-bg" id="pass-area"></div>
+  </section>
+
+  <!-- ===================== 하우스 패스 — 운영자 (입장 확인 · 회원 · 상품 · 지표) ===================== -->
+  <section class="view" id="view-pass-admin" hidden>
+    <header class="topbar">
+      <button class="icon-btn back-btn" data-back="mypage">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h1 class="topbar-title" id="pass-admin-title">패스 관리</h1>
+      <span class="topbar-spacer"></span>
+    </header>
+    <div class="chip-wrap pass-tabs" id="pass-admin-tabs">
+      <button class="chip active" data-tab="scan">입장 확인</button>
+      <button class="chip" data-tab="members">회원</button>
+      <button class="chip" data-tab="plans">상품·설정</button>
+      <button class="chip" data-tab="stats">지표</button>
+    </div>
+    <div class="scroll-area gray-bg" id="pass-admin-area"></div>
   </section>
 
   <!-- ============ 학원 · 대회 정보 (한 화면을 종류만 바꿔 씁니다) ============ -->

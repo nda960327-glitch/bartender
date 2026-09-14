@@ -1050,6 +1050,23 @@
     var m = String((err && err.message) || "");
     return /does not exist|not find|schema cache|relation/i.test(m) ? "not-installed" : m;
   }
+  /* 서버 함수가 raise exception 으로 거절한 문장은 그대로 사람에게 보여줘도 됩니다.
+     그 외 기술적인 메시지는 짧게 다듬어요. */
+  function rpcMsg(err) {
+    var m = String((err && err.message) || "");
+    if (!m) return "처리하지 못했어요.";
+    if (/does not exist|schema cache/i.test(m)) return "not-installed";
+    if (/row-level security|permission denied/i.test(m)) return "권한이 없어요.";
+    return m.replace(/^.*?(?=[가-힣])/, "").slice(0, 120) || m.slice(0, 120);
+  }
+  async function callRpc(name, args) {
+    if (!ready()) return { ok: false, error: "로그인이 필요해요." };
+    try {
+      var res = await sb.rpc(name, args || {});
+      if (res.error) return { ok: false, error: rpcMsg(res.error) };
+      return { ok: true, data: res.data };
+    } catch (e) { return { ok: false, error: (e && e.message) || "처리하지 못했어요." }; }
+  }
 
   var api = {
     get enabled() { return S.enabled; },
@@ -1060,6 +1077,8 @@
     get isAdmin() { return S.isAdmin; },
     get identity() { return S.identity; },
     get signedIn() { return !!S.uid; },
+    // 저장 없이 알림만 부탁할 때 (패스 신청·승인). 실패해도 조용히 넘어가요.
+    notify(spec) { return notifyServer(spec); },
     get providers() { return S.providers; },
     get naverReady() { return S.naverReady; },
     // 서버가 목록을 안 주면 막지 않아요 (알 수 없음 = 시도해봄)
@@ -1934,6 +1953,127 @@
       } catch (e) {
         return { ok: false, error: (e && e.message) || "처리하지 못했어요." };
       }
+    },
+
+    /* ---------- 하우스 패스 (supabase/pass.sql) ----------
+     * 가게 단위 월정액 멤버십. 스캔·잔수·도장은 전부 서버 함수(rpc)가 처리하고,
+     * 여기서는 부탁만 합니다. 서버가 거절하면 그 이유(한국어)가 error 로 옵니다.
+     */
+    async passProgram(barKey) {
+      if (!ready()) return { ok: false, error: "offline" };
+      try {
+        var r = await Promise.all([
+          sb.from("bar_pass_settings").select("*").eq("bar_key", barKey).maybeSingle(),
+          sb.from("pass_plans").select("*").eq("bar_key", barKey).eq("active", true).order("sort").order("id"),
+          sb.from("passes").select("*").eq("bar_key", barKey).eq("user_id", S.uid)
+            .in("status", ["requested", "active", "grace"]).order("id", { ascending: false }).limit(1),
+          sb.from("bar_owners").select("bar_key").eq("bar_key", barKey).eq("user_id", S.uid).limit(1),
+        ]);
+        if (r[0].error) return { ok: false, error: notInstalled(r[0].error) };
+        return {
+          ok: true,
+          settings: r[0].data,
+          plans: r[1].data || [],
+          mine: (r[2].data || [])[0] || null,
+          owner: !!(r[3].data || []).length,
+        };
+      } catch (e) { return { ok: false, error: (e && e.message) || "불러오지 못했어요." }; }
+    },
+    async passRequest(planId) {
+      if (!ready()) return { ok: false, error: "로그인이 필요해요." };
+      try {
+        var res = await sb.from("passes").insert({ plan_id: planId, user_id: S.uid }).select("*").single();
+        if (res.error) return { ok: false, error: rpcMsg(res.error) };
+        return { ok: true, pass: res.data };
+      } catch (e) { return { ok: false, error: (e && e.message) || "신청하지 못했어요." }; }
+    },
+    async passMine() {
+      if (!ready()) return { ok: false, error: "offline" };
+      try {
+        var res = await sb.from("passes").select("*").eq("user_id", S.uid).order("id", { ascending: false }).limit(50);
+        if (res.error) return { ok: false, error: notInstalled(res.error) };
+        return { ok: true, passes: res.data || [] };
+      } catch (e) { return { ok: false, error: (e && e.message) || "불러오지 못했어요." }; }
+    },
+    async passOwnedBars() {
+      if (!ready()) return { ok: false, error: "offline" };
+      try {
+        var res = await sb.from("bar_owners").select("bar_key,bar_name").eq("user_id", S.uid).limit(20);
+        if (res.error) return { ok: false, error: notInstalled(res.error) };
+        return { ok: true, bars: res.data || [] };
+      } catch (e) { return { ok: false, error: (e && e.message) || "불러오지 못했어요." }; }
+    },
+    passInfo(id)                    { return callRpc("pass_info", { p_pass: id }); },
+    passQr(id)                      { return callRpc("pass_qr", { p_pass: id }); },
+    passScan(token, action, side)   { return callRpc("pass_scan", { p_token: token, p_action: action, p_side: !!side }); },
+    passJoinTeam(code)              { return callRpc("pass_join_team", { p_code: code }); },
+    passCancel(id)                  { return callRpc("pass_cancel_mine", { p_pass: id }); },
+    passDashboard(barKey)           { return callRpc("pass_dashboard", { p_bar: barKey }); },
+    passCardLabel(barKey)           { return callRpc("pass_card_label", { p_bar: barKey }); },
+    passAddOwner(barKey, barName, nick) { return callRpc("pass_add_owner", { p_bar: barKey, p_bar_name: barName, p_nick: nick || null }); },
+
+    /* 운영자 화면 — 설정·상품 전부·회원/신청 목록 */
+    async passOwnerData(barKey) {
+      if (!ready()) return { ok: false, error: "offline" };
+      try {
+        var r = await Promise.all([
+          sb.from("bar_pass_settings").select("*").eq("bar_key", barKey).maybeSingle(),
+          sb.from("pass_plans").select("*").eq("bar_key", barKey).order("sort").order("id"),
+          sb.from("passes").select("*").eq("bar_key", barKey)
+            .in("status", ["requested", "active", "grace"]).order("status").order("id", { ascending: false }).limit(500),
+        ]);
+        if (r[0].error) return { ok: false, error: notInstalled(r[0].error) };
+        var ids = (r[2].data || []).map(function (p) { return p.user_id; });
+        var nicks = {};
+        if (ids.length) {
+          var pr = await sb.from("profiles").select("id,nick,color").in("id", ids);
+          (pr.data || []).forEach(function (x) { nicks[x.id] = x; });
+        }
+        return { ok: true, settings: r[0].data, plans: r[1].data || [], passes: r[2].data || [], profiles: nicks };
+      } catch (e) { return { ok: false, error: (e && e.message) || "불러오지 못했어요." }; }
+    },
+    async passSaveSettings(row) {
+      if (!ready()) return { ok: false, error: "로그인이 필요해요." };
+      try {
+        var res = await sb.from("bar_pass_settings").upsert(row, { onConflict: "bar_key" }).select("*").single();
+        if (res.error) return { ok: false, error: rpcMsg(res.error) };
+        return { ok: true, settings: res.data };
+      } catch (e) { return { ok: false, error: (e && e.message) || "저장하지 못했어요." }; }
+    },
+    async passSavePlan(row) {
+      if (!ready()) return { ok: false, error: "로그인이 필요해요." };
+      try {
+        var res = row.id
+          ? await sb.from("pass_plans").update(row).eq("id", row.id).select("*").single()
+          : await sb.from("pass_plans").insert(row).select("*").single();
+        if (res.error) return { ok: false, error: rpcMsg(res.error) };
+        return { ok: true, plan: res.data };
+      } catch (e) { return { ok: false, error: (e && e.message) || "저장하지 못했어요." }; }
+    },
+    async passUpdate(id, patch) {
+      if (!ready()) return { ok: false, error: "로그인이 필요해요." };
+      try {
+        var res = await sb.from("passes").update(patch).eq("id", id).select("*").single();
+        if (res.error) return { ok: false, error: rpcMsg(res.error) };
+        return { ok: true, pass: res.data };
+      } catch (e) { return { ok: false, error: (e && e.message) || "처리하지 못했어요." }; }
+    },
+    /* 결제 서버 함수 (api/pass-billing.js). 카드·빌링키는 서버만 다룹니다. */
+    async passBilling(action, body) {
+      if (!ready()) return { ok: false, error: "로그인이 필요해요." };
+      try {
+        var s = await sb.auth.getSession();
+        var token = s && s.data && s.data.session && s.data.session.access_token;
+        if (!token) return { ok: false, error: "로그인이 필요해요." };
+        var r = await fetch("/api/pass-billing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+          body: JSON.stringify(Object.assign({ action: action }, body || {})),
+        });
+        var j = await r.json().catch(function () { return {}; });
+        if (!r.ok || !j.ok) return { ok: false, error: j.error || ("결제 서버 오류 (" + r.status + ")") };
+        return j;
+      } catch (e) { return { ok: false, error: (e && e.message) || "결제 서버에 연결하지 못했어요." }; }
     },
 
     async barReviews(barKey) {

@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.40.2";
+  const APP_BUILD = "2.41.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -1663,7 +1663,7 @@
       (view === "doc" && (state.docFrom === "onboard" || state.docFrom === "login"));
     $("#bottom-nav").style.display = hideNav ? "none" : "";
     const navView = NAV_VIEWS.includes(view) ? view
-      : { jobs: "home", alerts: "home", chat: "home", cbt: "home", cards: "home", market: "home", "market-detail": "home", cart: "home", search: "home", bars: "home", mybars: "mypage", bar: "home", listing: "home", "listing-write": "listing", pros: "home", pro: "pros", "pro-edit": "pros", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
+      : { jobs: "home", alerts: "home", chat: "home", cbt: "home", cards: "home", pass: "mypage", "pass-admin": "mypage", market: "home", "market-detail": "home", cart: "home", search: "home", bars: "home", mybars: "mypage", bar: "home", listing: "home", "listing-write": "listing", pros: "home", pro: "pros", "pro-edit": "pros", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
     $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === navView));
     if (view === "home") renderHome();
     if (view === "market") renderStore();
@@ -1680,6 +1680,9 @@
     }
     if (view === "cbt") renderCbt();
     if (view === "cards") renderCards();
+    if (view === "pass") renderPassView();
+    if (view === "pass-admin") renderPassAdmin();
+    if (state.view !== "pass-admin" && view !== "pass-admin") stopPassScanner();
     if (view === "jobs") renderJobs();
     if (view === "favjobs") renderFavJobs();
     if (view === "myposts") renderMyPosts();
@@ -4484,21 +4487,7 @@
       charBox.innerHTML = window.BTChar.duo();
     }
 
-    // 오늘의 칵테일 (날짜 기반 고정 추천)
-    const cts = state.spirits.filter((s) => s.kind === "cocktail");
-    if (cts.length) {
-      const d = new Date();
-      const pick = cts[(d.getFullYear() * 372 + d.getMonth() * 31 + d.getDate()) % cts.length];
-      $("#daily-cocktail").innerHTML = `
-        <span class="dc-emoji">${thumbHTML(pick)}</span>
-        <div class="dc-body">
-          <div class="dc-name">${esc(pick.name)}</div>
-          <div class="dc-sub">${esc(pick.base)} 베이스 · 오늘 한 잔 어때요?</div>
-        </div>
-        <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>`;
-      $("#daily-cocktail").onclick = () => openSpirit(pick.id);
-      wireImgFallback("#daily-cocktail");
-    }
+    renderHomePass();
 
     // 스토어 추천 (베스트/신상 우선) — 문 열기 전엔 아예 안 보여줍니다
     $("#home-store-sec").hidden = !FEATURES.STORE_OPEN;
@@ -6474,6 +6463,7 @@
     const cel = state.user.cellar.tried.length + state.user.cellar.wish.length;
     $("#cellar-cnt").textContent = cel ? cel + "병" : "";
     $("#mybar-cnt").textContent = state.user.myBars.length ? state.user.myBars.length + "곳" : "";
+    paintMyPagePass();
     $("#blocked-cnt").textContent = blockedKeys().length ? blockedKeys().length + "명" : "";
     showAppDownload();
     const rcN = Object.keys(state.user.myRecipes).length;
@@ -7427,6 +7417,773 @@
     $("#cards-back").addEventListener("click", () => { state.cardDeck = null; paintCardList(); });
   }
 
+  /* ============================================================
+   *  하우스 패스 — 가게 단위 월정액 멤버십
+   *  손님: 가게 페이지에서 신청 → (가게에서 결제 / 앱 카드 결제) → 내 패스 QR → 입장·잔·도장
+   *  운영자: 마이페이지 > 우리 가게 패스 관리 → 입장 확인(스캔) · 회원 · 상품 · 지표
+   *  서버 쪽 규칙은 supabase/pass.sql, 결제는 api/pass-billing.js 에 있어요.
+   * ============================================================ */
+  const QR_LIB = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
+  const JSQR_LIB = "https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js";
+  const TOSS_LIB = "https://js.tosspayments.com/v1/payment";
+  const PASS_STATUS = { requested: "승인 대기", active: "사용 중", grace: "결제 확인 중", expired: "기간 끝", cancelled: "취소", rejected: "거절" };
+  const PASS_DAYS = { all: "매일", "tue-thu": "화·수·목" };
+  const PASS_KIND = { personal: "개인", team: "팀", oneday: "원데이" };
+  const passCache = { mine: null, owned: null, at: 0, byBar: {} };
+  let passQrTimer = null;
+  let passScanner = null;
+
+  const passEnabled = () => Sync.enabled && Sync.signedIn !== false;
+  const passActive = (p) => p && (p.status === "active" || p.status === "grace");
+  const passWon = (n) => `${fmtNum(n)}원`;
+  function passPlanLine(p) {
+    const bits = [PASS_DAYS[p.days] || p.days, `하루 ${p.drinks_per_day}잔`];
+    if (p.monthly_cap) bits.push(`월 ${p.monthly_cap}잔까지`);
+    if (p.kind === "team") bits.push(`${p.team_size}명`);
+    if (p.kind === "oneday" || p.duration_days < 7) bits.push(`${p.duration_days}일`);
+    return bits.join(" · ");
+  }
+  function passFail(r, fallback) {
+    if (r && r.error === "not-installed") toast("서버에 패스 기능이 아직 설치되지 않았어요. (supabase/pass.sql)");
+    else toast((r && r.error) || fallback || "처리하지 못했어요.");
+  }
+
+  /* 내 패스·운영 가게 목록 (홈·마이페이지가 같이 씁니다. 1분 캐시) */
+  async function loadMyPasses(force) {
+    if (!passEnabled()) return { mine: [], owned: [] };
+    if (!force && passCache.mine && Date.now() - passCache.at < 60000) return passCache;
+    const [m, o] = await Promise.all([Sync.passMine(), Sync.passOwnedBars()]);
+    if (!m.ok && m.error !== "offline") passCache.installed = m.error !== "not-installed";
+    passCache.mine = m.ok ? m.passes : (passCache.mine || []);
+    passCache.owned = o.ok ? o.bars : (passCache.owned || []);
+    passCache.at = Date.now();
+    return passCache;
+  }
+  function invalidatePasses() { passCache.at = 0; passCache.byBar = {}; }
+
+  /* ---------- 홈 카드 ---------- */
+  async function renderHomePass() {
+    const sec = $("#home-pass-sec");
+    if (!sec) return;
+    if (!passEnabled()) { sec.hidden = true; return; }
+    sec.hidden = false;
+    const box = $("#home-pass");
+    if (!box.innerHTML) box.innerHTML = '<div class="pass-home pass-home-empty"><div class="ph-body"><b>불러오는 중…</b></div></div>';
+    const { mine, owned } = await loadMyPasses();
+    if (state.view !== "home") return;
+    const live = mine.filter(passActive);
+    const pending = mine.filter((p) => p.status === "requested");
+    $("#home-pass-more").hidden = !mine.length;
+    let html = "";
+    if (live.length) {
+      const p = live[0];
+      html += `
+        <button class="pass-home pressable" data-pass="${p.id}">
+          <span class="ph-qr">${qrGlyph()}</span>
+          <span class="ph-body">
+            <b>${esc(p.bar_name || "하우스 패스")} · ${esc(p.plan_name)}</b>
+            <span>${p.status === "grace" ? "결제 확인 중 · 그대로 쓸 수 있어요" : `${fmtDay(p.ends_at)}까지 · 탭해서 입장 QR 보기`}</span>
+          </span>
+          <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+        </button>`;
+      if (live.length > 1) html += `<p class="pass-home-more">패스 ${live.length}장 · 나머지는 "내 패스"에서</p>`;
+    } else if (pending.length) {
+      const p = pending[0];
+      html += `
+        <button class="pass-home pending pressable" data-pass="${p.id}">
+          <span class="ph-qr">⏳</span>
+          <span class="ph-body"><b>${esc(p.bar_name)} · ${esc(p.plan_name)}</b><span>가게에서 결제하면 운영자가 승인해요</span></span>
+          <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+        </button>`;
+    } else {
+      html += `
+        <button class="pass-home pass-home-empty pressable" id="home-pass-find">
+          <span class="ph-qr">🎫</span>
+          <span class="ph-body"><b>매달 한 번, QR 찍고 입장</b><span>하우스 패스를 파는 바를 바 찾기에서 골라보세요</span></span>
+          <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+        </button>`;
+    }
+    if (owned.length) {
+      html += `<div class="pass-home-owner">${owned.map((b) => `
+        <button class="pass-scan-btn pressable" data-bar="${esc(b.bar_key)}" data-name="${esc(b.bar_name)}">
+          <span>📷</span>입장 확인 · ${esc(b.bar_name || "우리 가게")}
+        </button>`).join("")}</div>`;
+    }
+    box.innerHTML = html;
+    $$("#home-pass [data-pass]").forEach((el) => el.addEventListener("click", () => openPass(+el.dataset.pass)));
+    const find = $("#home-pass-find");
+    if (find) find.addEventListener("click", () => show("bars"));
+    $$("#home-pass .pass-scan-btn").forEach((el) => el.addEventListener("click", () => openPassAdmin(el.dataset.bar, el.dataset.name, "scan")));
+  }
+  const qrGlyph = () => '<svg viewBox="0 0 24 24" class="qr-glyph" aria-hidden="true"><path d="M3 3h7v7H3zM5 5v3h3V5zM14 3h7v7h-7zM16 5v3h3V5zM3 14h7v7H3zM5 16v3h3v-3zM14 14h3v3h-3zM19 14h2v2h-2zM14 19h2v2h-2zM17 17h4v4h-4z"/></svg>';
+
+  /* ---------- 마이페이지 줄 ---------- */
+  async function paintMyPagePass() {
+    const row = $("#btn-mypass"), admin = $("#btn-passadmin");
+    if (!passEnabled()) { row.hidden = true; admin.hidden = true; return; }
+    row.hidden = false;
+    const { mine, owned } = await loadMyPasses();
+    const live = mine.filter(passActive).length, pend = mine.filter((p) => p.status === "requested").length;
+    $("#mypass-cnt").textContent = live ? `${live}장` : pend ? "승인 대기" : "";
+    admin.hidden = !owned.length;
+    $("#passadmin-cnt").textContent = owned.length > 1 ? `${owned.length}곳` : (owned[0] && owned[0].bar_name) || "";
+  }
+  async function openMyPasses() {
+    const { mine } = await loadMyPasses(true);
+    const shown = mine.filter((p) => p.status !== "cancelled" && p.status !== "rejected");
+    if (!shown.length) {
+      if (await btConfirm("아직 패스가 없어요.\n바 찾기에서 하우스 패스를 파는 가게를 골라 신청할 수 있어요.", { yes: "바 찾기" })) show("bars");
+      return;
+    }
+    if (shown.length === 1) { openPass(shown[0].id); return; }
+    const opts = shown.map((p) => `${p.bar_name} · ${p.plan_name} (${PASS_STATUS[p.status] || p.status})`);
+    openSheet("내 패스", opts, null, (v) => { const i = opts.indexOf(v); if (i >= 0) openPass(shown[i].id); });
+  }
+  async function openPassAdminPicker() {
+    const { owned } = await loadMyPasses();
+    if (!owned.length) return;
+    if (owned.length === 1) { openPassAdmin(owned[0].bar_key, owned[0].bar_name, "scan"); return; }
+    const opts = owned.map((b) => b.bar_name || b.bar_key);
+    openSheet("어느 가게?", opts, null, (v) => { const b = owned[opts.indexOf(v)]; if (b) openPassAdmin(b.bar_key, b.bar_name, "scan"); });
+  }
+
+  /* ---------- 가게 페이지의 패스 칸 ---------- */
+  async function loadBarPass(b) {
+    const box = $("#bar-pass");
+    if (!box || !passEnabled()) return;
+    const key = barKey(b);
+    const r = passCache.byBar[key] || await Sync.passProgram(key);
+    if (state.view !== "bar" || state.curBar !== b.id) return;
+    if (!r.ok) { if (r.error !== "offline" && r.error !== "not-installed" && isAdmin()) box.innerHTML = `<p class="sheet-note" style="margin:0 20px">패스: ${esc(r.error)}</p>`; return; }
+    passCache.byBar[key] = r;
+    const canManage = r.owner || isAdmin();
+    const on = r.settings && r.settings.enabled;
+    if (!on && !canManage) { box.innerHTML = ""; return; }
+    const mine = r.mine;
+    box.innerHTML = `
+      <div class="card pass-sec">
+        <div class="pass-sec-head">
+          <h3 class="card-h">하우스 패스 🎫</h3>
+          ${canManage ? `<button class="text-btn strong" id="bar-pass-manage">${r.owner ? "패스 관리" : "운영자 지정"}</button>` : ""}
+        </div>
+        ${!on ? '<p class="pass-note">아직 손님에게 열리지 않았어요. 상품을 만들고 "패스 받기"를 켜면 여기 보여요.</p>' : ""}
+        ${on && r.settings.notice ? `<p class="pass-note">${escMsg(r.settings.notice)}</p>` : ""}
+        ${mine ? `
+          <button class="pass-mine pressable" id="bar-pass-mine">
+            <span class="ph-qr">${passActive(mine) ? qrGlyph() : "⏳"}</span>
+            <span class="ph-body"><b>${esc(mine.plan_name)} · ${PASS_STATUS[mine.status]}</b>
+              <span>${passActive(mine) ? `${fmtDay(mine.ends_at)}까지 · 탭해서 QR 보기` : "가게에서 결제하면 운영자가 승인해요"}</span></span>
+            <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+          </button>` : ""}
+        ${on && !mine && r.plans.length ? `
+          <div class="pass-plans">
+            ${r.plans.map((p) => `
+              <button class="pass-plan pressable" data-plan="${p.id}">
+                <span class="pp-name">${esc(p.name)}${p.kind !== "personal" ? ` <i>${PASS_KIND[p.kind]}</i>` : ""}</span>
+                <span class="pp-price">${passWon(p.price)}<small>${p.kind === "oneday" ? "" : "/월"}</small></span>
+                <span class="pp-line">${esc(passPlanLine(p))}</span>
+                ${p.note ? `<span class="pp-note">${esc(p.note)}</span>` : ""}
+              </button>`).join("")}
+          </div>
+          <p class="pass-note">${CFG.TOSS_CLIENT_KEY ? "가게에서 결제하거나 앱에서 카드로 바로 결제할 수 있어요." : "신청하면 가게에서 결제한 뒤 운영자가 승인해요."} 팀 패스 초대를 받았다면 아래에서 코드를 넣어주세요.</p>
+          <button class="host-chat-btn" id="bar-pass-team" style="margin:6px 0 2px">초대 코드로 팀 패스 참여</button>` : ""}
+        ${on && !mine && !r.plans.length ? '<p class="pass-note">아직 판매 중인 상품이 없어요.</p>' : ""}
+        ${on && r.settings.special_drink ? `<p class="pass-note">이달 ${r.settings.stamp_goal}번째 방문에 <b>${esc(r.settings.special_drink)}</b> 1잔을 드려요.</p>` : ""}
+      </div>`;
+    const manage = $("#bar-pass-manage");
+    if (manage) manage.addEventListener("click", () => r.owner ? openPassAdmin(key, b.name, "plans") : claimBarOwner(b, key));
+    const mineBtn = $("#bar-pass-mine");
+    if (mineBtn) mineBtn.addEventListener("click", () => openPass(mine.id));
+    $$("#bar-pass .pass-plan").forEach((el) => el.addEventListener("click", () => choosePassPlan(b, key, r.plans.find((p) => p.id === +el.dataset.plan))));
+    const team = $("#bar-pass-team");
+    if (team) team.addEventListener("click", joinTeamPass);
+  }
+
+  async function claimBarOwner(b, key) {
+    const nick = await btPrompt(`'${b.name}'의 패스 운영자를 지정해요.\n운영자 닉네임을 적어주세요. (비우면 나를 운영자로)`, "");
+    if (nick === null) return;
+    const r = await Sync.passAddOwner(key, b.name, nick.trim());
+    if (!r.ok) { passFail(r); return; }
+    invalidatePasses();
+    toast(`${r.data.nick || "운영자"}님을 운영자로 지정했어요.`);
+    renderBarDetail();
+  }
+
+  async function choosePassPlan(b, key, plan) {
+    if (!plan) return;
+    const line = `${plan.name} · ${passWon(plan.price)}${plan.kind === "oneday" ? "" : "/월"}\n${passPlanLine(plan)}`;
+    if (CFG.TOSS_CLIENT_KEY && plan.price > 0) {
+      const opts = ["💳 앱에서 카드로 결제 (바로 시작)", "🏪 가게에서 결제 (운영자 승인 후 시작)"];
+      openSheet(line, opts, null, (v) => v.startsWith("💳") ? startPassBilling(b, key, plan) : requestPass(b, key, plan));
+      return;
+    }
+    if (!await btConfirm(`${line}\n\n신청할까요? 가게에서 결제하면 운영자가 승인해요.`, { yes: "신청" })) return;
+    requestPass(b, key, plan);
+  }
+  async function requestPass(b, key, plan) {
+    const r = await Sync.passRequest(plan.id);
+    if (!r.ok) { passFail(r); return; }
+    invalidatePasses();
+    Sync.notify && Sync.notify({ type: "passRequest", passId: r.pass.id });
+    toast("신청했어요. 가게에서 결제하면 승인돼요. 🎫");
+    renderBarDetail();
+  }
+  async function joinTeamPass() {
+    const code = await btPrompt("팀장이 알려준 초대 코드 6자리를 넣어주세요.", "");
+    if (!code) return;
+    const r = await Sync.passJoinTeam(code.trim().toUpperCase());
+    if (!r.ok) { passFail(r); return; }
+    invalidatePasses();
+    toast("팀 패스에 참여했어요! 🎉");
+    openPass(r.data.id);
+  }
+
+  /* ---------- 내 패스 화면 (QR · 잔수 · 도장) ---------- */
+  function openPass(id) {
+    state.curPass = id;
+    show("pass");
+  }
+  async function renderPassView() {
+    clearInterval(passQrTimer);
+    const area = $("#pass-area");
+    area.innerHTML = '<div class="empty-state">패스를 불러오는 중…</div>';
+    const r = await Sync.passInfo(state.curPass);
+    if (state.view !== "pass") return;
+    if (!r.ok) { area.innerHTML = `<div class="empty-state">${esc(r.error)}</div>`; return; }
+    const p = r.data;
+    $("#pass-title").textContent = p.bar_name || "내 패스";
+    const live = passActive(p);
+    const stamps = Math.min(p.stamps, p.stamp_goal);
+    area.innerHTML = `
+      <div class="pass-card ${live ? "" : "off"}">
+        <div class="pc-top">
+          <span class="pc-bar">${esc(p.bar_name)}</span>
+          <span class="pc-status">${PASS_STATUS[p.status] || p.status}</span>
+        </div>
+        <h2 class="pc-plan">${esc(p.plan_name)}</h2>
+        <div class="pc-line">${esc(passPlanLine(p))}${p.ends_at ? ` · ${fmtDay(p.starts_at)}~${fmtDay(p.ends_at)}` : ""}</div>
+        ${live ? `
+          <div class="pc-qr-wrap">
+            <div class="pc-qr" id="pass-qr"></div>
+            <div class="pc-code"><span>코드</span><b id="pass-code">------</b></div>
+            <div class="pc-ttl"><i id="pass-ttl"></i></div>
+            <p class="pc-hint">바에서 이 QR을 보여주세요. 90초마다 새로 바뀌어요.</p>
+          </div>` : p.status === "requested" ? `
+          <div class="pc-wait">
+            <b>운영자 승인을 기다리고 있어요</b>
+            <span>가게에서 ${passWon(p.price)}을 결제하면 바로 승인돼요.</span>
+          </div>` : p.status === "expired" ? `
+          <div class="pc-wait"><b>기간이 끝났어요</b><span>가게 페이지에서 다시 신청할 수 있어요.</span></div>` : ""}
+      </div>
+
+      ${live ? `
+      <div class="card pass-stats">
+        <div class="ps-row"><span>오늘 잔</span><b>${p.today_drinks} <small>/ ${p.drinks_per_day}</small></b></div>
+        ${p.monthly_cap ? `<div class="ps-row"><span>이달 잔</span><b>${p.month_drinks} <small>/ ${p.monthly_cap}</small></b></div>` : `<div class="ps-row"><span>이달 잔</span><b>${p.month_drinks}</b></div>`}
+        <div class="ps-row"><span>이달 방문</span><b>${p.stamps}<small>회</small></b></div>
+      </div>
+      <div class="card pass-stamps">
+        <div class="pass-sec-head"><h3 class="card-h">도장판</h3><span class="pass-note" style="margin:0">${p.stamp_goal}번째 방문에 ${esc(p.special_drink)}</span></div>
+        <div class="stamp-grid">
+          ${Array.from({ length: p.stamp_goal }, (_, i) => `<span class="stamp ${i < stamps ? "on" : ""} ${i === p.stamp_goal - 1 ? "gift" : ""}">${i < stamps ? "🍸" : (i === p.stamp_goal - 1 ? "🎁" : "")}</span>`).join("")}
+        </div>
+        ${p.reward_pending ? `<div class="pass-reward">🎁 <b>${esc(p.special_drink)}</b> 1잔을 받을 수 있어요! 바에서 QR을 보여주세요.</div>` : ""}
+        ${p.rewards_used ? `<p class="pass-note">지금까지 받은 보상 ${p.rewards_used}잔</p>` : ""}
+      </div>` : ""}
+
+      ${p.kind === "team" && !p.team_id ? `
+      <div class="card">
+        <h3 class="card-h">팀 초대</h3>
+        <p class="pass-note">팀원에게 이 코드를 알려주세요. 가게 페이지 &gt; "초대 코드로 팀 패스 참여"에 넣으면 돼요.</p>
+        <button class="pass-invite pressable" id="pass-invite">${esc(p.invite_code || "승인 후 생겨요")}</button>
+        <p class="pass-note" style="margin-top:6px">참여 ${p.members} / ${p.team_size - 1}명</p>
+      </div>` : ""}
+      ${p.team_id ? `<div class="card"><p class="pass-note">${esc(p.lead_nick || "팀장")}님의 팀 패스예요.</p></div>` : ""}
+
+      ${live && !p.team_id && p.kind !== "oneday" && CFG.TOSS_CLIENT_KEY ? `
+      <div class="card row-link no-tap" style="border-radius:16px">
+        <span class="row-label">자동 갱신 (카드)</span><span class="flex-1"></span>
+        <button class="toggle ${p.auto_renew ? "on" : ""}" id="pass-renew" role="switch" aria-checked="${p.auto_renew}"><span class="knob"></span></button>
+      </div>
+      ${p.last_payment_error ? `<p class="pass-note" style="margin:0 20px">최근 결제 실패: ${esc(p.last_payment_error)}</p>` : ""}` : ""}
+
+      ${p.status === "requested" ? '<button class="big-btn" id="pass-cancel" style="margin:8px 16px">신청 취소</button>' : ""}
+      <div style="height:24px"></div>`;
+
+    if (live) startPassQr(p.id);
+    const inv = $("#pass-invite");
+    if (inv && p.invite_code) inv.addEventListener("click", () => copyText(p.invite_code, "초대 코드를 복사했어요."));
+    const cancel = $("#pass-cancel");
+    if (cancel) cancel.addEventListener("click", async () => {
+      if (!await btConfirm("신청을 취소할까요?", { yes: "취소하기" })) return;
+      const rr = await Sync.passCancel(p.id);
+      if (!rr.ok) { passFail(rr); return; }
+      invalidatePasses();
+      toast("신청을 취소했어요.");
+      history.back();
+    });
+    const renew = $("#pass-renew");
+    if (renew) renew.addEventListener("click", async () => {
+      const on = !renew.classList.contains("on");
+      const rr = await Sync.passBilling("renew", { passId: p.id, on });
+      if (!rr.ok) { passFail(rr); return; }
+      renew.classList.toggle("on", on);
+      toast(on ? "기간이 끝나면 카드로 자동 연장돼요." : "자동 갱신을 꺼뒀어요.");
+    });
+  }
+
+  async function startPassQr(id) {
+    const ok = await lazyData(QR_LIB, "QRCode");
+    const paint = async () => {
+      if (state.view !== "pass" || state.curPass !== id) { clearInterval(passQrTimer); return; }
+      const r = await Sync.passQr(id);
+      const box = $("#pass-qr"), code = $("#pass-code"), ttl = $("#pass-ttl");
+      if (!box) return;
+      if (!r.ok) { box.innerHTML = `<div class="pc-qr-err">${esc(r.error)}</div>`; code.textContent = "------"; return; }
+      box.innerHTML = "";
+      if (ok && window.QRCode) {
+        new window.QRCode(box, { text: r.data.token, width: 208, height: 208, correctLevel: window.QRCode.CorrectLevel.M });
+      } else {
+        box.innerHTML = `<div class="pc-qr-err">QR 그림을 못 불러왔어요.<br>아래 코드를 말해주세요.</div>`;
+      }
+      code.textContent = `${r.data.pass_id}-${r.data.code}`;
+      if (ttl) { ttl.style.transition = "none"; ttl.style.width = "100%"; requestAnimationFrame(() => { ttl.style.transition = "width 60s linear"; ttl.style.width = "0%"; }); }
+    };
+    await paint();
+    clearInterval(passQrTimer);
+    passQrTimer = setInterval(paint, 60000);
+  }
+
+  /* ---------- 앱 안 카드 결제 (토스) ---------- */
+  async function startPassBilling(b, key, plan) {
+    const ok = await lazyData(TOSS_LIB, "TossPayments");
+    if (!ok || !window.TossPayments) { toast("결제 모듈을 불러오지 못했어요."); return; }
+    const autoRenew = plan.kind !== "oneday" && await btConfirm(`${plan.name} · ${passWon(plan.price)}\n\n기간이 끝나면 같은 카드로 자동 연장할까요?\n(내 패스에서 언제든 끌 수 있어요)`, { yes: "자동 연장", no: "이번만" });
+    try {
+      store.set("passBillingIntent", { barKey: key, barName: b.name, barId: b.id, planId: plan.id, autoRenew: !!autoRenew, at: Date.now() });
+      const base = location.origin + location.pathname;
+      await window.TossPayments(CFG.TOSS_CLIENT_KEY).requestBillingAuth("카드", {
+        customerKey: Sync.uid,
+        successUrl: base + "?pass_billing=ok",
+        failUrl: base + "?pass_billing=fail",
+        customerName: state.user.nick,
+      });
+    } catch (e) {
+      store.set("passBillingIntent", null);
+      if (!(e && /USER_CANCEL/i.test(e.code || ""))) toast((e && e.message) || "결제창을 열지 못했어요.");
+    }
+  }
+  // 토스에서 돌아왔을 때 (?pass_billing=ok&authKey=…&customerKey=…)
+  async function finishPassBillingReturn() {
+    let q;
+    try { q = new URLSearchParams(location.search); } catch { return; }
+    const flag = q.get("pass_billing");
+    if (!flag) return;
+    const intent = store.get("passBillingIntent", null);
+    try { history.replaceState(history.state, "", location.pathname + location.hash); } catch {}
+    store.set("passBillingIntent", null);
+    if (flag !== "ok") { toast(q.get("message") || "카드 등록이 취소됐어요."); return; }
+    if (!intent || Date.now() - intent.at > 3600000) { toast("결제 정보를 찾지 못했어요. 다시 시도해 주세요."); return; }
+    toast("결제를 확인하는 중…");
+    const r = await Sync.passBilling("issue", { authKey: q.get("authKey"), customerKey: q.get("customerKey"), planId: intent.planId, autoRenew: intent.autoRenew });
+    if (!r.ok) { await btAlert("결제가 완료되지 않았어요.\n" + r.error); return; }
+    invalidatePasses();
+    await btAlert(`결제 완료! ${intent.barName}의 패스가 바로 시작됐어요. 🎫\n${r.cardLabel || ""}`);
+    openPass(r.pass.id);
+  }
+
+  /* ---------- 운영자 화면 ---------- */
+  function openPassAdmin(barKey, barName, tab) {
+    state.passAdmin = { barKey, barName: barName || "", tab: tab || "scan", data: null, scan: null };
+    show("pass-admin");
+  }
+  async function renderPassAdmin() {
+    const a = state.passAdmin;
+    if (!a) { show("mypage"); return; }
+    $("#pass-admin-title").textContent = a.barName || "패스 관리";
+    $$("#pass-admin-tabs .chip").forEach((c) => c.classList.toggle("active", c.dataset.tab === a.tab));
+    if (a.tab !== "scan") stopPassScanner();
+    const area = $("#pass-admin-area");
+    if (!a.data) {
+      area.innerHTML = '<div class="empty-state">불러오는 중…</div>';
+      const r = await Sync.passOwnerData(a.barKey);
+      if (state.view !== "pass-admin" || state.passAdmin !== a) return;
+      if (!r.ok) { area.innerHTML = `<div class="empty-state">${esc(r.error === "not-installed" ? "서버에 패스 기능이 아직 설치되지 않았어요." : r.error)}</div>`; return; }
+      a.data = r;
+      if (!a.barName && r.settings) { a.barName = r.settings.bar_name; $("#pass-admin-title").textContent = a.barName || "패스 관리"; }
+      const pend = r.passes.filter((p) => p.status === "requested").length;
+      $$("#pass-admin-tabs .chip")[1].textContent = pend ? `회원 · 신청 ${pend}` : "회원";
+    }
+    ({ scan: renderPassScanTab, members: renderPassMembersTab, plans: renderPassPlansTab, stats: renderPassStatsTab })[a.tab](area, a);
+  }
+  function passAdminReload() { if (state.passAdmin) { state.passAdmin.data = null; invalidatePasses(); renderPassAdmin(); } }
+
+  /* 입장 확인 — 카메라로 QR을 읽거나 코드를 직접 넣습니다 */
+  function renderPassScanTab(area, a) {
+    const s = a.scan;
+    area.innerHTML = `
+      <div class="scan-wrap">
+        ${s && s.result ? scanResultHTML(s) : `
+        <div class="scan-cam" id="scan-cam">
+          <video id="scan-video" playsinline muted></video>
+          <div class="scan-frame"></div>
+          <div class="scan-msg" id="scan-msg">카메라를 켜는 중…</div>
+        </div>
+        <p class="pass-note" style="text-align:center">손님의 "내 패스" QR을 네모 안에 맞춰주세요.</p>
+        <div class="scan-manual">
+          <input class="input" id="scan-code" placeholder="QR 대신 코드 입력 · 예) 12-A3F9B2" autocapitalize="characters" autocomplete="off">
+          <button class="big-btn accent ready" id="scan-go">확인</button>
+        </div>`}
+      </div>`;
+    if (s && s.result) {
+      wireScanResult(a);
+    } else {
+      startPassScanner();
+      $("#scan-go").addEventListener("click", () => {
+        const v = $("#scan-code").value.trim().toUpperCase().replace(/\s/g, "");
+        const m = v.match(/^(\d+)[-:]?([A-Z0-9]{4,12})$/);
+        if (!m) { toast("코드는 '패스번호-코드' 모양이에요. 예) 12-A3F9B2"); return; }
+        handlePassToken(`BTP:${m[1]}:${m[2]}`);
+      });
+      $("#scan-code").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#scan-go").click(); });
+    }
+  }
+  function scanResultHTML(s) {
+    const p = s.result;
+    const stamps = Math.min(p.stamps, p.stamp_goal);
+    return `
+      <div class="scan-result ${s.error ? "err" : ""}">
+        <div class="sr-head">
+          <span class="avatar md" style="background:${COLORS[(s.color || 0) % COLORS.length]}"></span>
+          <div class="sr-who"><b>${esc(p.nick || "손님")}</b><span>${esc(p.plan_name)} · ${PASS_DAYS[p.days] || ""} · ${fmtDay(p.ends_at)}까지</span></div>
+        </div>
+        ${s.error ? `<div class="sr-err">${esc(s.error)}</div>` : `<div class="sr-ok">${s.msg || "입장 확인 ✓"}</div>`}
+        <div class="sr-nums">
+          <div><span>오늘 잔</span><b>${p.today_drinks}<small>/${p.drinks_per_day}</small></b></div>
+          <div><span>이달 잔</span><b>${p.month_drinks}${p.monthly_cap ? `<small>/${p.monthly_cap}</small>` : ""}</b></div>
+          <div><span>이달 방문</span><b>${p.stamps}<small>회</small></b></div>
+        </div>
+        <div class="stamp-grid small">
+          ${Array.from({ length: p.stamp_goal }, (_, i) => `<span class="stamp ${i < stamps ? "on" : ""}">${i < stamps ? "🍸" : (i === p.stamp_goal - 1 ? "🎁" : "")}</span>`).join("")}
+        </div>
+        ${p.reward_pending ? `<div class="pass-reward">🎁 <b>${esc(p.special_drink)}</b> 1잔 드릴 차례예요!</div>` : ""}
+        <div class="sr-acts">
+          <button class="big-btn accent ready" data-act="drink">🍸 잔 사용 +1</button>
+          <button class="big-btn ${p.side_today ? "ready" : ""}" data-act="side">${p.side_today ? "🍟 사이드 주문 ✓" : "🍟 사이드 주문했어요"}</button>
+          ${p.reward_pending ? '<button class="big-btn ready" data-act="reward" style="background:#2eb872;color:#fff">🎁 한정 칵테일 제공</button>' : ""}
+        </div>
+        <button class="host-chat-btn" id="scan-next">다음 손님 스캔</button>
+      </div>`;
+  }
+  function wireScanResult(a) {
+    $$("#pass-admin-area [data-act]").forEach((b) => b.addEventListener("click", () => passScanAction(b.dataset.act)));
+    $("#scan-next").addEventListener("click", () => { a.scan = null; renderPassAdmin(); });
+  }
+  async function handlePassToken(token, action, side) {
+    const a = state.passAdmin;
+    if (!a) return;
+    stopPassScanner();
+    const r = await Sync.passScan(token, action || "enter", !!side);
+    if (state.view !== "pass-admin" || state.passAdmin !== a) return;
+    if (!r.ok) {
+      // 패스 정보 없이 실패한 경우 (만료 QR 등) — 메시지만 보여주고 다시 스캔
+      if (!a.scan || !a.scan.result) { toast(r.error); vibrate(40); if (a.tab === "scan") startPassScanner(); return; }
+      a.scan.error = r.error; a.scan.msg = "";
+    } else {
+      const prof = a.data && a.data.profiles && a.data.profiles[r.data.user_id];
+      a.scan = { token, result: r.data, color: prof ? prof.color : 0, error: "",
+        msg: action === "drink" ? "잔 사용 ✓" : action === "reward" ? "보상 제공 완료 🎁" : side ? "사이드 주문 표시 ✓" : (r.data.entered_today ? "입장 확인 ✓ · 도장 찍었어요" : "입장 확인 ✓") };
+      vibrate(20);
+      sfx("success");
+      passCache.at = 0;
+    }
+    renderPassAdmin();
+  }
+  function passScanAction(act) {
+    const s = state.passAdmin && state.passAdmin.scan;
+    if (!s) return;
+    if (act === "side") handlePassToken(s.token, "enter", true);
+    else handlePassToken(s.token, act, false);
+  }
+  async function startPassScanner() {
+    stopPassScanner();
+    const video = $("#scan-video"), msg = $("#scan-msg");
+    if (!video) return;
+    const sc = { stream: null, timer: null, detector: null, canvas: null, alive: true };
+    passScanner = sc;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { msg.textContent = "이 기기는 카메라를 쓸 수 없어요. 아래에 코드를 넣어주세요."; return; }
+    try {
+      sc.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+    } catch (e) {
+      msg.textContent = "카메라를 켤 수 없어요. 권한을 허용하거나 아래에 코드를 넣어주세요.";
+      return;
+    }
+    if (!sc.alive) { sc.stream.getTracks().forEach((t) => t.stop()); return; }
+    video.srcObject = sc.stream;
+    try { await video.play(); } catch {}
+    msg.textContent = "";
+    if ("BarcodeDetector" in window) {
+      try { sc.detector = new window.BarcodeDetector({ formats: ["qr_code"] }); } catch { sc.detector = null; }
+    }
+    if (!sc.detector) {
+      const ok = await lazyData(JSQR_LIB, "jsQR");
+      if (!ok) { msg.textContent = "QR 인식 모듈을 못 불러왔어요. 아래에 코드를 넣어주세요."; return; }
+      sc.canvas = document.createElement("canvas");
+    }
+    const tick = async () => {
+      if (!sc.alive || video.readyState < 2) return;
+      let text = null;
+      try {
+        if (sc.detector) {
+          const codes = await sc.detector.detect(video);
+          text = codes && codes[0] && codes[0].rawValue;
+        } else {
+          const w = video.videoWidth, h = video.videoHeight;
+          if (!w || !h) return;
+          const scale = Math.min(1, 480 / w);
+          sc.canvas.width = Math.round(w * scale); sc.canvas.height = Math.round(h * scale);
+          const g = sc.canvas.getContext("2d", { willReadFrequently: true });
+          g.drawImage(video, 0, 0, sc.canvas.width, sc.canvas.height);
+          const img = g.getImageData(0, 0, sc.canvas.width, sc.canvas.height);
+          const res = window.jsQR(img.data, img.width, img.height, { inversionAttempts: "dontInvert" });
+          text = res && res.data;
+        }
+      } catch {}
+      if (text && sc.alive && /^BTP:\d+:[A-Za-z0-9]{4,12}$/.test(text.trim())) handlePassToken(text.trim(), "enter", false);
+    };
+    sc.timer = setInterval(tick, 300);
+  }
+  function stopPassScanner() {
+    const sc = passScanner;
+    if (!sc) return;
+    passScanner = null;
+    sc.alive = false;
+    clearInterval(sc.timer);
+    if (sc.stream) sc.stream.getTracks().forEach((t) => t.stop());
+  }
+
+  /* 회원 · 신청 */
+  function renderPassMembersTab(area, a) {
+    const d = a.data, prof = d.profiles || {};
+    const who = (p) => { const u = prof[p.user_id]; return `<span class="avatar" style="background:${COLORS[((u && u.color) || 0) % COLORS.length]}"></span><b>${esc((u && u.nick) || "손님")}</b>`; };
+    const pending = d.passes.filter((p) => p.status === "requested");
+    const live = d.passes.filter(passActive).sort((x, y) => String(x.ends_at).localeCompare(String(y.ends_at)));
+    area.innerHTML = `
+      ${pending.length ? `
+      <div class="comment-sec-title">신청 ${pending.length}건 — 결제 확인 후 승인</div>
+      <div class="card">
+        ${pending.map((p) => `
+          <div class="pm-row">
+            <div class="pm-who">${who(p)}<span>${esc(p.plan_name)} · ${passWon(p.price)} · ${fmtRel(new Date(p.created_at).getTime())}</span></div>
+            <div class="pm-acts">
+              <button class="chip" data-reject="${p.id}">거절</button>
+              <button class="chip active" data-approve="${p.id}">승인</button>
+            </div>
+          </div>`).join("")}
+      </div>` : ""}
+      <div class="comment-sec-title">회원 ${live.length}명</div>
+      <div class="card">
+        ${live.length ? live.map((p) => `
+          <button class="pm-row pressable" data-open="${p.id}">
+            <div class="pm-who">${who(p)}<span>${esc(p.plan_name)}${p.team_id ? "" : p.kind === "team" ? ` · 초대 ${esc(p.invite_code || "")}` : ""} · ${fmtDay(p.starts_at)}~${fmtDay(p.ends_at)}${p.status === "grace" ? " · 결제 확인 중" : ""}${p.paid_via === "toss" ? " · 💳" : ""}</span></div>
+            <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+          </button>`).join("") : '<p class="pass-note" style="padding:8px 0">아직 회원이 없어요. 계산할 때 "월 39,000원이면 매일 되는데요"부터 시작해요.</p>'}
+      </div>
+      <button class="host-chat-btn" id="pm-reload" style="margin:12px 16px">새로고침</button>
+      <div style="height:16px"></div>`;
+    $("#pm-reload").addEventListener("click", passAdminReload);
+    $$("#pass-admin-area [data-approve]").forEach((b) => b.addEventListener("click", () => approvePass(+b.dataset.approve)));
+    $$("#pass-admin-area [data-reject]").forEach((b) => b.addEventListener("click", async () => {
+      if (!await btConfirm("이 신청을 거절할까요?", { yes: "거절" })) return;
+      const r = await Sync.passUpdate(+b.dataset.reject, { status: "rejected" });
+      if (!r.ok) { passFail(r); return; }
+      passAdminReload();
+    }));
+    $$("#pass-admin-area [data-open]").forEach((b) => b.addEventListener("click", () => openMemberSheet(+b.dataset.open)));
+  }
+  async function approvePass(id) {
+    const a = state.passAdmin;
+    const p = a.data.passes.find((x) => x.id === id);
+    if (!p) return;
+    const today = new Date();
+    const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const start = await btPrompt(`${p.plan_name} · ${passWon(p.price)}\n결제를 확인했나요? 시작일을 정해주세요. (YYYY-MM-DD)`, iso, { yes: "승인" });
+    if (start === null) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start.trim())) { toast("날짜는 2026-09-14 처럼 적어주세요."); return; }
+    const r = await Sync.passUpdate(id, { status: "active", starts_at: start.trim(), ends_at: null });
+    if (!r.ok) { passFail(r); return; }
+    Sync.notify && Sync.notify({ type: "passApproved", passId: id });
+    toast("승인했어요. 손님에게 알림이 가요. 🎫");
+    passAdminReload();
+  }
+  async function openMemberSheet(id) {
+    const a = state.passAdmin;
+    const r = await Sync.passInfo(id);
+    if (!r.ok) { passFail(r); return; }
+    const p = r.data;
+    const bd = openSheetHTML(`
+      <h3>${esc(p.nick || "손님")} · ${esc(p.plan_name)}</h3>
+      <div class="sheet-row"><span>기간</span><span class="r">${fmtDay(p.starts_at)} ~ ${fmtDay(p.ends_at)}</span></div>
+      <div class="sheet-row"><span>오늘 / 이달 잔</span><span class="r">${p.today_drinks}/${p.drinks_per_day} · ${p.month_drinks}${p.monthly_cap ? "/" + p.monthly_cap : ""}</span></div>
+      <div class="sheet-row"><span>이달 방문</span><span class="r">${p.stamps}회${p.reward_pending ? " · 🎁 보상 대기" : ""}</span></div>
+      ${p.kind === "team" && !p.team_id ? `<div class="sheet-row"><span>팀 초대 코드</span><span class="r">${esc(p.invite_code || "")} · ${p.members}/${p.team_size - 1}명</span></div>` : ""}
+      ${p.paid_via === "toss" ? `<div class="sheet-row"><span>결제</span><span class="r">앱 카드${p.auto_renew ? " · 자동 갱신" : ""}</span></div>` : ""}
+      <button class="big-btn accent ready" id="ms-extend" style="margin-top:14px">한 달 연장 (가게에서 결제 받음)</button>
+      <button class="big-btn" id="ms-end" style="margin-top:8px">오늘로 종료</button>`);
+    bd.querySelector("#ms-extend").addEventListener("click", async () => {
+      const base = new Date(Math.max(new Date(p.ends_at + "T00:00:00").getTime(), Date.now()));
+      base.setDate(base.getDate() + (p.duration_days || 30));
+      const iso = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-${String(base.getDate()).padStart(2, "0")}`;
+      const rr = await Sync.passUpdate(id, { ends_at: iso, status: "active", expiry_notified_at: null });
+      if (!rr.ok) { passFail(rr); return; }
+      bd.remove(); toast(`${fmtDay(iso)}까지 연장했어요.`); passAdminReload();
+    });
+    bd.querySelector("#ms-end").addEventListener("click", async () => {
+      if (!await btConfirm("이 패스를 오늘로 종료할까요?", { yes: "종료" })) return;
+      const rr = await Sync.passUpdate(id, { status: "expired" });
+      if (!rr.ok) { passFail(rr); return; }
+      bd.remove(); toast("종료했어요."); passAdminReload();
+    });
+    void a;
+  }
+
+  /* 상품 · 설정 */
+  function renderPassPlansTab(area, a) {
+    const d = a.data, st = d.settings || { enabled: false, stamp_goal: 4, special_drink: "", notice: "" };
+    area.innerHTML = `
+      <div class="card">
+        <div class="row-link no-tap" style="padding:14px 0">
+          <span class="row-label">손님에게 패스 받기</span><span class="flex-1"></span>
+          <button class="toggle ${st.enabled ? "on" : ""}" id="pa-enabled" role="switch" aria-checked="${!!st.enabled}"><span class="knob"></span></button>
+        </div>
+        <p class="pass-note">${st.enabled ? "가게 페이지에 상품이 보이고 신청을 받아요." : "꺼져 있으면 손님에게 안 보여요. 상품을 먼저 만들고 켜세요."}</p>
+        <label class="form-label">도장 목표 (이달 n번째 방문에 보상)</label>
+        <input class="input" id="pa-goal" type="number" min="2" max="10" value="${st.stamp_goal || 4}" inputmode="numeric">
+        <label class="form-label">보상 — 이달의 한정 칵테일</label>
+        <input class="input" id="pa-special" maxlength="60" value="${esc(st.special_drink || "")}" placeholder="예) 9월 한정 · 피치 스매시">
+        <label class="form-label">가게 페이지 안내문</label>
+        <textarea class="input" id="pa-notice" rows="3" maxlength="300" placeholder="예) 18~19시 입장 시 데일리 1잔 추가. 동반 비회원은 원데이 15,000원.">${esc(st.notice || "")}</textarea>
+        <button class="big-btn accent ready" id="pa-save">설정 저장</button>
+      </div>
+
+      <div class="comment-sec-title">상품 ${d.plans.filter((p) => p.active).length}개</div>
+      <div class="card">
+        ${d.plans.map((p) => `
+          <button class="pm-row pressable ${p.active ? "" : "off"}" data-plan="${p.id}">
+            <div class="pm-who"><b>${esc(p.name)}${p.active ? "" : " (숨김)"}</b><span>${passWon(p.price)}${p.kind === "oneday" ? "" : "/월"} · ${esc(passPlanLine(p))}</span></div>
+            <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+          </button>`).join("")}
+        <button class="host-chat-btn" id="pa-add" style="margin-top:${d.plans.length ? 10 : 0}px">+ 상품 추가</button>
+        ${d.plans.length ? "" : '<button class="host-chat-btn" id="pa-preset" style="margin-top:8px">🏁 기본 5종 한 번에 넣기 (라이트·올데이·트리플·팀·원데이)</button>'}
+      </div>
+      <p class="pass-note" style="margin:10px 20px 24px">"무제한"이라는 말은 쓰지 마세요 — 잔수와 상한으로 적습니다. 원가 3,000원 넘는 메뉴는 1잔 풀에 넣지 않는 게 원칙이에요.</p>`;
+    $("#pa-enabled").addEventListener("click", async () => {
+      const on = !$("#pa-enabled").classList.contains("on");
+      if (on && !d.plans.some((p) => p.active)) { toast("상품을 먼저 하나 만들어 주세요."); return; }
+      const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: on, stamp_goal: st.stamp_goal || 4, special_drink: st.special_drink || "", notice: st.notice || "" });
+      if (!r.ok) { passFail(r); return; }
+      d.settings = r.settings; passCache.byBar = {}; renderPassAdmin();
+      toast(on ? "손님에게 열었어요." : "패스 받기를 닫았어요.");
+    });
+    $("#pa-save").addEventListener("click", async () => {
+      const goal = Math.max(2, Math.min(10, +$("#pa-goal").value || 4));
+      const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: !!st.enabled, stamp_goal: goal, special_drink: $("#pa-special").value.trim(), notice: $("#pa-notice").value.trim() });
+      if (!r.ok) { passFail(r); return; }
+      d.settings = r.settings; passCache.byBar = {}; toast("저장했어요.");
+    });
+    $$("#pass-admin-area [data-plan]").forEach((b) => b.addEventListener("click", () => openPlanEditor(d.plans.find((p) => p.id === +b.dataset.plan))));
+    $("#pa-add").addEventListener("click", () => openPlanEditor(null));
+    const preset = $("#pa-preset");
+    if (preset) preset.addEventListener("click", async () => {
+      if (!await btConfirm("하우스 패스 운영안의 기본 상품 5종을 넣을까요?\n라이트 39,000 · 올데이 59,000 · 트리플 79,000 · 팀 패스 149,000 · 원데이 15,000\n(나중에 하나씩 고칠 수 있어요)", { yes: "넣기" })) return;
+      const rows = [
+        { name: "라이트", price: 39000, kind: "personal", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 1, duration_days: 30, sort: 1, note: "퇴근하고 한 잔. 3번만 와도 본전." },
+        { name: "올데이", price: 59000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: null, team_size: 1, duration_days: 30, sort: 2, note: "금·토에도 오는 분." },
+        { name: "트리플", price: 79000, kind: "personal", days: "tue-thu", drinks_per_day: 3, monthly_cap: 24, team_size: 1, duration_days: 30, sort: 3, note: "위스키 손님용. 월 24잔까지." },
+        { name: "팀 패스", price: 149000, kind: "team", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 5, duration_days: 30, sort: 4, note: "5명 등록 · 각자 하루 1잔. 법인카드 OK." },
+        { name: "원데이", price: 15000, kind: "oneday", days: "all", drinks_per_day: 2, monthly_cap: null, team_size: 1, duration_days: 1, sort: 5, note: "비회원 · 당일 2잔." },
+      ];
+      for (const row of rows) {
+        const r = await Sync.passSavePlan(Object.assign({ bar_key: a.barKey, active: true }, row));
+        if (!r.ok) { passFail(r); break; }
+      }
+      passAdminReload();
+    });
+  }
+  function openPlanEditor(plan) {
+    const a = state.passAdmin;
+    const p = plan || { name: "", price: 39000, kind: "personal", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 5, duration_days: 30, note: "", active: true, sort: (a.data.plans.length || 0) + 1 };
+    const sel = (name, opts, cur) => `<select class="input" id="pe-${name}">${opts.map(([v, l]) => `<option value="${v}" ${String(v) === String(cur) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
+    const bd = openSheetHTML(`
+      <h3>${plan ? "상품 수정" : "새 상품"}</h3>
+      <label class="form-label">이름</label><input class="input" id="pe-name" maxlength="30" value="${esc(p.name)}" placeholder="예) 라이트">
+      <label class="form-label">가격 (원)</label><input class="input" id="pe-price" type="number" min="0" step="1000" value="${p.price}" inputmode="numeric">
+      <div class="pe-grid">
+        <div><label class="form-label">종류</label>${sel("kind", [["personal", "개인"], ["team", "팀 (초대 코드)"], ["oneday", "원데이 (비회원)"]], p.kind)}</div>
+        <div><label class="form-label">요일</label>${sel("days", [["tue-thu", "화·수·목"], ["all", "매일"]], p.days)}</div>
+        <div><label class="form-label">하루 잔수</label><input class="input" id="pe-drinks" type="number" min="1" max="9" value="${p.drinks_per_day}" inputmode="numeric"></div>
+        <div><label class="form-label">월 상한 (비우면 없음)</label><input class="input" id="pe-cap" type="number" min="1" max="200" value="${p.monthly_cap || ""}" placeholder="예) 24" inputmode="numeric"></div>
+        <div><label class="form-label">팀 인원</label><input class="input" id="pe-team" type="number" min="1" max="20" value="${p.team_size}" inputmode="numeric"></div>
+        <div><label class="form-label">기간 (일)</label><input class="input" id="pe-dur" type="number" min="1" max="366" value="${p.duration_days}" inputmode="numeric"></div>
+      </div>
+      <label class="form-label">한 줄 설명</label><input class="input" id="pe-note" maxlength="120" value="${esc(p.note || "")}" placeholder="예) 3번만 와도 본전">
+      <button class="big-btn accent ready" id="pe-save" style="margin-top:6px">${plan ? "저장" : "추가"}</button>
+      ${plan ? `<button class="big-btn" id="pe-toggle" style="margin-top:8px">${p.active ? "판매 숨기기" : "다시 판매"}</button>` : ""}`);
+    bd.querySelector("#pe-save").addEventListener("click", async () => {
+      const g = (id) => bd.querySelector("#pe-" + id).value;
+      const row = {
+        bar_key: a.barKey, name: g("name").trim(), price: Math.max(0, +g("price") || 0), kind: g("kind"), days: g("days"),
+        drinks_per_day: Math.max(1, Math.min(9, +g("drinks") || 1)), monthly_cap: g("cap") ? Math.max(1, Math.min(200, +g("cap"))) : null,
+        team_size: g("kind") === "team" ? Math.max(2, Math.min(20, +g("team") || 5)) : 1,
+        duration_days: g("kind") === "oneday" ? 1 : Math.max(1, Math.min(366, +g("dur") || 30)),
+        note: g("note").trim(), active: p.active !== false, sort: p.sort || 0,
+      };
+      if (plan) row.id = plan.id;
+      if (!row.name) { toast("이름을 적어주세요."); return; }
+      if (/무제한/.test(row.name + row.note)) { toast("'무제한'은 쓸 수 없어요. 잔수로 적어주세요."); return; }
+      const r = await Sync.passSavePlan(row);
+      if (!r.ok) { passFail(r); return; }
+      bd.remove(); toast("저장했어요."); passAdminReload();
+    });
+    const tg = bd.querySelector("#pe-toggle");
+    if (tg) tg.addEventListener("click", async () => {
+      const r = await Sync.passSavePlan({ id: plan.id, bar_key: a.barKey, active: !p.active });
+      if (!r.ok) { passFail(r); return; }
+      bd.remove(); passAdminReload();
+    });
+  }
+
+  /* 지표 — 매주 볼 숫자 4개 */
+  async function renderPassStatsTab(area, a) {
+    area.innerHTML = '<div class="empty-state">집계 중…</div>';
+    const r = await Sync.passDashboard(a.barKey);
+    if (state.view !== "pass-admin" || state.passAdmin !== a || a.tab !== "stats") return;
+    if (!r.ok) { area.innerHTML = `<div class="empty-state">${esc(r.error)}</div>`; return; }
+    const d = r.data;
+    const max = Math.max(1, ...d.daily.map((x) => x.n));
+    const kpi = (label, val, unit, goal, hint) => `
+      <div class="kpi">
+        <span class="kpi-l">${label}</span>
+        <b class="kpi-v">${val}<small>${unit}</small></b>
+        <span class="kpi-g">${goal}</span>
+        <span class="kpi-h">${hint}</span>
+      </div>`;
+    area.innerHTML = `
+      <div class="kpi-grid">
+        ${kpi("회원 수", d.members, "명", "목표 3개월 40 · 6개월 70 · 12개월 90", d.pending ? `신청 대기 ${d.pending}건` : "&nbsp;")}
+        ${kpi("회원 월 방문", d.avg_visits, "회", "4회 밑이면 상품이 아니라 가게를 고쳐야", `이달 입장 ${d.visits_month}회`)}
+        ${kpi("화~목 밤 손님", d.nightly_tt, "명", "20 → 30 → 35~40", "패스 회원 기준 · 하룻밤 평균")}
+        ${kpi("사이드 주문률", d.side_rate === null ? "–" : d.side_rate, d.side_rate === null ? "" : "%", "40% → 45% → 50%", "35% 밑이면 안주 메뉴가 틀린 것")}
+      </div>
+      <div class="card">
+        <div class="pass-sec-head"><h3 class="card-h">최근 14일 입장</h3><span class="pass-note" style="margin:0">이달 잔 ${d.drinks_month} · 이달 패스 매출 ${passWon(d.revenue_month)}</span></div>
+        <div class="bars14">
+          ${d.daily.map((x) => `<div class="b14" title="${x.day} · ${x.n}명"><i style="height:${Math.round((x.n / max) * 100)}%"></i><span>${String(x.day).slice(8)}</span></div>`).join("")}
+        </div>
+      </div>
+      <p class="pass-note" style="margin:6px 20px 24px">매출은 결과예요. 위 넷이 맞으면 매출은 따라와요. 사이드 주문률은 스캔할 때 "사이드 주문했어요"를 눌러야 잡혀요.</p>`;
+  }
+
   /* ---------- 레시피 공유 ---------- */
   function shareSpirit() {
     const sp = state.spirits.find((x) => x.id === state.curSpirit);
@@ -7459,6 +8216,8 @@
     if (b.id === "admin-back" && adminBack()) return;
     if (state.view === "cbt" && cbtBack()) return;
     if (state.view === "cards" && state.cardDeck) { state.cardDeck = null; renderCards(); return; }
+    // 패스 화면은 들어온 곳(가게·홈·마이)이 다 달라서 브라우저 뒤로가기를 그대로 씁니다.
+    if ((state.view === "pass" || state.view === "pass-admin") && history.length > 1) { history.back(); return; }
     // 모임을 수정하다 나가면 보던 모임으로 돌아가고, 적던 값은 비웁니다.
     if (state.view === "meet-write" && state.editMeet) {
       resetMeetWrite();
@@ -7978,6 +8737,14 @@
   $("#global-search").addEventListener("input", renderSearch);
   $("#btn-cellar").addEventListener("click", () => show("cellar"));
   $("#btn-mybars").addEventListener("click", () => show("mybars"));
+  $("#btn-mypass").addEventListener("click", openMyPasses);
+  $("#btn-passadmin").addEventListener("click", () => openPassAdminPicker());
+  $("#home-pass-more").addEventListener("click", openMyPasses);
+  $$("#pass-admin-tabs .chip").forEach((c) => c.addEventListener("click", () => {
+    if (!state.passAdmin) return;
+    state.passAdmin.tab = c.dataset.tab;
+    renderPassAdmin();
+  }));
   $$("#cellar-seg .seg-btn").forEach((b) =>
     b.addEventListener("click", () => { state.cellarTab = b.dataset.cellar; renderCellar(); }));
   $("#post-edit").addEventListener("click", () => {
@@ -9040,6 +9807,8 @@
         <button class="bar-act" id="bar-write"><span>✍️</span>글쓰기</button>
       </div>
 
+      <div id="bar-pass"></div>
+
       ${barSocialHTML(b)}
 
       <p class="sheet-note" style="margin:14px 20px 24px">
@@ -9050,6 +9819,7 @@
       <div style="height:16px"></div>`;
 
     if (hasLoc) drawBarMap(b);
+    loadBarPass(b);
 
     const addrBtn = $("#bar-addr");
     if (addrBtn) addrBtn.addEventListener("click", () => copyText(b.addr, "주소를 복사했어요. 📍"));
@@ -10280,6 +11050,7 @@
     show(entry, true);
     dailyAttend();
     checkMeetReminders();
+    finishPassBillingReturn();
   }
 
   /* ---------- 알림을 눌러 들어온 경우 ----------

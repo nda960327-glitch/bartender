@@ -38,6 +38,12 @@ window.BARTALK_CONFIG = {
   //   · 출시 전 APK 직접 배포 → "https://barapp.kr/app/bartalk.apk"
   APP_ANDROID_URL: "",
 
+  // 하우스 패스를 앱 안에서 카드로 결제하게 하려면 (토스페이먼츠 정기결제)
+  // 토스 개발자센터 > API 키 > "클라이언트 키" (test_ck_… 로 시작하면 테스트 모드)
+  //   ⚠️ 비밀키(test_sk_…/live_sk_…)는 Vercel 환경변수 TOSS_SECRET_KEY 에만 넣습니다.
+  // 비워두면 "가게에서 결제 → 운영자 승인" 방식만 보입니다.
+  TOSS_CLIENT_KEY: "",
+
   // 서버에서 가져올 최대 개수 (첫 로딩 속도와 관련)
   LIMIT_POSTS: 300,
   LIMIT_MEETS: 100,

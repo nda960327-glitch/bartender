@@ -280,6 +280,42 @@ async function planReport(me) {
   };
 }
 
+/* ---------- 하우스 패스 ---------- */
+// 손님이 패스를 신청했다 → 그 가게 운영자들에게
+async function planPassRequest(me, body) {
+  const pid = digits(body.passId);
+  if (!pid) return { error: "패스를 찾을 수 없어요.", code: 400 };
+  const p = (await db("passes?id=eq." + pid + "&select=id,user_id,bar_key,bar_name,plan_name,status"))[0];
+  if (!p || p.user_id !== me) return { error: "내 신청이 아니에요.", code: 403 };
+  if (p.status !== "requested") return { targets: [] };
+  const owners = await db("bar_owners?bar_key=eq." + encodeURIComponent(p.bar_key) + "&select=user_id");
+  const prof = (await db("profiles?id=eq." + me + "&select=nick"))[0];
+  return {
+    targets: owners.filter((o) => o.user_id !== me).map((o) => ({
+      user: o.user_id,
+      payload: { title: p.bar_name || "하우스 패스", body: `🎫 ${oneLine((prof && prof.nick) || "손님", 12)}님이 ${p.plan_name}을 신청했어요. 결제 확인 후 승인해 주세요.`, tag: "pass-request" },
+    })),
+  };
+}
+
+// 운영자가 승인했다 → 손님에게
+async function planPassApproved(me, body) {
+  const pid = digits(body.passId);
+  if (!pid) return { error: "패스를 찾을 수 없어요.", code: 400 };
+  const p = (await db("passes?id=eq." + pid + "&select=id,user_id,bar_key,bar_name,plan_name,status,ends_at"))[0];
+  if (!p) return { error: "패스를 찾을 수 없어요.", code: 404 };
+  const owner = await db("bar_owners?bar_key=eq." + encodeURIComponent(p.bar_key) + "&user_id=eq." + me + "&select=user_id");
+  if (!owner.length) return { error: "이 가게 운영자가 아니에요.", code: 403 };
+  if (p.status !== "active" || p.user_id === me) return { targets: [] };
+  const until = p.ends_at ? p.ends_at.slice(5).replace("-", ".") : "";
+  return {
+    targets: [{
+      user: p.user_id,
+      payload: { title: p.bar_name || "하우스 패스", body: `🎫 ${p.plan_name} 패스가 승인됐어요${until ? " · " + until + "까지" : ""}. 마이페이지 > 내 패스에서 QR을 보여주세요.`, tag: "pass-approved" },
+    }],
+  };
+}
+
 module.exports = async (req, res) => {
   if (req.method !== "POST") { res.status(405).json({ ok: false, error: "POST 만 받습니다." }); return; }
   if (!SUPABASE_URL || !SERVICE_KEY) { res.status(200).json({ ok: false, error: "서버 설정 없음" }); return; }
@@ -304,6 +340,8 @@ module.exports = async (req, res) => {
     else if (type === "commentLike") plan = await planCommentLike(me, body);
     else if (type === "meetJoin") plan = await planMeetJoin(me, body);
     else if (type === "report") plan = await planReport(me);
+    else if (type === "passRequest") plan = await planPassRequest(me, body);
+    else if (type === "passApproved") plan = await planPassApproved(me, body);
     else { res.status(400).json({ ok: false, error: "알 수 없는 알림 종류예요." }); return; }
 
     if (plan.error) { res.status(plan.code || 400).json({ ok: false, error: plan.error }); return; }
