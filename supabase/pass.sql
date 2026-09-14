@@ -64,6 +64,13 @@ create table if not exists public.bar_pass_settings (
   notice        text not null default '' check (char_length(notice) <= 300),
   updated_at    timestamptz not null default now()
 );
+-- 연계 가게는 카카오 목록에 없어도 모든 손님의 "바 찾기"에 보여야 해서 가게 정보를 같이 둡니다.
+alter table public.bar_pass_settings add column if not exists addr   text not null default '';
+alter table public.bar_pass_settings add column if not exists region text not null default '';
+alter table public.bar_pass_settings add column if not exists area   text not null default '';
+alter table public.bar_pass_settings add column if not exists type   text not null default '';
+alter table public.bar_pass_settings add column if not exists lat    double precision;
+alter table public.bar_pass_settings add column if not exists lng    double precision;
 
 alter table public.bar_pass_settings enable row level security;
 drop policy if exists bps_read on public.bar_pass_settings;
@@ -497,7 +504,8 @@ grant execute on function public.pass_cancel_mine(bigint) to authenticated;
 --  11. 운영자 지정 — 관리자 또는 기존 운영자가 닉네임으로 추가
 --      p_nick 이 비면 부른 사람 자신을 운영자로 (관리자가 자기 가게를 등록할 때)
 -- ------------------------------------------------------------
-create or replace function public.pass_add_owner(p_bar text, p_bar_name text, p_nick text default null) returns json
+drop function if exists public.pass_add_owner(text, text, text);
+create or replace function public.pass_add_owner(p_bar text, p_bar_name text, p_nick text default null, p_info jsonb default null) returns json
 language plpgsql security definer set search_path = public as $fn$
 declare target uuid; target_nick text;
 begin
@@ -511,12 +519,22 @@ begin
   select nick into target_nick from public.profiles where id = target;
   insert into public.bar_owners (bar_key, user_id, bar_name) values (p_bar, target, coalesce(p_bar_name, ''))
     on conflict do nothing;
-  insert into public.bar_pass_settings (bar_key, bar_name) values (p_bar, coalesce(p_bar_name, ''))
-    on conflict do nothing;
+  insert into public.bar_pass_settings (bar_key, bar_name, addr, region, area, type, lat, lng)
+  values (p_bar, coalesce(p_bar_name, ''),
+          coalesce(p_info->>'addr', ''), coalesce(p_info->>'region', ''), coalesce(p_info->>'area', ''), coalesce(p_info->>'type', ''),
+          nullif(p_info->>'lat', '')::double precision, nullif(p_info->>'lng', '')::double precision)
+  on conflict (bar_key) do update set
+    bar_name = case when public.bar_pass_settings.bar_name = '' then excluded.bar_name else public.bar_pass_settings.bar_name end,
+    addr = case when public.bar_pass_settings.addr = '' then excluded.addr else public.bar_pass_settings.addr end,
+    region = case when public.bar_pass_settings.region = '' then excluded.region else public.bar_pass_settings.region end,
+    area = case when public.bar_pass_settings.area = '' then excluded.area else public.bar_pass_settings.area end,
+    type = case when public.bar_pass_settings.type = '' then excluded.type else public.bar_pass_settings.type end,
+    lat = coalesce(public.bar_pass_settings.lat, excluded.lat),
+    lng = coalesce(public.bar_pass_settings.lng, excluded.lng);
   return json_build_object('user_id', target, 'nick', target_nick);
 end $fn$;
-revoke all on function public.pass_add_owner(text, text, text) from public;
-grant execute on function public.pass_add_owner(text, text, text) to authenticated;
+revoke all on function public.pass_add_owner(text, text, text, jsonb) from public;
+grant execute on function public.pass_add_owner(text, text, text, jsonb) to authenticated;
 
 -- ------------------------------------------------------------
 --  12. 운영자 대시보드 — 매주 볼 숫자 4개 + 최근 14일

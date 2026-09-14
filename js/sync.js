@@ -2010,7 +2010,29 @@
     passCancel(id)                  { return callRpc("pass_cancel_mine", { p_pass: id }); },
     passDashboard(barKey)           { return callRpc("pass_dashboard", { p_bar: barKey }); },
     passCardLabel(barKey)           { return callRpc("pass_card_label", { p_bar: barKey }); },
-    passAddOwner(barKey, barName, nick) { return callRpc("pass_add_owner", { p_bar: barKey, p_bar_name: barName, p_nick: nick || null }); },
+    passAddOwner(barKey, barName, nick, info) { return callRpc("pass_add_owner", { p_bar: barKey, p_bar_name: barName, p_nick: nick || null, p_info: info || null }); },
+    /* 연계(패스 운영) 가게 목록 — 바 찾기에는 이 가게들만 보입니다.
+       손님에게 열린 가게 + 내가 운영자인 가게(아직 안 열었어도) */
+    async passPartnerBars() {
+      if (!ready()) return { ok: false, error: "offline" };
+      try {
+        var r = await Promise.all([
+          sb.from("bar_pass_settings").select("bar_key,bar_name,addr,region,area,type,lat,lng,enabled").eq("enabled", true).limit(500),
+          sb.from("bar_owners").select("bar_key,bar_name").eq("user_id", S.uid).limit(20),
+        ]);
+        if (r[0].error) return { ok: false, error: notInstalled(r[0].error) };
+        var seen = {}, list = [];
+        (r[0].data || []).forEach(function (x) { seen[x.bar_key] = true; list.push(x); });
+        if (!r[1].error) {
+          var own = (r[1].data || []).filter(function (x) { return !seen[x.bar_key]; }).map(function (x) { return x.bar_key; });
+          if (own.length) {
+            var mine = await sb.from("bar_pass_settings").select("bar_key,bar_name,addr,region,area,type,lat,lng,enabled").in("bar_key", own);
+            (mine.data || []).forEach(function (x) { list.push(x); });
+          }
+        }
+        return { ok: true, bars: list };
+      } catch (e) { return { ok: false, error: (e && e.message) || "불러오지 못했어요." }; }
+    },
 
     /* 운영자 화면 — 설정·상품 전부·회원/신청 목록 */
     async passOwnerData(barKey) {

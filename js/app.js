@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.41.0";
+  const APP_BUILD = "2.41.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -1693,7 +1693,7 @@
     if (view === "settings") renderSettings();
     if (view === "alerts") renderNoti();
     if (view === "blocked") renderBlocked();
-    if (view === "bars") { renderBars(); autoNear(); loadBarSocial(); }
+    if (view === "bars") { renderBars(); loadPartnerBars(); autoNear(); loadBarSocial(); }
     if (view === "mybars") { renderMyBars(); loadBarSocial(); }
     if (view === "bar") renderBarDetail();
     if (view === "recipes") renderRecipes();
@@ -7554,11 +7554,30 @@
     const key = barKey(b);
     const r = passCache.byBar[key] || await Sync.passProgram(key);
     if (state.view !== "bar" || state.curBar !== b.id) return;
-    if (!r.ok) { if (r.error !== "offline" && r.error !== "not-installed" && isAdmin()) box.innerHTML = `<p class="sheet-note" style="margin:0 20px">패스: ${esc(r.error)}</p>`; return; }
+    if (!r.ok) {
+      // 손님에게는 조용히 감추고, 관리자에게는 왜 안 보이는지 알려줍니다.
+      if (isAdmin() && r.error !== "offline") {
+        box.innerHTML = `<div class="card pass-sec"><h3 class="card-h">하우스 패스 🎫</h3><p class="pass-note">${r.error === "not-installed"
+          ? "서버에 패스 기능이 아직 설치되지 않았어요. Supabase SQL Editor 에서 <b>supabase/pass.sql</b> 을 실행해 주세요."
+          : "패스 정보를 못 읽었어요: " + esc(r.error)}</p></div>`;
+      }
+      return;
+    }
     passCache.byBar[key] = r;
     const canManage = r.owner || isAdmin();
     const on = r.settings && r.settings.enabled;
     if (!on && !canManage) { box.innerHTML = ""; return; }
+    if (!on && !r.owner && isAdmin()) {
+      // 관리자에게는 첫 단계를 바로 보여줍니다 — 여기서 운영자를 지정해야 다음이 열려요.
+      box.innerHTML = `
+        <div class="card pass-sec">
+          <div class="pass-sec-head"><h3 class="card-h">하우스 패스 🎫</h3><span class="pass-note" style="margin:0">관리자만 보여요</span></div>
+          <p class="pass-note">${r.settings ? "운영자가 지정돼 있지만 아직 손님에게 열리지 않았어요." : "이 가게는 아직 연계되지 않았어요."} 운영자를 지정하면 그 사람의 마이페이지에 <b>우리 가게 패스 관리</b>가 생기고, 이 가게가 손님의 바 찾기에 보여요.</p>
+          <button class="big-btn accent ready" id="bar-pass-manage" style="margin-top:12px">운영자 지정 (비우면 나)</button>
+        </div>`;
+      $("#bar-pass-manage").addEventListener("click", () => claimBarOwner(b, key));
+      return;
+    }
     const mine = r.mine;
     box.innerHTML = `
       <div class="card pass-sec">
@@ -7602,10 +7621,12 @@
   async function claimBarOwner(b, key) {
     const nick = await btPrompt(`'${b.name}'의 패스 운영자를 지정해요.\n운영자 닉네임을 적어주세요. (비우면 나를 운영자로)`, "");
     if (nick === null) return;
-    const r = await Sync.passAddOwner(key, b.name, nick.trim());
+    const info = { addr: b.addr || "", region: b.region || "", area: b.area || "", type: b.type || "", lat: b.lat, lng: b.lng };
+    const r = await Sync.passAddOwner(key, b.name, nick.trim(), info);
     if (!r.ok) { passFail(r); return; }
     invalidatePasses();
-    toast(`${r.data.nick || "운영자"}님을 운영자로 지정했어요.`);
+    loadPartnerBars(true);
+    toast(`${r.data.nick || "운영자"}님을 운영자로 지정했어요. 이제 이 가게가 연계 가게로 보여요.`);
     renderBarDetail();
   }
 
@@ -8921,12 +8942,42 @@
    *  바 찾기 (업장)
    * ============================================================ */
 
-  /* 기본 목록(파일) + 내가 등록한 곳(localStorage).
-     기본 목록은 4천 곳이라 저장하지 않고 그때그때 읽습니다. */
+  /* 바 찾기에는 "연계된 가게"(하우스 패스를 운영하는 바)만 보입니다.
+     카카오에서 받은 4천 곳 목록은 아직 우리와 아무 관계가 없어서 손님에게는 감춰요.
+     관리자만 "전체 목록 보기"를 켜서 그 안에서 가게를 찾아 운영자를 지정합니다.
+     연계 가게가 카카오 목록에 없으면 서버(bar_pass_settings)에 적힌 정보로 항목을 만들어요. */
+  const partnerBars = { keys: null, rows: [], list: null, at: 0, baseRef: null };
+  function barsBase() {
+    return (window.BARTALK_BARS && window.BARTALK_BARS.length) ? window.BARTALK_BARS : SEED_BARS;
+  }
   function barsAll() {
-    const base = (window.BARTALK_BARS && window.BARTALK_BARS.length)
-      ? window.BARTALK_BARS : SEED_BARS;
-    return state.bars.length ? state.bars.concat(base) : base;
+    const base = barsBase();
+    if (state.barShowAll && isAdmin()) return state.bars.length ? state.bars.concat(base) : base;
+    if (!partnerBars.keys) return state.bars;   // 아직 못 받았으면 내가 등록한 곳만
+    if (!partnerBars.list || partnerBars.baseRef !== base) {
+      const inBase = new Set();
+      const picked = base.filter((b) => { const k = barKey(b); if (partnerBars.keys.has(k)) { inBase.add(k); return true; } return false; });
+      // 카카오 목록에 없는 연계 가게는 서버 정보로 만듭니다 (번호는 이 세션 안에서만 쓰여요)
+      const extra = partnerBars.rows.filter((r) => !inBase.has(r.bar_key)).map((r, i) => ({
+        id: 9000000 + i, name: r.bar_name || "이름 없는 가게", addr: r.addr || "", region: r.region || "기타",
+        area: r.area || "", type: r.type || "바", lat: r.lat, lng: r.lng, partner: true, by: "바텐톡",
+      }));
+      partnerBars.list = extra.concat(picked);
+      partnerBars.baseRef = base;
+    }
+    return state.bars.length ? state.bars.concat(partnerBars.list) : partnerBars.list;
+  }
+  async function loadPartnerBars(force) {
+    if (!passEnabled()) { partnerBars.keys = new Set(); partnerBars.rows = []; partnerBars.list = null; return; }
+    if (!force && partnerBars.keys && Date.now() - partnerBars.at < 60000) return;
+    const r = await Sync.passPartnerBars();
+    if (!r.ok) { if (!partnerBars.keys) { partnerBars.keys = new Set(); partnerBars.rows = []; } return; }
+    partnerBars.rows = r.bars;
+    partnerBars.keys = new Set(r.bars.map((x) => x.bar_key));
+    partnerBars.list = null;
+    partnerBars.at = Date.now();
+    resetDistricts();
+    if (state.view === "bars") renderBars();
   }
 
   /* ---------- 바 좋아요 · 별점 · 댓글 ----------
@@ -9426,7 +9477,16 @@
            <span>📍</span> ${state.barLocating ? "위치 잡는 중…" : "가까운 순으로 보기"}
          </button>`)
       + `<span class="bar-count">${fmtNum(total)}곳</span>
-         <button class="bar-sort" id="bar-sort">⇅ ${esc(barSortLabel())}</button>`;
+         <button class="bar-sort" id="bar-sort">⇅ ${esc(barSortLabel())}</button>`
+      + (isAdmin() ? `<button class="bar-sort ${state.barShowAll ? "on" : ""}" id="bar-showall">${state.barShowAll ? "🗂 전체 목록 (관리자)" : "🤝 연계 가게만"}</button>` : "");
+    const showAll = $("#bar-showall");
+    if (showAll) showAll.addEventListener("click", () => {
+      state.barShowAll = !state.barShowAll;
+      state.barShow = 60; state.barRegion = "전체"; state.barKind = "전체";
+      resetDistricts();
+      renderBars();
+      toast(state.barShowAll ? "카카오 전체 목록이에요. 가게를 열어 운영자를 지정하세요." : "연계된 가게만 보여요.");
+    });
 
     $("#bar-loc").addEventListener("click", (e) => {
       if (!near) { turnOnNearby(e.currentTarget); return; }
@@ -9541,7 +9601,9 @@
         ? `${state.barRadius}km 안에는 조건에 맞는 바가 없어요.<br>범위를 넓혀보세요.`
         : (q || state.barRegion !== "전체" || state.barKind !== "전체"
           ? "조건에 맞는 바가 없어요."
-          : "아직 등록된 바가 없어요. 오른쪽 위 + 로 추가해보세요.")}</div>`);
+          : (isAdmin()
+            ? "아직 연계된 가게가 없어요.<br>위의 <b>연계 가게만</b> 버튼을 눌러 전체 목록에서 가게를 찾고, 운영자를 지정하세요."
+            : "아직 연계된 바가 없어요.<br>하우스 패스를 운영하는 바가 여기 보여요."))}</div>`);
 
     const retry = $("#locfail-retry");
     if (retry) retry.addEventListener("click", () => turnOnNearby(null));
