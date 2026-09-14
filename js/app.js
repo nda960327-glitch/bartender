@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.40.1";
+  const APP_BUILD = "2.40.2";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -4009,15 +4009,6 @@
   }
 
   /* ---------- 랜덤 칵테일 ---------- */
-  function randomCocktail() {
-    const cts = state.spirits.filter((s) => s.kind === "cocktail");
-    if (!cts.length) return;
-    const pick = cts[Math.floor(Math.random() * cts.length)];
-    vibrate(15);
-    toast(`🎲 오늘의 한 잔: ${pick.name}!`);
-    openSpirit(pick.id);
-  }
-
   /* ---------- 내 취향 리포트 ---------- */
   function renderTaste() {
     const tried = state.user.cellar.tried.map((id) => state.spirits.find((s) => s.id === id)).filter(Boolean);
@@ -7737,7 +7728,6 @@
   $("#btn-orders").addEventListener("click", () => show("orders"));
 
   // 새 도구/신고/리포트
-  $("#tool-random").addEventListener("click", randomCocktail);
   $("#btn-taste").addEventListener("click", () => show("taste"));
   $("#meet-delete-top").addEventListener("click", deleteMeetNow);
   $("#meet-edit").addEventListener("click", () => {
