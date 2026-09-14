@@ -1330,37 +1330,9 @@ textarea.input { height: auto; }
 .tool-ic { font-size: 24px; margin-bottom: 3px; }
 .tool-name { font-size: 14.5px; font-weight: 700; color: var(--text); }
 .tool-desc { font-size: 12.5px; color: var(--text-sub); }
-.tool-guide { padding: 20px 20px 6px; font-size: 15.5px; line-height: 1.6; color: var(--text-sub); word-break: keep-all; }
-.tool-guide.no-pad { padding: 16px 0 0; }
-
-/* ---------- 재료 찾기 ---------- */
-.finder-chips { padding: 14px 16px 4px; }
-.finder-match { font-size: 13px; font-weight: 700; color: var(--accent); flex-shrink: 0; }
-
-/* ---------- 퀴즈 ---------- */
-.quiz-box { padding: 24px 20px; }
-.quiz-start { text-align: center; padding: 40px 24px; }
-.quiz-start .qs-emoji { font-size: 56px; margin-bottom: 14px; }
-.quiz-start h2 { font-size: 21px; font-weight: 800; margin-bottom: 10px; }
-.quiz-start p { font-size: 15px; color: var(--text-sub); line-height: 1.7; margin-bottom: 26px; word-break: keep-all; }
-.quiz-progress { font-size: 13.5px; font-weight: 700; color: var(--text-sub); margin-bottom: 14px; }
-.quiz-progress b { color: var(--accent); }
-.quiz-q {
-  background: var(--bg-gray); border-radius: 18px; padding: 20px;
-  margin-bottom: 18px;
-}
-.quiz-q h3 { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
-.quiz-q p { font-size: 15.5px; line-height: 1.8; white-space: pre-wrap; }
-.quiz-opt {
-  display: block; width: 100%; padding: 15px 18px; margin-bottom: 10px;
-  border: 1.5px solid var(--line-strong); border-radius: 14px;
-  background: var(--bg-card); color: var(--text);
-  font-size: 15.5px; font-weight: 600; text-align: left; cursor: pointer;
-  transition: all .12s;
-}
-.quiz-opt.correct { border-color: #2eb872; background: rgba(46,184,114,.1); color: #2eb872; }
-.quiz-opt.wrong { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+/* ---------- 결과 화면 (실기 암기 카드) ---------- */
 .quiz-result { text-align: center; padding: 40px 24px; }
+.quiz-result .qs-emoji { font-size: 56px; margin-bottom: 14px; }
 .quiz-result .qr-score { font-size: 44px; font-weight: 800; color: var(--accent); margin: 8px 0; }
 .quiz-result p { font-size: 15px; color: var(--text-sub); margin-bottom: 24px; }
 
@@ -1552,22 +1524,6 @@ textarea.input { height: auto; }
 #bar-regions::-webkit-scrollbar, #bar-kinds::-webkit-scrollbar { display: none; }
 #bar-regions .chip, #bar-kinds .chip { flex: none; }
 #bar-kinds { padding-bottom: 12px; border-bottom: 1px solid var(--line); }
-.calc-row {
-  display: grid; grid-template-columns: 1.4fr 1fr 0.9fr 0.9fr 34px; gap: 6px;
-  margin-bottom: 8px; align-items: center;
-}
-.calc-row input {
-  height: 46px; padding: 0 10px; margin: 0;
-  border: 1px solid var(--line-strong); border-radius: 10px;
-  background: var(--bg); color: var(--text); font-size: 14px; outline: none;
-  width: 100%; min-width: 0;
-}
-.calc-row .rm {
-  width: 34px; height: 34px; border: none; border-radius: 50%;
-  background: var(--chip-bg); color: var(--text-sub); cursor: pointer; font-size: 13px;
-}
-.calc-head { display: grid; grid-template-columns: 1.4fr 1fr 0.9fr 0.9fr 34px; gap: 6px; margin: 16px 0 6px; }
-.calc-head span { font-size: 12px; font-weight: 700; color: var(--text-sub); }
 .calc-result {
   background: var(--bg-gray); border-radius: 16px; padding: 18px;
   margin-top: 16px; display: none;

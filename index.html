@@ -125,15 +125,6 @@
           <span class="hs-ph">술 · 칵테일 · 커뮤니티 · 채용 통합 검색</span>
         </button>
       </div>
-      <div class="quick-grid">
-        <!-- 술도감·모임은 아래 탭에 있어서 여기서는 뺐습니다 (같은 걸 두 번 두지 않아요) -->
-        <button class="quick-item pressable" data-go="jobs"><span class="quick-ic">💼</span><span>채용정보</span></button>
-        <button class="quick-item pressable" data-go="market"><span class="quick-ic">🛒</span><span>스토어</span></button>
-        <button class="quick-item pressable" data-go="bars"><span class="quick-ic">📍</span><span>바 찾기</span></button>
-        <button class="quick-item pressable" data-go="pros"><span class="quick-ic">🧑‍🍳</span><span>바텐더</span></button>
-        <button class="quick-item pressable" data-go="academy"><span class="quick-ic">📚</span><span>학원정보</span></button>
-        <button class="quick-item pressable" data-go="contest"><span class="quick-ic">🏆</span><span>대회정보</span></button>
-      </div>
 
       <div class="home-sec">
         <div class="home-sec-head">
@@ -147,11 +138,8 @@
           <h2>바텐더 도구 🛠️</h2>
         </div>
         <div class="tool-grid">
-          <button class="tool-item pressable" data-go="finder"><span class="tool-ic">🔍</span><span class="tool-name">재료로 칵테일 찾기</span><span class="tool-desc">있는 재료로 뭐 만들지?</span></button>
-          <button class="tool-item pressable" data-go="quiz"><span class="tool-ic">🎯</span><span class="tool-name">레시피 퀴즈</span><span class="tool-desc">조주 실력 테스트</span></button>
           <button class="tool-item pressable" data-go="cbt"><span class="tool-ic">📝</span><span class="tool-name">필기 기출 CBT</span><span class="tool-desc">조주기능사 회차별 모의고사</span></button>
           <button class="tool-item pressable" data-go="cards"><span class="tool-ic">🃏</span><span class="tool-name">실기 암기 카드</span><span class="tool-desc">조주기능사 레시피 외우기</span></button>
-          <button class="tool-item pressable" data-go="calc"><span class="tool-ic">🧮</span><span class="tool-name">원가 계산기</span><span class="tool-desc">잔당 원가·판매가</span></button>
           <button class="tool-item pressable" id="tool-random"><span class="tool-ic">🎲</span><span class="tool-name">오늘 뭐 마시지?</span><span class="tool-desc">랜덤 칵테일 뽑기</span></button>
         </div>
       </div>
@@ -186,6 +174,16 @@
           <button class="more-btn" data-go="community">더보기</button>
         </div>
         <div id="home-posts"></div>
+      </div>
+
+      <div class="quick-grid">
+        <!-- 술도감·모임은 아래 탭에 있어서 여기서는 뺐습니다 (같은 걸 두 번 두지 않아요) -->
+        <button class="quick-item pressable" data-go="jobs"><span class="quick-ic">💼</span><span>채용정보</span></button>
+        <button class="quick-item pressable" data-go="market"><span class="quick-ic">🛒</span><span>스토어</span></button>
+        <button class="quick-item pressable" data-go="bars"><span class="quick-ic">📍</span><span>바 찾기</span></button>
+        <button class="quick-item pressable" data-go="pros"><span class="quick-ic">🧑‍🍳</span><span>바텐더</span></button>
+        <button class="quick-item pressable" data-go="academy"><span class="quick-ic">📚</span><span>학원정보</span></button>
+        <button class="quick-item pressable" data-go="contest"><span class="quick-ic">🏆</span><span>대회정보</span></button>
       </div>
       <div style="height:24px"></div>
     </div>
@@ -884,36 +882,6 @@
     <div class="scroll-area" id="orders-area"></div>
   </section>
 
-  <!-- ===================== 재료로 칵테일 찾기 ===================== -->
-  <section class="view" id="view-finder" hidden>
-    <header class="topbar">
-      <button class="icon-btn back-btn" data-back="home">
-        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
-      </button>
-      <h1 class="topbar-title">재료로 칵테일 찾기</h1>
-      <span class="topbar-spacer"></span>
-    </header>
-    <div class="scroll-area">
-      <p class="tool-guide">지금 갖고 있는 재료를 선택하면<br>만들 수 있는 칵테일을 찾아드려요. 🔍</p>
-      <div class="chip-wrap finder-chips" id="finder-ings"></div>
-      <div class="comment-sec-title" id="finder-result-title"></div>
-      <div id="finder-results"></div>
-      <div style="height:24px"></div>
-    </div>
-  </section>
-
-  <!-- ===================== 레시피 퀴즈 ===================== -->
-  <section class="view" id="view-quiz" hidden>
-    <header class="topbar">
-      <button class="icon-btn back-btn" data-back="home">
-        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
-      </button>
-      <h1 class="topbar-title">레시피 퀴즈</h1>
-      <span class="topbar-spacer"></span>
-    </header>
-    <div class="scroll-area" id="quiz-area"></div>
-  </section>
-
   <!-- ===================== 조주기능사 필기 CBT ===================== -->
   <section class="view" id="view-cbt" hidden>
     <header class="topbar">
@@ -938,26 +906,6 @@
       <span class="topbar-spacer"></span>
     </header>
     <div class="scroll-area" id="cards-area"></div>
-  </section>
-
-  <!-- ===================== 원가 계산기 ===================== -->
-  <section class="view" id="view-calc" hidden>
-    <header class="topbar">
-      <button class="icon-btn back-btn" data-back="home">
-        <svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
-      </button>
-      <h1 class="topbar-title">원가 계산기</h1>
-      <span class="topbar-spacer"></span>
-    </header>
-    <div class="scroll-area form-area">
-      <p class="tool-guide no-pad">재료별 병 가격·용량·사용량을 넣으면<br>칵테일 한 잔의 원가를 계산해드려요. 🧮</p>
-      <div id="calc-rows"></div>
-      <button class="host-chat-btn" id="calc-add-row">+ 재료 추가</button>
-      <label class="form-label">판매가 (원)</label>
-      <input type="number" class="input" id="calc-price" placeholder="예) 15000" inputmode="numeric">
-      <div class="calc-result" id="calc-result"></div>
-      <div style="height:24px"></div>
-    </div>
   </section>
 
   <!-- ===================== 내 취향 리포트 ===================== -->

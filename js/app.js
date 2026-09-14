@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.40.0";
+  const APP_BUILD = "2.40.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -963,9 +963,6 @@
     ctMult: 1,
     replyTo: null,
     editPost: null,
-    finderSel: [],
-    quiz: null,
-    calcRows: [{ name: "", price: "", vol: "", use: "" }, { name: "", price: "", vol: "", use: "" }],
     reviewStars: 5,
     obColor: 2,
     selColor: null,
@@ -1666,7 +1663,7 @@
       (view === "doc" && (state.docFrom === "onboard" || state.docFrom === "login"));
     $("#bottom-nav").style.display = hideNav ? "none" : "";
     const navView = NAV_VIEWS.includes(view) ? view
-      : { jobs: "home", alerts: "home", chat: "home", finder: "home", quiz: "home", cbt: "home", cards: "home", calc: "home", market: "home", "market-detail": "home", cart: "home", search: "home", bars: "home", mybars: "mypage", bar: "home", listing: "home", "listing-write": "listing", pros: "home", pro: "pros", "pro-edit": "pros", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
+      : { jobs: "home", alerts: "home", chat: "home", cbt: "home", cards: "home", market: "home", "market-detail": "home", cart: "home", search: "home", bars: "home", mybars: "mypage", bar: "home", listing: "home", "listing-write": "listing", pros: "home", pro: "pros", "pro-edit": "pros", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
     $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === navView));
     if (view === "home") renderHome();
     if (view === "market") renderStore();
@@ -1681,11 +1678,8 @@
       const sa = $("#view-" + view + " .scroll-area");
       if (sa) requestAnimationFrame(() => { sa.scrollTop = scrollMem[view] || 0; });
     }
-    if (view === "finder") renderFinder();
-    if (view === "quiz") renderQuiz();
     if (view === "cbt") renderCbt();
     if (view === "cards") renderCards();
-    if (view === "calc") renderCalc();
     if (view === "jobs") renderJobs();
     if (view === "favjobs") renderFavJobs();
     if (view === "myposts") renderMyPosts();
@@ -1894,7 +1888,6 @@
     { id: "taster", ic: "👅", name: "테이스터", desc: "리뷰 10개 작성", cond: () => state.user.myReviews >= 10 },
     { id: "collector", ic: "📖", name: "도감 수집가", desc: "술/칵테일 5개 등록", cond: () => (state.user.mySpiritIds || []).length >= 5 },
     { id: "cellar20", ic: "🥃", name: "술장 부자", desc: "마셔본 술 20개", cond: () => state.user.cellar.tried.length >= 20 },
-    { id: "quizking", ic: "🏆", name: "조주왕", desc: "레시피 퀴즈 만점", cond: () => !!state.user.quizPerfect },
     { id: "writer", ic: "✍️", name: "이야기꾼", desc: "게시글 5개 작성", cond: () => (state.user.myPostIds || []).length >= 5 },
     { id: "chatty", ic: "💬", name: "수다쟁이", desc: "댓글 20개 작성", cond: () => state.user.myComments >= 20 },
     { id: "social", ic: "🍻", name: "인싸 바텐더", desc: "모임 3회 참여", cond: () => state.meets.filter((m) => m.isJoined).length >= 3 },
@@ -4285,7 +4278,6 @@
     if (state.view === "dogam") renderDogam();
     else if (state.view === "spirit") renderSpiritDetail();
     else if (state.view === "home") renderHome();
-    else if (state.view === "finder") renderFinder();
   }
   // 칵테일 → 위키 문서 (DB에 없는 것들 2차 소스)
   const COCKTAIL_WIKI = {
@@ -6497,7 +6489,8 @@
     $("#recipe-cnt").textContent = rcN ? rcN + "개" : "";
     $("#mypro-cnt").textContent = state.myPro ? "등록됨" : "만들기";
     checkBadges();
-    $("#badge-count").textContent = `${state.user.badges.length}/${BADGES.length}`;
+    // 없어진 뱃지(예: 레시피 퀴즈 조주왕)를 이미 받은 사람도 개수가 넘치지 않게 셉니다.
+    $("#badge-count").textContent = `${BADGES.filter((b) => state.user.badges.includes(b.id)).length}/${BADGES.length}`;
     $("#badge-grid").innerHTML = BADGES.map((b) => {
       const on = state.user.badges.includes(b.id);
       return `<div class="badge-item ${on ? "on" : ""}" title="${esc(b.desc)}">
@@ -7059,139 +7052,6 @@
     }
     return a;
   }
-  function ingName(line) {
-    const words = line.replace(/\(선택\)/g, "").trim().split(/\s+/);
-    const idx = words.findIndex((w) => /^\d/.test(w) || /^(반|한|두)$/.test(w));
-    return (idx > 0 ? words.slice(0, idx) : words).join(" ");
-  }
-  const cocktailIngs = (sp) => (sp.ings || "").split("\n").map((l) => ingName(l)).filter(Boolean);
-
-  /* ---------- 재료로 칵테일 찾기 ---------- */
-  function renderFinder() {
-    const cts = state.spirits.filter((s) => s.kind === "cocktail");
-    const all = [...new Set(cts.flatMap(cocktailIngs))].sort((a, b) => a.localeCompare(b, "ko"));
-    state.finderSel = state.finderSel.filter((x) => all.includes(x));
-    $("#finder-ings").innerHTML = all.map((ing) =>
-      `<button class="chip ${state.finderSel.includes(ing) ? "active" : ""}" data-ing="${esc(ing)}">${esc(ing)}</button>`).join("");
-    $$("#finder-ings .chip").forEach((ch) =>
-      ch.addEventListener("click", () => {
-        const v = ch.dataset.ing;
-        const i = state.finderSel.indexOf(v);
-        if (i >= 0) state.finderSel.splice(i, 1); else state.finderSel.push(v);
-        renderFinder();
-      }));
-
-    if (!state.finderSel.length) {
-      $("#finder-result-title").textContent = "";
-      $("#finder-results").innerHTML = '<div class="empty-state" style="padding:40px 20px">재료를 선택하면 결과가 나와요.</div>';
-      return;
-    }
-    const matches = cts.map((c) => {
-      const ings = cocktailIngs(c);
-      const have = ings.filter((i) => state.finderSel.includes(i)).length;
-      return { c, have, total: ings.length };
-    }).filter((m) => m.have > 0)
-      .sort((a, b) => (b.have / b.total) - (a.have / a.total) || b.have - a.have);
-    $("#finder-result-title").textContent = `만들 수 있는 칵테일 ${matches.filter((m) => m.have === m.total).length}개 · 아쉽게 부족 ${matches.filter((m) => m.have < m.total).length}개`;
-    $("#finder-results").innerHTML = matches.length
-      ? matches.map((m) => `
-        <div class="spirit-item" data-id="${m.c.id}">
-          <span class="spirit-emoji">${thumbHTML(m.c)}</span>
-          <div class="spirit-info">
-            <div class="spirit-name">${esc(m.c.name)}</div>
-            <div class="spirit-meta">${esc(cocktailIngs(m.c).join(", "))}</div>
-          </div>
-          <span class="finder-match">${m.have === m.total ? "✅ 완성 가능" : `${m.have}/${m.total} 보유`}</span>
-        </div>`).join("")
-      : '<div class="empty-state" style="padding:40px 20px">선택한 재료로 만들 수 있는 칵테일이 없어요.</div>';
-    $$("#finder-results .spirit-item").forEach((el) =>
-      el.addEventListener("click", () => openSpirit(+el.dataset.id)));
-    wireImgFallback("#finder-results");
-  }
-
-  /* ---------- 레시피 퀴즈 ---------- */
-  function renderQuiz() {
-    state.quiz = null;
-    $("#quiz-area").innerHTML = `
-      <div class="quiz-start">
-        <div class="qs-emoji">🎯</div>
-        <h2>레시피 퀴즈</h2>
-        <p>재료를 보고 어떤 칵테일인지 맞혀보세요.<br>5문제 · 하루 첫 완료 시 +20P!</p>
-        <button class="big-btn accent ready" id="quiz-start-btn">시작하기</button>
-      </div>`;
-    $("#quiz-start-btn").addEventListener("click", startQuiz);
-  }
-  function startQuiz() {
-    const cts = state.spirits.filter((s) => s.kind === "cocktail" && s.ings);
-    if (cts.length < 4) {
-      toast("칵테일이 4개 이상 등록되어야 퀴즈를 풀 수 있어요.");
-      return;
-    }
-    const qs = shuffle(cts).slice(0, 5).map((c) => ({
-      c,
-      options: shuffle([c.name, ...shuffle(cts.filter((x) => x.id !== c.id)).slice(0, 3).map((x) => x.name)]),
-    }));
-    state.quiz = { qs, i: 0, score: 0, answered: false };
-    renderQuizQ();
-  }
-  function renderQuizQ() {
-    const qz = state.quiz;
-    const q = qz.qs[qz.i];
-    $("#quiz-area").innerHTML = `
-      <div class="quiz-box">
-        <div class="quiz-progress"><b>${qz.i + 1}</b> / ${qz.qs.length} · 맞힌 개수 ${qz.score}</div>
-        <div class="quiz-q">
-          <h3>이 재료로 만드는 칵테일은? 🍸</h3>
-          <p>${esc(q.c.ings)}</p>
-        </div>
-        ${q.options.map((o) => `<button class="quiz-opt" data-name="${esc(o)}">${esc(o)}</button>`).join("")}
-      </div>`;
-    qz.answered = false;
-    $$("#quiz-area .quiz-opt").forEach((b) =>
-      b.addEventListener("click", () => {
-        if (qz.answered) return;
-        qz.answered = true;
-        const right = b.dataset.name === q.c.name;
-        if (right) qz.score++;
-        $$("#quiz-area .quiz-opt").forEach((x) => {
-          if (x.dataset.name === q.c.name) x.classList.add("correct");
-          else if (x === b) x.classList.add("wrong");
-        });
-        setTimeout(() => {
-          qz.i++;
-          if (qz.i < qz.qs.length) renderQuizQ();
-          else finishQuiz();
-        }, 900);
-      }));
-  }
-  function finishQuiz() {
-    const qz = state.quiz;
-    const today = new Date().toDateString();
-    let bonus = "";
-    if (store.get("quizDay", "") !== today) {
-      store.set("quizDay", today);
-      addPoints(20, "퀴즈 완료");
-      bonus = "오늘의 첫 퀴즈 완료로 20P를 받았어요!";
-    }
-    if (qz.score === qz.qs.length) {
-      state.user.quizPerfect = true;
-      saveUser();
-      checkBadges();
-    }
-    const msg = qz.score === qz.qs.length ? "완벽해요! 진짜 바텐더시네요 🏆"
-      : qz.score >= 3 ? "좋아요! 조금만 더 연습해봐요 💪"
-      : "레시피를 술도감에서 복습해보세요 📖";
-    $("#quiz-area").innerHTML = `
-      <div class="quiz-result">
-        <div class="qs-emoji">${qz.score === qz.qs.length ? "🏆" : "🎯"}</div>
-        <div class="qr-score">${qz.score} / ${qz.qs.length}</div>
-        <p>${msg}${bonus ? "<br>" + bonus : ""}</p>
-        <button class="big-btn accent ready" id="quiz-retry">다시 풀기</button>
-        <button class="big-btn" id="quiz-home" style="margin-top:10px">홈으로</button>
-      </div>`;
-    $("#quiz-retry").addEventListener("click", startQuiz);
-    $("#quiz-home").addEventListener("click", () => show("home"));
-  }
 
   /* ---------- 조주기능사 필기 CBT ---------- */
   // 기출 600문항(약 130KB)은 이 화면에 들어올 때만 받아옵니다.
@@ -7576,60 +7436,6 @@
     $("#cards-back").addEventListener("click", () => { state.cardDeck = null; paintCardList(); });
   }
 
-  /* ---------- 원가 계산기 ---------- */
-  function renderCalc() {
-    $("#calc-rows").innerHTML = `
-      <div class="calc-head"><span>재료명</span><span>병 가격(원)</span><span>용량(ml)</span><span>사용(ml)</span><span></span></div>
-      ${state.calcRows.map((r, i) => `
-        <div class="calc-row">
-          <input type="text" data-i="${i}" data-f="name" value="${esc(r.name)}" placeholder="진">
-          <input type="number" data-i="${i}" data-f="price" value="${esc(r.price)}" placeholder="40000" inputmode="numeric">
-          <input type="number" data-i="${i}" data-f="vol" value="${esc(r.vol)}" placeholder="700" inputmode="numeric">
-          <input type="number" data-i="${i}" data-f="use" value="${esc(r.use)}" placeholder="45" inputmode="decimal">
-          <button class="rm" data-i="${i}" aria-label="삭제">✕</button>
-        </div>`).join("")}`;
-    $$("#calc-rows input").forEach((inp) =>
-      inp.addEventListener("input", () => {
-        state.calcRows[+inp.dataset.i][inp.dataset.f] = inp.value;
-        calcCompute();
-      }));
-    $$("#calc-rows .rm").forEach((b) =>
-      b.addEventListener("click", () => {
-        if (state.calcRows.length <= 1) return;
-        state.calcRows.splice(+b.dataset.i, 1);
-        renderCalc();
-      }));
-    calcCompute();
-  }
-  function calcCompute() {
-    const valid = state.calcRows.filter((r) => +r.price > 0 && +r.vol > 0 && +r.use > 0);
-    const box = $("#calc-result");
-    if (!valid.length) {
-      // 뭘 더 넣어야 하는지 알려줘요. 조용히 비워두면 고장난 것처럼 보입니다.
-      const touched = state.calcRows.some((r) => r.name || r.price || r.vol || r.use);
-      if (!touched) { box.classList.remove("show"); return; }
-      const need = [];
-      const first = state.calcRows.find((r) => r.name || r.price || r.vol || r.use) || {};
-      if (!(+first.price > 0)) need.push("병 가격");
-      if (!(+first.vol > 0)) need.push("용량(ml)");
-      if (!(+first.use > 0)) need.push("사용(ml)");
-      box.classList.add("show");
-      box.innerHTML = `<div class="cr-note" style="text-align:center">${esc(need.join(" · "))} 을(를) 입력하면 원가가 계산돼요.</div>`;
-      return;
-    }
-    const total = valid.reduce((a, r) => a + (+r.price / +r.vol) * +r.use, 0);
-    const sell = +$("#calc-price").value;
-    const suggest = Math.ceil(total / 0.2 / 100) * 100;
-    box.classList.add("show");
-    box.innerHTML = `
-      <div class="cr-row hl"><span>잔당 원가</span><b>${fmtNum(Math.round(total))}원</b></div>
-      ${sell > 0 ? `
-      <div class="cr-row"><span>원가율 (판매가 ${fmtNum(sell)}원)</span><b>${(total / sell * 100).toFixed(1)}%</b></div>
-      <div class="cr-row"><span>잔당 마진</span><b>${fmtNum(Math.round(sell - total))}원</b></div>` : ""}
-      <div class="cr-row"><span>추천 판매가 (원가율 20%)</span><b>${fmtNum(suggest)}원</b></div>
-      <div class="cr-note">가니시·얼음·인건비는 포함되지 않은 재료 원가 기준이에요.</div>`;
-  }
-
   /* ---------- 레시피 공유 ---------- */
   function shareSpirit() {
     const sp = state.spirits.find((x) => x.id === state.curSpirit);
@@ -7987,13 +7793,6 @@
     if (f) importData(f);
     e.target.value = "";
   });
-
-  // 도구
-  $("#calc-add-row").addEventListener("click", () => {
-    state.calcRows.push({ name: "", price: "", vol: "", use: "" });
-    renderCalc();
-  });
-  $("#calc-price").addEventListener("input", calcCompute);
 
   // 모임
   // + 로 들어올 땐 항상 빈 화면부터 (수정하다 나간 값이 남아 있으면 안 돼요)
