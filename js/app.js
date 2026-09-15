@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.56.3";
+  const APP_BUILD = "2.57.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -7427,13 +7427,19 @@
       $("#cbt-area").innerHTML = '<div class="empty-state">문제를 불러오지 못했어요.<br>인터넷 연결을 확인해주세요.</div>';
       return;
     }
-    const rounds = window.CBT_DATA.rounds;
+    const rounds = window.CBT_DATA.rounds.filter((r) => !r.mock);
     const years = [...new Set(rounds.map((r) => r.year))];
+    const nAll = rounds.reduce((s, r) => s + r.questions.filter((q) => !q.x).length, 0);
     $("#cbt-area").innerHTML = `
       <div class="cbt-intro">
         <h2>조주기능사 필기 기출</h2>
         <p>회차를 고르면 두 가지 중 선택해요.<br><b>실전</b>: 60문항 · 60분 · 끝나고 채점 · <b>학습</b>: 한 문제씩 정답과 해설 확인.</p>
       </div>
+      <button class="cbt-mock pressable" id="cbt-mock">
+        <span class="cbt-mock-ic">🎲</span>
+        <span class="cbt-mock-body"><b>랜덤 모의고사</b><span>${years[years.length - 1]}~${years[0]}년 ${nAll}문항에서 매번 새로 60문항 · 과목 배분은 실제 시험과 같게</span></span>
+        <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
       ${years.map((y) => `
         <div class="comment-sec-title">${y}년</div>
         <div class="cbt-rounds">
@@ -7443,9 +7449,29 @@
       <p class="cbt-source">출처: 문제풀이닷컴 · 기출문제의 저작권은 출제기관(한국산업인력공단)에 있어요. 출제 당시 기준이라 지금의 법규·정답과 다를 수 있어요. 해설은 AI가 작성해 틀린 곳이 있을 수 있어요.</p>`;
     $$("#cbt-area .cbt-round").forEach((b) => b.addEventListener("click", () => {
       const r = rounds.find((x) => x.id === b.dataset.id);
-      openSheet(`${r.year}년 ${r.round}회`, ["⏱ 실전 모드 — 60분 타이머, 끝나고 채점", "📖 학습 모드 — 한 문제씩 정답·해설 바로 확인"], null,
+      openSheet(cbtLabel(r), ["⏱ 실전 모드 — 60분 타이머, 끝나고 채점", "📖 학습 모드 — 한 문제씩 정답·해설 바로 확인"], null,
         (v) => startCbt(r.id, v.startsWith("📖")));
     }));
+    $("#cbt-mock").addEventListener("click", () => {
+      openSheet("랜덤 모의고사", ["⏱ 실전 모드 — 60분 타이머, 끝나고 채점", "📖 학습 모드 — 한 문제씩 정답·해설 바로 확인"], null,
+        (v) => startCbt(buildMockRound().id, v.startsWith("📖")));
+    });
+  }
+
+  const cbtLabel = (r) => r.label || `${r.year}년 ${r.round}회`;
+  /* 랜덤 모의고사 — 2014~2016 모든 회차를 섞되, 실제 시험처럼 과목 배분(주류학 30 · 주장관리 20 · 영어 10)을 지켜요.
+     그림이 빠진 문제(x)는 뺍니다. 매번 새로 섞이고, 결과 화면의 "다시 풀기"는 같은 문제로 다시 풀어요. */
+  function buildMockRound() {
+    const rounds = window.CBT_DATA.rounds;
+    const qs = [];
+    CBT_SUBJECTS.forEach(([, a0, b0]) => {
+      const pool = [];
+      rounds.forEach((r) => r.questions.slice(a0, b0).forEach((q, j) => { if (!q.x) pool.push(Object.assign({ src: cbtLabel(r) + " " + (a0 + j + 1) + "번" }, q)); }));
+      qs.push(...shuffle(pool).slice(0, b0 - a0));
+    });
+    const mock = { id: "mock-" + Date.now().toString(36), year: "랜덤", round: "모의고사", label: "랜덤 모의고사", questions: qs, mock: true };
+    window.CBT_DATA.rounds.push(mock);   // startCbt 가 id 로 찾을 수 있게 (다시 풀기용)
+    return mock;
   }
 
   function startCbt(id, study) {
@@ -7488,13 +7514,13 @@
     const subj = cbtSubjectOf(ex.i);
     const pick = ex.picks[ex.i];
     const revealed = ex.study && pick >= 0;   // 학습 모드: 고르는 순간 정답·해설 공개
-    cbtChrome(`${ex.r.year}년 ${ex.r.round}회${ex.study ? " · 학습" : ""}`, true);
+    cbtChrome(`${cbtLabel(ex.r)}${ex.study ? " · 학습" : ""}`, true);
     $("#cbt-timer").hidden = ex.study;
     $("#cbt-spacer").hidden = !ex.study;
     $("#cbt-area").innerHTML = `
       <div class="cbt-progress"><i id="cbt-fill"></i></div>
       <div class="cbt-q">
-        <div class="cbt-subject">${subj + 1}과목 · ${CBT_SUBJECTS[subj][0]}</div>
+        <div class="cbt-subject">${subj + 1}과목 · ${CBT_SUBJECTS[subj][0]}${q.src ? ` · <small>${esc(q.src)}</small>` : ""}</div>
         <h3><span class="cbt-no">${ex.i + 1}.</span> ${esc(q.q)}</h3>
         ${q.p ? `<div class="cbt-passage">${esc(q.p)}</div>` : ""}
         ${q.x ? '<div class="cbt-note">원문에 있던 그림이 빠진 문제예요. 보기만 보고 풀어주세요.</div>' : ""}
@@ -7563,7 +7589,7 @@
     const correct = right.filter(Boolean).length;
     const pass = correct >= CBT_PASS;
     const wrong = qs.map((_, i) => i).filter((i) => !right[i]);
-    cbtChrome(`${ex.r.year}년 ${ex.r.round}회 결과`, false);
+    cbtChrome(`${cbtLabel(ex.r)} 결과`, false);
     $("#cbt-area").innerHTML = `
       <div class="cbt-result ${pass ? "pass" : "fail"}">
         <div class="cbt-badge">${pass ? "합격" : "불합격"}</div>
@@ -7591,11 +7617,14 @@
           }).join("")}
         </div>` : ""}
       <div class="cbt-result-btns">
-        <button class="big-btn accent ready" id="cbt-retry">이 회차 다시 풀기${ex.study ? " (학습)" : ""}</button>
+        <button class="big-btn accent ready" id="cbt-retry">${ex.r.mock ? "같은 문제 다시 풀기" : "이 회차 다시 풀기"}${ex.study ? " (학습)" : ""}</button>
+        ${ex.r.mock ? '<button class="big-btn" id="cbt-remock">🎲 새로 섞어서 모의고사</button>' : ""}
         <button class="big-btn" id="cbt-list">회차 목록</button>
       </div>`;
     $("#cbt-area").scrollTop = 0;
     $("#cbt-retry").addEventListener("click", () => startCbt(ex.r.id, ex.study));
+    const remock = $("#cbt-remock");
+    if (remock) remock.addEventListener("click", () => startCbt(buildMockRound().id, ex.study));
     $("#cbt-list").addEventListener("click", () => { state.cbt = null; renderCbt(); });
   }
 

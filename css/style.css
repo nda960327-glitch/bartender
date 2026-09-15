@@ -1730,6 +1730,16 @@ select.input { appearance: auto; }
 .cbt-intro { padding: 24px 20px 6px; }
 .cbt-intro h2 { font-size: 21px; font-weight: 800; margin-bottom: 6px; }
 .cbt-intro p { font-size: 14.5px; color: var(--text-sub); line-height: 1.65; word-break: keep-all; }
+.cbt-mock {
+  display: flex; align-items: center; gap: 12px; width: calc(100% - 40px); margin: 4px 20px 14px; padding: 14px 16px;
+  border: none; border-radius: 18px; color: #fff; text-align: left; cursor: pointer; font: inherit;
+  background: linear-gradient(135deg, #7c3aed, #1b64da); box-shadow: 0 8px 22px rgba(27, 100, 218, .25);
+}
+.cbt-mock-ic { font-size: 26px; }
+.cbt-mock-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.cbt-mock-body b { font-size: 16px; font-weight: 800; }
+.cbt-mock-body span { font-size: 12.5px; line-height: 1.45; opacity: .92; word-break: keep-all; }
+.cbt-mock .chev-r { color: #fff; opacity: .8; }
 .cbt-rounds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 4px 20px 8px; }
 .cbt-round {
   display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
