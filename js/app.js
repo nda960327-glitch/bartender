@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.45.1";
+  const APP_BUILD = "2.45.2";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -5305,10 +5305,11 @@
         </div>
         <div class="md-desc">${esc(m.desc)}</div>
         ${m.mine || isAdmin() ? `
-        <button class="join-btn" id="meet-edit-btn">✏️ 모임 수정하기</button>` : ""}
-        ${m.mine ? `
-        <button class="join-btn" id="meet-roster">📋 신청자 명단 보기 (${m.joined - 1}명)</button>
-        <button class="join-btn joined" id="meet-delete">모임 삭제하기</button>` : m.date < Date.now() ? `
+        <div class="host-acts">
+          ${m.mine ? `<button class="join-btn" id="meet-roster">📋 신청자 명단 보기 <span class="host-cnt">${m.joined - 1}명</span></button>` : ""}
+          <button class="host-chat-btn" id="meet-edit-btn">✏️ 모임 수정하기</button>
+          ${m.mine ? `<button class="host-del-btn" id="meet-delete">이 모임 삭제하기</button>` : ""}
+        </div>` : m.date < Date.now() ? `
         <button class="join-btn full" disabled>종료된 모임이에요</button>` : `
         <button class="join-btn ${m.isJoined ? "joined" : ""} ${full ? "full" : ""}" id="meet-join">
           ${m.isJoined ? "참여 취소하기" : full ? "모집이 마감되었어요" : "참여하기 🙋"}
