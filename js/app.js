@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.45.0";
+  const APP_BUILD = "2.45.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -218,17 +218,8 @@
     { id: 105, kind: "cocktail", emoji: "🥂", name: "위스키 사워", base: "위스키", abv: 20, ings: "버번 위스키 45ml\n레몬주스 25ml\n설탕시럽 20ml\n달걀 흰자(선택)", recipe: "재료를 셰이커에 넣고 드라이 셰이크 후 얼음과 함께 다시 셰이크. 쿠페 글라스에 스트레인.", note: "흰자 넣으면 폼이 예뻐서 사진용으로도 좋아요.", by: "익명", time: now - 5 * D, reviews: [] },
   ];
 
-  const SEED_MEETS = [
-    { id: 1, region: "서울", title: "강남 위스키 시음 번개 🥃", date: now + 2 * D, place: "강남역 인근 위스키바", max: 6, joined: 4, desc: "이번에 새로 들어온 셰리 캐스크 몰트 같이 시음해요. 바텐더 경력 무관, 술 좋아하면 환영!", host: "익명", hostColor: 8, isJoined: false, comments: [
-      { color: 3, text: "혹시 초보도 괜찮나요?", time: now - 3 * H },
-      { color: 8, text: "네 그럼요! 편하게 오세요", time: now - 2 * H },
-    ] },
-    { id: 2, region: "서울", title: "홍대 칵테일 레시피 스터디", date: now + 5 * D, place: "홍대입구 스터디룸", max: 8, joined: 6, desc: "클래식 칵테일 하나씩 잡고 레시피 연구하는 모임입니다. 이번 주제는 사워 계열!", host: "익명", hostColor: 1, isJoined: false, comments: [] },
-    { id: 3, region: "경기", title: "수원 바텐더 친목 모임 🍻", date: now + 7 * D, place: "수원역 OO포차", max: 10, joined: 9, desc: "수원/동탄 쪽에서 일하는 바텐더들 편하게 만나요. 업계 얘기, 고민 상담 뭐든 좋아요.", host: "익명", hostColor: 5, isJoined: false, comments: [
-      { color: 7, text: "저 동탄이요! 참여합니다", time: now - 5 * H },
-    ] },
-    { id: 4, region: "부산", title: "부산 플레어 연습 모임", date: now + 10 * D, place: "서면 연습실", max: 5, joined: 2, desc: "플레어 바텐딩 같이 연습해요. 기물은 각자 지참, 초보 환영입니다.", host: "익명", hostColor: 4, isJoined: false, comments: [] },
-  ];
+  /* 예시 모임도 넣지 않아요. 진짜 모임만 보입니다. */
+  const SEED_MEETS = [];
 
   /* 예시 글은 더 이상 넣지 않아요. 커뮤니티는 진짜 글로만 채워집니다. */
   const SEED_POSTS = [];
@@ -761,20 +752,6 @@
     CT(845, "🍻", "소맥", "기타", 8, "소주 50ml\n맥주 150ml", "맥주잔에 소주를 먼저, 맥주를 부어 자연 믹싱. 수저 타격은 취향.", "대한민국 국민 폭탄주. 황금비율 3:7 논쟁은 여전히 진행 중.")
   );
 
-  SEED_MEETS.push(
-    { id: 501, region: "서울", title: "이태원 바 호핑 투어 🍸", date: now + 3 * D, place: "이태원역 2번 출구 집결", max: 8, joined: 5, desc: "이태원 유명 바 3곳을 도는 호핑 투어. 각자 한 잔씩, 좋은 바 공유해요.", host: "익명", hostColor: 0, isJoined: false, comments: [
-      { color: 2, text: "코스 미리 알 수 있을까요?", time: now - 6 * H },
-      { color: 0, text: "집결 후 공개할게요! 기대하셔도 좋아요", time: now - 5 * H },
-    ] },
-    { id: 502, region: "서울", title: "성수 내추럴와인 시음회 🍷", date: now + 6 * D, place: "성수동 와인샵 세미나룸", max: 10, joined: 7, desc: "내추럴와인 5종 블라인드 시음. 와인바 근무자 환영, 시음비 각자 부담입니다.", host: "익명", hostColor: 6, isJoined: false, comments: [] },
-    { id: 503, region: "인천", title: "조주기능사 실기 스터디 📚", date: now + 4 * D, place: "부평 스터디카페", max: 6, joined: 3, desc: "9월 실기 대비 레시피 암기 + 시연 연습. 기물 있으신 분 환영!", host: "익명", hostColor: 3, isJoined: false, comments: [
-      { color: 9, text: "필기만 붙은 상태인데 가도 되나요?", time: now - 8 * H },
-    ] },
-    { id: 504, region: "대구", title: "대구 바텐더 정기모임 🍻", date: now + 9 * D, place: "동성로 OO펍", max: 12, joined: 8, desc: "대구·경산 바텐더 분기 정모입니다. 신입 환영, 명함 챙겨오세요!", host: "익명", hostColor: 1, isJoined: false, comments: [] },
-    { id: 505, region: "광주", title: "광주 칵테일 원데이 클래스", date: now + 12 * D, place: "동명동 카페 2층", max: 6, joined: 2, desc: "사워 3종 만들어보는 원데이 클래스. 재료비 포함, 초보 환영.", host: "익명", hostColor: 7, isJoined: false, comments: [] },
-    { id: 506, region: "대전", title: "대전 홈텐딩 모임 🏠", date: now + 8 * D, place: "둔산동 파티룸", max: 8, joined: 4, desc: "각자 자신있는 칵테일 한 잔씩 만들어서 나눠 마셔요. 재료는 공동 구매!", host: "익명", hostColor: 5, isJoined: false, comments: [] }
-  );
-
   /* 술도감 예시 리뷰 붙이기 (js/seed-reviews.js).
      앱을 처음 열었을 때 리뷰가 하나도 없으면 죽은 앱처럼 보여요.
      이미 리뷰가 있는 항목은 건드리지 않고, 서버에서 온 진짜 리뷰가
@@ -812,8 +789,7 @@
   if (window.BARTALK_SEED) {
     const S = window.BARTALK_SEED;
     // 예시 글(S.posts)은 더 이상 쓰지 않아요 — 모임만 가져옵니다.
-    SEED_MEETS.length = 0;
-    S.meets.forEach((m) => SEED_MEETS.push(Object.assign({ seed: true }, m)));
+    // 예시 모임(S.meets)도 더 이상 쓰지 않아요.
   }
 
   let state = {
@@ -985,13 +961,17 @@
   /* 11 = 예시 홍보글(강남루프탑바·조주학원·바용품샵·미나언니·몰트하우스·바텐더마켓·
    *      칵테일챔피언십·루프탑바 문라이트·믹스랩·바용품상회·포도상점)을 걷어냅니다.
    *      가짜 업체 홍보가 진짜처럼 보이면 안 되니까요. */
-  const SEED_V = 12;   // 12 = 예시 글을 전부 걷어냅니다 (커뮤니티는 진짜 글만)
+  const SEED_V = 13;   // 12 = 예시 글 제거, 13 = 예시 모임 제거 (커뮤니티·모임은 진짜만)
   /* 예전 판에서 서버에까지 올라갔을 수 있는 예시 홍보글 번호.
      서버 사본(remote)은 dropOldSeed 가 건드리지 않으니 여기서 따로 지웁니다. */
   const PURGED_PROMO_IDS = [];
   for (let i = 1; i <= 12; i++) PURGED_PROMO_IDS.push(i);
   for (let i = 501; i <= 512; i++) PURGED_PROMO_IDS.push(i);
   for (let i = 1001; i <= 1030; i++) PURGED_PROMO_IDS.push(i);
+  const PURGED_MEET_IDS = [];
+  for (let i = 1; i <= 4; i++) PURGED_MEET_IDS.push(i);
+  for (let i = 501; i <= 506; i++) PURGED_MEET_IDS.push(i);
+  for (let i = 2001; i <= 2020; i++) PURGED_MEET_IDS.push(i);
   if (store.get("seedv", 1) < SEED_V) {
     const mergeSeed = (arr, seed) => {
       const ids = new Set(arr.map((x) => x.id));
@@ -11531,12 +11511,15 @@
   /* 예전 판의 "예시 글 서버에 올리기"로 올라간 가짜 홍보글을 서버에서도 지웁니다.
      삭제는 작성자(author_id)가 나일 때만 먹히니, 남의 글은 건드리지 못해요. */
   function purgeSeedPromoOnServer() {
-    if (store.get("promoPurgeV", 0) >= 2) return;
+    if (store.get("promoPurgeV", 0) >= 3) return;
     PURGED_PROMO_IDS.forEach((id) => Sync.deletePost(id));
-    const before = state.posts.length;
+    PURGED_MEET_IDS.forEach((id) => Sync.deleteMeet(id));
+    const before = state.posts.length, beforeM = state.meets.length;
     state.posts = state.posts.filter((p) => !PURGED_PROMO_IDS.includes(p.id));
+    state.meets = state.meets.filter((m) => !PURGED_MEET_IDS.includes(m.id));
     if (state.posts.length !== before) savePosts();
-    store.set("promoPurgeV", 2);
+    if (state.meets.length !== beforeM) saveMeets();
+    store.set("promoPurgeV", 3);
   }
 
   /* ---------- 로그인 화면 ---------- */
