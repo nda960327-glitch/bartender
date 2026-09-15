@@ -480,6 +480,11 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
   margin-top: 10px;
 }
 
+.pass-warn { margin: 12px 16px 0; padding: 14px 16px; background: #fff4d6; border: 1px solid #f2d48a; }
+.pass-warn b { display: block; font-size: 14px; color: #a16207; margin-bottom: 4px; }
+.pass-warn p { font-size: 13px; line-height: 1.55; color: var(--text); word-break: keep-all; }
+.pass-warn code { font-family: ui-monospace, monospace; font-size: 12px; background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 4px; }
+
 /* 모임 상세 · 주최자 메뉴: 명단(주황) → 수정(테두리) → 삭제(작은 글자) 순으로 무게를 둡니다 */
 .host-acts { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
 .host-acts .host-chat-btn { margin-top: 0; }

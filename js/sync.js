@@ -2041,7 +2041,8 @@
     async passJoinTeam(code, member) {
       // 새 서버는 이름·번호까지 받고, pass-member.sql 을 아직 안 넣은 서버는 예전 함수로.
       var r = await callRpc("pass_join_team", { p_code: code, p_name: (member && member.name) || "", p_phone: (member && member.phone) || "" });
-      if (!r.ok && /pass_join_team|p_name|schema cache/.test(r.error || "")) r = await callRpc("pass_join_team", { p_code: code });
+      // 3-인자 함수가 없는 서버는 "not-installed" 로 번역돼 돌아와요. 그러면 옛 1-인자 함수로 한 번 더.
+      if (!r.ok && (r.error === "not-installed" || /pass_join_team|p_name|schema cache/.test(r.error || ""))) r = await callRpc("pass_join_team", { p_code: code });
       return r;
     },
     passCancel(id)                  { return callRpc("pass_cancel_mine", { p_pass: id }); },
@@ -2080,15 +2081,18 @@
           sb.from("pass_plans").select("*").eq("bar_key", barKey).order("sort").order("id"),
           sb.from("passes").select("*").eq("bar_key", barKey)
             .in("status", ["requested", "active", "grace"]).order("status").order("id", { ascending: false }).limit(500),
+          // 회원 이름·번호 칸(pass-member.sql)이 서버에 있는지. 없으면 운영자 화면에 안내를 띄워요.
+          sb.from("passes").select("member_phone").eq("bar_key", barKey).limit(1),
         ]);
         if (r[0].error) return { ok: false, error: notInstalled(r[0].error) };
+        var memberCols = !r[3].error;
         var ids = (r[2].data || []).map(function (p) { return p.user_id; });
         var nicks = {};
         if (ids.length) {
           var pr = await sb.from("profiles").select("id,nick,color").in("id", ids);
           (pr.data || []).forEach(function (x) { nicks[x.id] = x; });
         }
-        return { ok: true, settings: r[0].data, plans: r[1].data || [], passes: r[2].data || [], profiles: nicks };
+        return { ok: true, settings: r[0].data, plans: r[1].data || [], passes: r[2].data || [], profiles: nicks, memberCols: memberCols };
       } catch (e) { return { ok: false, error: (e && e.message) || "불러오지 못했어요." }; }
     },
     async passSaveSettings(row) {

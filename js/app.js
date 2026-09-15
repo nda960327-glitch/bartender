@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.47.2";
+  const APP_BUILD = "2.47.4";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8546,7 +8546,13 @@
     };
     const pending = d.passes.filter((p) => p.status === "requested");
     const live = d.passes.filter(passActive).sort((x, y) => String(x.ends_at).localeCompare(String(y.ends_at)));
-    area.innerHTML = `
+    // 서버에 이름·번호 칸이 없으면 손님이 보내도 저장이 안 돼요. 운영자가 바로 알 수 있게.
+    const colWarn = d.memberCols === false ? `
+      <div class="card pass-warn">
+        <b>⚠️ 회원 이름·전화번호가 서버에 저장되지 않고 있어요</b>
+        <p>Supabase → SQL Editor 에서 <code>supabase/pass-member.sql</code> 을 실행해주세요. 그다음부터 들어오는 신청에 이름·번호가 붙어요.${pending.length || live.length ? " 이미 들어온 신청은 손님이 취소 후 다시 신청하거나, 계산할 때 직접 확인해주세요." : ""}</p>
+      </div>` : "";
+    area.innerHTML = colWarn + `
       ${pending.length ? `
       <div class="comment-sec-title">신청 ${pending.length}건 — 결제 확인 후 승인</div>
       <div class="card">
@@ -8567,7 +8573,7 @@
             <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
           </button>`).join("") : '<p class="pass-note" style="padding:8px 0">아직 회원이 없어요. 계산할 때 "월 39,000원이면 매일 되는데요"부터 시작해요.</p>'}
       </div>
-      <button class="host-chat-btn" id="pm-reload" style="margin:12px 16px">새로고침</button>
+      <button class="host-chat-btn" id="pm-reload" style="margin:12px 16px;width:calc(100% - 32px)">새로고침</button>
       <div style="height:16px"></div>`;
     $("#pm-reload").addEventListener("click", passAdminReload);
     $$("#pass-admin-area [data-approve]").forEach((b) => b.addEventListener("click", () => approvePass(+b.dataset.approve)));
