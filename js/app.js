@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.50.2";
+  const APP_BUILD = "2.50.3";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8969,6 +8969,8 @@
           </button>`).join("")}
         <button class="host-chat-btn" id="pa-add" style="margin-top:${d.plans.length ? 10 : 0}px">+ 상품 추가</button>
         <button class="host-chat-btn" id="pa-preset" style="margin-top:8px">🏁 운영안 상품 7종 채우기 <small style="font-weight:600;color:var(--text-sub)">(있는 건 건너뜀)</small></button>
+        ${d.plans.some((p) => { const r = PASS_PRESET_PLANS.find((x) => x.name.replace(/s+/g, "") === String(p.name || "").replace(/s+/g, "")); return r && r.price !== p.price; })
+          ? `<button class="host-chat-btn" id="pa-reprice" style="margin-top:8px">💱 운영안 가격으로 맞추기 <small style="font-weight:600;color:var(--text-sub)">(이름이 같은 상품만)</small></button>` : ""}
       </div>
       <p class="pass-note" style="margin:10px 20px 24px">"무제한"이라는 말은 쓰지 마세요 — 잔수와 상한으로 적습니다. 원가 3,000원 넘는 메뉴는 1잔 풀에 넣지 않는 게 원칙이에요.</p>`;
     $("#pa-enabled").addEventListener("click", async () => {
@@ -9001,6 +9003,22 @@
         n++;
       }
       if (n) toast(`상품 ${n}개를 넣었어요. 🎫`);
+      passAdminReload();
+    });
+    // 이미 만든 상품의 가격을 운영안 최신 가격으로 (이름이 같은 것만, 잔수·요일은 안 건드려요)
+    const reprice = $("#pa-reprice");
+    if (reprice) reprice.addEventListener("click", async () => {
+      const todo = d.plans.map((p) => ({ p, r: PASS_PRESET_PLANS.find((x) => x.name.replace(/s+/g, "") === String(p.name || "").replace(/s+/g, "")) }))
+        .filter(({ p, r }) => r && r.price !== p.price);
+      if (!todo.length) { toast("가격이 이미 다 맞아요."); return; }
+      if (!await btConfirm(`가격을 바꿀까요?\n\n${todo.map(({ p, r }) => `· ${p.name}: ${passWon(p.price)} → ${passWon(r.price)}`).join("\n")}\n\n이미 쓰는 중인 회원의 패스 가격은 그대로예요. 다음 신청부터 새 가격이 적용돼요.`, { yes: "바꾸기" })) return;
+      let n = 0;
+      for (const { p, r } of todo) {
+        const rr = await Sync.passSavePlan({ id: p.id, price: r.price, note: r.note });
+        if (!rr.ok) { passFail(rr); break; }
+        n++;
+      }
+      if (n) toast(`상품 ${n}개 가격을 맞췄어요.`);
       passAdminReload();
     });
   }
