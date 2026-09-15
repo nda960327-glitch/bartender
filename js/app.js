@@ -7084,25 +7084,29 @@
     $("#cbt-area").innerHTML = `
       <div class="cbt-intro">
         <h2>조주기능사 필기 기출</h2>
-        <p>실제 시험처럼 60문항 · 60분 · 36문항(60점) 이상 합격.<br>회차를 골라 시작하세요.</p>
+        <p>회차를 고르면 두 가지 중 선택해요.<br><b>실전</b>: 60문항 · 60분 · 끝나고 채점 · <b>학습</b>: 한 문제씩 정답과 해설 확인.</p>
       </div>
       ${years.map((y) => `
         <div class="comment-sec-title">${y}년</div>
         <div class="cbt-rounds">
           ${rounds.filter((r) => r.year === y).map((r) => `
-            <button class="cbt-round pressable" data-id="${r.id}"><b>${r.round}회</b><span>60문항 · 60분</span></button>`).join("")}
+            <button class="cbt-round pressable" data-id="${r.id}"><b>${r.round}회</b><span>60문항</span></button>`).join("")}
         </div>`).join("")}
-      <p class="cbt-source">출처: 문제풀이닷컴 · 기출문제의 저작권은 출제기관(한국산업인력공단)에 있어요. 출제 당시 기준이라 지금의 법규·정답과 다를 수 있어요.</p>`;
-    $$("#cbt-area .cbt-round").forEach((b) => b.addEventListener("click", () => startCbt(b.dataset.id)));
+      <p class="cbt-source">출처: 문제풀이닷컴 · 기출문제의 저작권은 출제기관(한국산업인력공단)에 있어요. 출제 당시 기준이라 지금의 법규·정답과 다를 수 있어요. 해설은 AI가 작성해 틀린 곳이 있을 수 있어요.</p>`;
+    $$("#cbt-area .cbt-round").forEach((b) => b.addEventListener("click", () => {
+      const r = rounds.find((x) => x.id === b.dataset.id);
+      openSheet(`${r.year}년 ${r.round}회`, ["⏱ 실전 모드 — 60분 타이머, 끝나고 채점", "📖 학습 모드 — 한 문제씩 정답·해설 바로 확인"], null,
+        (v) => startCbt(r.id, v.startsWith("📖")));
+    }));
   }
 
-  function startCbt(id) {
+  function startCbt(id, study) {
     const r = window.CBT_DATA.rounds.find((x) => x.id === id);
     if (!r) return;
     const now = Date.now();
-    state.cbt = { r, i: 0, picks: r.questions.map(() => -1), startedAt: now, endsAt: now + CBT_MINUTES * 60000, done: false };
+    state.cbt = { r, i: 0, picks: r.questions.map(() => -1), startedAt: now, endsAt: study ? null : now + CBT_MINUTES * 60000, done: false, study: !!study };
     renderCbtQ();
-    tickCbt();
+    if (!study) tickCbt();
   }
 
   function tickCbt() {
@@ -7134,7 +7138,11 @@
     const ex = state.cbt;
     const q = ex.r.questions[ex.i];
     const subj = cbtSubjectOf(ex.i);
-    cbtChrome(`${ex.r.year}년 ${ex.r.round}회`, true);
+    const pick = ex.picks[ex.i];
+    const revealed = ex.study && pick >= 0;   // 학습 모드: 고르는 순간 정답·해설 공개
+    cbtChrome(`${ex.r.year}년 ${ex.r.round}회${ex.study ? " · 학습" : ""}`, true);
+    $("#cbt-timer").hidden = ex.study;
+    $("#cbt-spacer").hidden = !ex.study;
     $("#cbt-area").innerHTML = `
       <div class="cbt-progress"><i id="cbt-fill"></i></div>
       <div class="cbt-q">
@@ -7143,21 +7151,28 @@
         ${q.p ? `<div class="cbt-passage">${esc(q.p)}</div>` : ""}
         ${q.x ? '<div class="cbt-note">원문에 있던 그림이 빠진 문제예요. 보기만 보고 풀어주세요.</div>' : ""}
         ${q.o.map((o, k) => `
-          <button class="cbt-opt${ex.picks[ex.i] === k ? " picked" : ""}" data-k="${k}">
+          <button class="cbt-opt${pick === k ? " picked" : ""}${revealed ? (k === q.a ? " correct" : pick === k ? " wrong" : " dim") : ""}" data-k="${k}"${revealed ? " disabled" : ""}>
             <span class="cbt-mark">${CBT_MARKS[k]}</span><span>${esc(o)}</span>
           </button>`).join("")}
+        ${revealed ? `
+          <div class="cbt-explain ${pick === q.a ? "ok" : "no"}">
+            <b>${pick === q.a ? "정답이에요! 🎉" : `틀렸어요 · 정답 ${CBT_MARKS[q.a]}`}</b>
+            <p>${esc(q.e || "해설이 아직 없어요.")}</p>
+          </div>` : ""}
       </div>`;
     $("#cbt-area").scrollTop = 0;
     $$("#cbt-area .cbt-opt").forEach((b) => b.addEventListener("click", () => {
+      if (ex.study && ex.picks[ex.i] >= 0) return;
       ex.picks[ex.i] = +b.dataset.k;
+      if (ex.study) { sfx(+b.dataset.k === q.a ? "success" : "error"); renderCbtQ(); return; }
       $$("#cbt-area .cbt-opt").forEach((x) => x.classList.toggle("picked", x === b));
       paintCbtStatus();
     }));
     const last = ex.picks.length - 1;
     $("#cbt-bar").innerHTML = `
       <button class="cbt-nav" id="cbt-prev"${ex.i === 0 ? " disabled" : ""}>이전</button>
-      <button class="cbt-submit" id="cbt-submit">답안 제출 <small id="cbt-count"></small></button>
-      <button class="cbt-nav" id="cbt-next"${ex.i === last ? " disabled" : ""}>다음</button>`;
+      <button class="cbt-submit${ex.study ? " study" : ""}" id="cbt-submit">${ex.study ? "결과 보기" : "답안 제출"} <small id="cbt-count"></small></button>
+      <button class="cbt-nav${revealed && ex.i < last ? " go" : ""}" id="cbt-next"${ex.i === last ? " disabled" : ""}>다음</button>`;
     $("#cbt-prev").addEventListener("click", () => { if (ex.i > 0) { ex.i--; renderCbtQ(); } });
     $("#cbt-next").addEventListener("click", () => { if (ex.i < last) { ex.i++; renderCbtQ(); } });
     $("#cbt-submit").addEventListener("click", confirmSubmitCbt);
@@ -7167,14 +7182,14 @@
   async function confirmSubmitCbt() {
     const ex = state.cbt;
     const blank = ex.picks.filter((p) => p < 0).length;
-    const ok = await btConfirm(blank ? `아직 안 푼 문제가 ${blank}개 있어요.\n그래도 제출할까요?` : "답안을 제출할까요?");
+    const ok = await btConfirm(blank ? `아직 안 푼 문제가 ${blank}개 있어요.\n그래도 ${ex.study ? "결과를 볼까요" : "제출할까요"}?` : (ex.study ? "결과를 볼까요?" : "답안을 제출할까요?"));
     if (ok && state.cbt === ex && !ex.done) submitCbt();
   }
 
   function submitCbt() {
     const ex = state.cbt;
     ex.done = true;
-    ex.usedMs = Math.min(Date.now(), ex.endsAt) - ex.startedAt;
+    ex.usedMs = Math.min(Date.now(), ex.endsAt || Date.now()) - ex.startedAt;
     clearInterval(cbtTimer);
     if (state.view === "cbt") renderCbtResult();
   }
@@ -7184,7 +7199,7 @@
     const ex = state.cbt;
     if (!ex) return false;
     if (ex.done) { state.cbt = null; renderCbt(); return true; }
-    btConfirm("시험을 그만둘까요?\n지금까지 고른 답은 사라져요.").then((ok) => {
+    btConfirm(ex.study ? "학습을 그만둘까요?\n지금까지 푼 기록은 사라져요." : "시험을 그만둘까요?\n지금까지 고른 답은 사라져요.").then((ok) => {
       if (!ok || state.cbt !== ex || ex.done) return;
       clearInterval(cbtTimer);
       state.cbt = null;
@@ -7223,15 +7238,16 @@
               ${q.p ? `<div class="cbt-passage">${esc(q.p)}</div>` : ""}
               <div class="cbt-ans mine">${p >= 0 ? `내 답 ${CBT_MARKS[p]} ${esc(q.o[p])}` : "안 푼 문제"}</div>
               <div class="cbt-ans right">정답 ${CBT_MARKS[q.a]} ${esc(q.o[q.a])}</div>
+              ${q.e ? `<p class="cbt-why">${esc(q.e)}</p>` : ""}
             </div>`;
           }).join("")}
         </div>` : ""}
       <div class="cbt-result-btns">
-        <button class="big-btn accent ready" id="cbt-retry">이 회차 다시 풀기</button>
+        <button class="big-btn accent ready" id="cbt-retry">이 회차 다시 풀기${ex.study ? " (학습)" : ""}</button>
         <button class="big-btn" id="cbt-list">회차 목록</button>
       </div>`;
     $("#cbt-area").scrollTop = 0;
-    $("#cbt-retry").addEventListener("click", () => startCbt(ex.r.id));
+    $("#cbt-retry").addEventListener("click", () => startCbt(ex.r.id, ex.study));
     $("#cbt-list").addEventListener("click", () => { state.cbt = null; renderCbt(); });
   }
 
