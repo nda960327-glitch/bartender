@@ -26,8 +26,39 @@
     "linear-gradient(135deg,#f0c9a4 0%,#bd7c3c 38%,#f7dcc0 52%,#8a5223 100%)",  // 12 동
   ];
   const METAL_FROM = 10;                          // 여기부터가 금속색
-  const USER_COLORS = COLORS.slice(0, METAL_FROM); // 사용자가 고를 수 있는 색
-  const isMetal = (c) => +c >= METAL_FROM;
+  const USER_COLORS = COLORS.slice(0, METAL_FROM); // 예전 사용자가 골랐던 색 (지금은 역할 팔레트를 씁니다)
+  /* 역할별 색 (13~28). 가입할 때 "어떤 분이세요?"를 고르면 그 계열 안에서만 색을 골라요.
+   * 글·댓글의 물방울 색만 보고도 사장님인지 바텐더인지 알 수 있게 — 익명은 그대로.
+   * 번호는 서버 profiles.color / posts.color 에 그대로 들어가므로 절대 바꾸지 마세요. */
+  const ROLE_FROM = 13;
+  const ROLES = {
+    owner:   { label: "바·펍 사장님", short: "사장님", emoji: "🏪", hint: "가게를 운영해요",
+               colors: ["#d93025", "#ff5c5c", "#b3261e", "#ff8a80"] },
+    staff:   { label: "바텐더·직원", short: "바텐더", emoji: "🍸", hint: "바에서 일해요",
+               colors: ["#1b64da", "#4a8cff", "#0d47a1", "#7fb3ff"] },
+    guest:   { label: "일반인·손님", short: "손님", emoji: "🥂", hint: "술과 바를 좋아해요",
+               colors: ["#2e9e5b", "#4ccf7a", "#1b6b3a", "#8fd9a8"] },
+    student: { label: "학생·준비생", short: "학생", emoji: "🎓", hint: "자격증·취업 준비 중",
+               colors: ["#f5b400", "#ffcb52", "#d99a00", "#ffe08a"] },
+  };
+  const ROLE_KEYS = ["owner", "staff", "guest", "student"];
+  ROLE_KEYS.forEach((k, ri) => {
+    ROLES[k].from = ROLE_FROM + ri * 4;
+    ROLES[k].colors.forEach((hex) => COLORS.push(hex));
+  });
+  const roleOfColor = (col) => {
+    const i = +col;
+    if (!(i >= ROLE_FROM)) return null;
+    return ROLE_KEYS[Math.floor((i - ROLE_FROM) / 4)] || null;
+  };
+  // 그 역할이 고를 수 있는 색 번호들
+  const roleColorIdx = (role) => ROLES[role] ? ROLES[role].colors.map((_, j) => ROLES[role].from + j) : USER_COLORS.map((_, j) => j);
+  const isMetal = (c) => +c >= METAL_FROM && +c < ROLE_FROM;
+  // 물방울 옆에 붙는 작은 역할 꼬리표. 역할을 안 정한 옛 계정은 아무것도 안 붙어요.
+  const roleTagHTML = (col) => {
+    const r = roleOfColor(col);
+    return r ? `<span class="role-tag ${r}">${ROLES[r].short}</span>` : "";
+  };
   // 금속색이면 테두리와 광택을 더해 한눈에 구분되게 합니다.
   // 내 색이 바뀌면 내 글·댓글도 그 자리에서 따라 바뀌게 합니다.
   function noteMyColor() {
@@ -75,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.43.0";
+  const APP_BUILD = "2.44.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -886,7 +917,7 @@
     dark: store.get("dark", !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)),
     push: store.get("push", true),
     view: "home",
-    commTab: "all",
+    commTab: "free",
     /* 학원·대회 (한 화면을 종류만 바꿔 씁니다) */
     listKind: "academy",   // academy | contest
     listRegion: "전체",
@@ -935,6 +966,7 @@
     editPost: null,
     reviewStars: 5,
     obColor: 2,
+    obRole: null,
     selColor: null,
     agreeWithdraw: false,
     docFrom: "mypage",
@@ -1684,14 +1716,32 @@
   }
 
   /* ---------- 온보딩 ---------- */
+  // 역할 고르기 칸 (온보딩·설정 공용)
+  function roleGridHTML(sel) {
+    return ROLE_KEYS.map((k) => `
+      <button class="role-opt ${k}${sel === k ? " selected" : ""}" data-role="${k}">
+        <span class="role-ic">${ROLES[k].emoji}</span>
+        <b>${ROLES[k].label}</b><small>${ROLES[k].hint}</small>
+      </button>`).join("");
+  }
+  function colorDotsHTML(role, sel) {
+    return roleColorIdx(role).map((i) =>
+      `<button class="color-dot ${i === sel ? "selected" : ""}" style="background:${COLORS[i]}" data-i="${i}" aria-label="색상"></button>`).join("");
+  }
   function renderOnboard() {
-    $("#ob-colors").innerHTML = USER_COLORS.map((c, i) =>
-      `<button class="color-dot ${i === state.obColor ? "selected" : ""}" style="background:${c}" data-i="${i}" aria-label="색상 ${i + 1}"></button>`).join("");
+    $("#ob-roles").innerHTML = roleGridHTML(state.obRole);
+    $$("#ob-roles .role-opt").forEach((b) => b.addEventListener("click", () => {
+      state.obRole = b.dataset.role;
+      if (roleOfColor(state.obColor) !== state.obRole) state.obColor = ROLES[state.obRole].from;
+      renderOnboard();
+    }));
+    $("#ob-color-hint").hidden = !!state.obRole;
+    $("#ob-colors").innerHTML = state.obRole ? colorDotsHTML(state.obRole, state.obColor) : "";
     $$("#ob-colors .color-dot").forEach((d) =>
       d.addEventListener("click", () => { state.obColor = +d.dataset.i; renderOnboard(); }));
     $("#ob-adult").classList.toggle("on", !!state.obAdult);
     renderRefMsg("#ob-ref", "#ob-ref-msg");
-    const ok = $("#ob-nick").value.trim().length >= 1 && !!state.obAdult;
+    const ok = $("#ob-nick").value.trim().length >= 1 && !!state.obAdult && !!state.obRole;
     $("#ob-start").disabled = !ok;
     $("#ob-start").classList.toggle("ready", ok);
   }
@@ -1756,6 +1806,7 @@
     if (!nick) return;
     const first = !state.user.nick;
     state.user.nick = nick;
+    state.user.role = state.obRole;
     state.user.color = state.obColor;
     state.user.onboarded = true;
     // 서버가 "맞는 코드"라고 확인해준 것만 저장합니다.
@@ -2106,6 +2157,7 @@
       const no = nums && nums.get(speakerKey(who));
       name = esc(ANON_NAME) + (no || "");
     }
+    if (!who.official) { const rt = roleTagHTML(colorOf(who)); if (rt) tags.unshift(rt); }
     if (who.mine) tags.push('<span class="me-tag">나</span>');
     return name + (tags.length ? " " + tags.join(" ") : "");
   };
@@ -4485,6 +4537,7 @@
     const top = [...state.spirits]
       .sort((a, b) => (b.reviews.length * 10 + avgStars(b)) - (a.reviews.length * 10 + avgStars(a)))
       .slice(0, 6);
+    if (!$("#home-spirits")) return;   // 홈에서 뺐어요 (2.44)
     $("#home-spirits").innerHTML = top.map((sp) => `
       <div class="spirit-card pressable" data-id="${sp.id}">
         <span class="sc-emoji">${thumbHTML(sp)}</span>
@@ -5666,17 +5719,23 @@
     let list = state.posts.filter((p) => !hidden.includes(p.id) && !isBlockedPost(p));
     if (state.previewUser) list = list.filter((p) => p.remote);
     if (state.commTab === "hot") list = list.filter((p) => p.cat === "hot" || p.likes + p.comments.length >= 10);
+    // 사장님·바텐더 탭: 글쓴이의 역할(물방울 색 계열)로 갈라요. 홍보글은 홍보 탭에만.
+    else if (state.commTab === "owner" || state.commTab === "staff") list = list.filter((p) => p.cat !== "promo" && roleOfColor(colorOf(p)) === state.commTab);
+    else if (state.commTab === "free") list = list.filter((p) => p.cat !== "promo");
     else if (state.commTab !== "all") list = list.filter((p) => p.cat === state.commTab);
     if (q) list = list.filter((p) => has(p.title, q) || has(p.body, q));
     const isBoost = (x) => x.boostUntil && x.boostUntil > Date.now() ? 1 : 0;
     list.sort((a, b) => isBoost(b) - isBoost(a) || b.time - a.time);
 
-    const ph = { all: "커뮤니티 전체 검색", hot: "커뮤니티 인기 검색", free: "커뮤니티 자유 검색", promo: "커뮤니티 홍보 검색" };
-    $("#post-search").placeholder = ph[state.commTab];
+    const ph = { all: "커뮤니티 전체 검색", hot: "커뮤니티 인기 검색", free: "커뮤니티 자유 검색", promo: "커뮤니티 홍보 검색", owner: "사장님 이야기 검색", staff: "바텐더 이야기 검색" };
+    $("#post-search").placeholder = ph[state.commTab] || "커뮤니티 검색";
 
+    const emptyMsg = state.commTab === "owner" ? "아직 사장님이 쓴 글이 없어요.<br>사장님 계정으로 첫 글을 남겨보세요."
+      : state.commTab === "staff" ? "아직 바텐더가 쓴 글이 없어요.<br>바텐더 계정으로 첫 글을 남겨보세요."
+      : "게시글이 없어요.";
     $("#post-list").innerHTML = previewBarHTML() + (list.length
       ? list.map(postItemHTML).join("")
-      : '<div class="empty-state">게시글이 없어요.</div>');
+      : `<div class="empty-state">${emptyMsg}</div>`);
     bindPreviewBar($("#post-list"));
     $$("#post-list .post-item").forEach((el) =>
       el.addEventListener("click", () => openPost(+el.dataset.id)));
@@ -5806,7 +5865,7 @@
       <div class="post-item" data-id="${p.id}">
         <div class="post-main">
           <div class="post-head">
-            ${avatarHTML(colorOf(p))}
+            ${avatarHTML(colorOf(p))}${p.official || p.cat === "promo" ? "" : roleTagHTML(colorOf(p))}
             ${p.boostUntil && p.boostUntil > Date.now() ? '<span class="boost-tag">📌 AD</span>' : ""}
             ${posterName(p) ? `<span class="post-nick${p.official ? " official" : ""}">${posterName(p)}</span>` : ""}${officialTag(p)}
             <span class="post-time">${posterName(p) ? "· " : ""}${fmtTime(p.time)}</span>
@@ -5895,7 +5954,7 @@
       <div class="detail-wrap">
         <div class="detail-head">
           ${avatarHTML(colorOf(p), "md")}
-          <div><div class="detail-nick">${p.official ? `<span class="official">${esc(p.nick)}</span>` : p.cat === "promo" ? `<span class="biz-link" id="biz-link">${esc(p.nick)}</span>` : `<span class="op-name">글쓴이</span>`}${officialTag(p)}${p.cat === "promo" ? ` <span class="biz-tag">📢 ${esc(p.biz || "비즈니스")}</span>` : ""}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""} · 조회 ${p.views || 0}</div></div>
+          <div><div class="detail-nick">${p.official ? `<span class="official">${esc(p.nick)}</span>` : p.cat === "promo" ? `<span class="biz-link" id="biz-link">${esc(p.nick)}</span>` : `<span class="op-name">글쓴이</span>${roleTagHTML(colorOf(p))}`}${officialTag(p)}${p.cat === "promo" ? ` <span class="biz-tag">📢 ${esc(p.biz || "비즈니스")}</span>` : ""}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""} · 조회 ${p.views || 0}</div></div>
           <span class="cat-tag detail-cat">${CAT_LABEL[p.cat] || "자유"}</span>
         </div>
         <div class="detail-title">${esc(p.title)}</div>
@@ -6204,7 +6263,7 @@
     setPendingImg(null);
     $("#write-file").value = "";
     updateSubmit();
-    state.commTab = state.writeCat;
+    state.commTab = state.writeCat === "promo" ? "promo" : "free";
     $$("#community-tabs .tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === state.commTab));
     show("community");
     addPoints(30, "게시글 작성");
@@ -6507,6 +6566,7 @@
   function renderSettings() {
     renderPushRow();
     state.selColor = state.user.color;
+    state.selRole = undefined;
     state.agreeWithdraw = false;
     $("#withdraw-agree").classList.remove("on");
     $("#btn-withdraw").disabled = true;
@@ -6559,18 +6619,25 @@
     $("#btn-biz-save").classList.toggle("ready", ok);
   }
   function renderColorGrid() {
-    $("#color-grid").innerHTML = USER_COLORS.map((c, i) =>
-      `<button class="color-dot ${i === state.selColor ? "selected" : ""}" style="background:${c}" data-i="${i}" aria-label="색상 ${i + 1}"></button>`
-    ).join("");
+    if (state.selRole === undefined) state.selRole = state.user.role || roleOfColor(state.user.color) || null;
+    $("#role-grid").innerHTML = roleGridHTML(state.selRole);
+    $$("#role-grid .role-opt").forEach((b) => b.addEventListener("click", () => {
+      state.selRole = b.dataset.role;
+      if (roleOfColor(state.selColor) !== state.selRole) state.selColor = ROLES[state.selRole].from;
+      renderColorGrid();
+    }));
+    const dots = state.selRole ? colorDotsHTML(state.selRole, state.selColor)
+      : USER_COLORS.map((col, i) => `<button class="color-dot ${i === state.selColor ? "selected" : ""}" style="background:${col}" data-i="${i}" aria-label="색상"></button>`).join("");
+    $("#color-grid").innerHTML = dots;
     $$("#color-grid .color-dot").forEach((d) =>
       d.addEventListener("click", () => {
         state.selColor = +d.dataset.i;
         renderColorGrid();
-        const changed = state.selColor !== state.user.color;
-        $("#btn-profile-save").disabled = !changed;
-        $("#btn-profile-save").classList.toggle("ready", changed);
       })
     );
+    const changed = state.selColor !== state.user.color || (state.selRole || null) !== (state.user.role || null);
+    $("#btn-profile-save").disabled = !changed;
+    $("#btn-profile-save").classList.toggle("ready", changed);
   }
   function updateNickBtn() {
     const v = $("#nick-input").value.trim();
@@ -9263,6 +9330,7 @@
     saveUser();
     $("#ob-nick").value = "";
     state.obColor = state.user.color;
+    state.obRole = state.user.role || roleOfColor(state.user.color);
     renderOnboard();
     show("onboard");
   });
@@ -9351,6 +9419,7 @@
   });
   $("#btn-profile-save").addEventListener("click", () => {
     state.user.color = state.selColor;
+    if (state.selRole) state.user.role = state.selRole;
     saveUser();
     noteMyColor();
     Sync.saveProfile(state.user);
@@ -11117,6 +11186,7 @@
         if (typeof data.profile.color === "number") state.user.color = data.profile.color;
         state.user.onboarded = true;
       }
+      if (!state.user.role && roleOfColor(state.user.color)) state.user.role = roleOfColor(state.user.color);
       saveUser();
     }
     if (data.overrides) {
@@ -11570,6 +11640,35 @@
     dailyAttend();
     checkMeetReminders();
     finishPassBillingReturn();
+    askRoleIfMissing();
+  }
+
+  /* 역할(사장님·바텐더·손님·학생)을 아직 안 정한 계정.
+     커뮤니티의 사장님·바텐더 탭이 물방울 색으로 갈리기 때문에 한 번은 정해야 해요. */
+  function askRoleIfMissing() {
+    if (!state.user.onboarded || state.user.role || state.user.roleAsked) return;
+    state.user.roleAsked = true; saveUser();
+    openSheetHTML(`
+      <h3>어떤 분이세요?</h3>
+      <p class="sheet-sub">역할에 따라 물방울 색 계열이 정해져요. 익명은 그대로예요.</p>
+      <div class="role-grid" id="ask-roles">${roleGridHTML(null)}</div>
+      <button class="big-btn" id="ask-role-later">나중에 (마이 → 설정에서)</button>`, (root) => {
+      root.querySelectorAll(".role-opt").forEach((b) => b.addEventListener("click", () => {
+        setMyRole(b.dataset.role, ROLES[b.dataset.role].from);
+        root.remove();
+        toast(`${ROLES[b.dataset.role].label}으로 설정했어요. 색은 설정에서 바꿀 수 있어요.`);
+      }));
+      const later = root.querySelector("#ask-role-later");
+      if (later) later.addEventListener("click", () => root.remove());
+    });
+  }
+  function setMyRole(role, color) {
+    state.user.role = role;
+    state.user.color = color;
+    saveUser();
+    noteMyColor();
+    Sync.saveProfile(state.user);
+    if (state.view === "community") renderPosts();
   }
 
   /* ---------- 알림을 눌러 들어온 경우 ----------

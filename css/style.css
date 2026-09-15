@@ -98,7 +98,29 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 }
 .onboard-title { font-size: 30px; font-weight: 800; text-align: center; letter-spacing: -0.5px; }
 .onboard-sub { text-align: center; color: var(--text-sub); font-size: 15.5px; margin: 6px 0 28px; }
-.ob-colors { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.ob-colors { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; min-height: 44px; }
+/* 역할 고르기 — 사장님(붉은색)·바텐더(푸른색)·손님(초록)·학생(노랑) */
+.role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.role-grid.card { padding: 14px; border-radius: 18px; background: var(--bg-gray); margin-bottom: 10px; }
+.role-opt {
+  --rc: #888; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 13px 14px; border-radius: 16px; border: 2px solid var(--line-strong);
+  background: var(--bg-card); color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.role-opt.owner { --rc: #d93025; } .role-opt.staff { --rc: #1b64da; }
+.role-opt.guest { --rc: #2e9e5b; } .role-opt.student { --rc: #e0a800; }
+.role-opt .role-ic { font-size: 22px; margin-bottom: 4px; }
+.role-opt b { font-size: 14px; font-weight: 800; }
+.role-opt small { font-size: 12px; color: var(--text-sub); }
+.role-opt.selected { border-color: var(--rc); background: color-mix(in srgb, var(--rc) 10%, var(--bg-card)); }
+.role-opt.selected b { color: var(--rc); }
+.role-tag {
+  display: inline-block; font-size: 10.5px; font-weight: 800; line-height: 1; padding: 3px 6px; border-radius: 6px;
+  color: #fff; background: #888; vertical-align: 1px; margin-left: 2px;
+}
+.role-tag.owner { background: #d93025; } .role-tag.staff { background: #1b64da; }
+.role-tag.guest { background: #2e9e5b; } .role-tag.student { background: #e0a800; }
+.sheet-sub { font-size: 13.5px; color: var(--text-sub); margin: -6px 0 14px; line-height: 1.5; word-break: keep-all; }
 .ob-colors .color-dot { width: 44px; height: 44px; }
 .onboard-hint { text-align: center; color: var(--text-muted); font-size: 13.5px; line-height: 1.6; margin-top: 18px; }
 /* ---------- 로그인 ---------- */
@@ -180,12 +202,13 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .tabbar { display: flex; border-bottom: 1px solid var(--line); flex-shrink: 0; }
 .tabbar.inline { border-bottom: none; flex: 1; }
 .tab {
-  flex: 1; height: 52px; border: none; background: none;
+  flex: 1; height: 52px; border: none; background: none; padding: 0 2px;
   font-size: 16.5px; font-weight: 600; color: var(--text-sub);
   cursor: pointer; position: relative;
 }
 .tabbar.inline .tab { height: 56px; }
 .tab.active { color: var(--text); }
+#community-tabs .tab { font-size: 15px; }
 .tab.active::after {
   content: ""; position: absolute; left: 18%; right: 18%; bottom: 0;
   height: 3px; background: var(--text); border-radius: 3px 3px 0 0;

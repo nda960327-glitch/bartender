@@ -91,7 +91,9 @@
       <p class="onboard-sub">바텐더들의 익명 커뮤니티</p>
       <label class="form-label">닉네임</label>
       <input type="text" class="input" id="ob-nick" placeholder="사용할 닉네임을 입력해주세요." maxlength="10">
-      <label class="form-label">프로필 색상</label>
+      <label class="form-label">어떤 분이세요?</label>
+      <div class="role-grid" id="ob-roles"></div>
+      <label class="form-label">프로필 색상 <span class="label-opt" id="ob-color-hint">역할을 먼저 골라주세요</span></label>
       <div class="ob-colors" id="ob-colors"></div>
       <label class="form-label">추천인 코드 <span class="label-opt">선택</span></label>
       <input type="text" class="input ob-ref" id="ob-ref" placeholder="예: G2G — 소개해주신 분의 코드" maxlength="8" autocapitalize="characters" autocomplete="off" spellcheck="false">
@@ -151,14 +153,6 @@
           <button class="more-btn" data-go="market">더보기</button>
         </div>
         <div class="hscroll" id="home-store"></div>
-      </div>
-
-      <div class="home-sec">
-        <div class="home-sec-head">
-          <h2>요즘 인기 술 🔥</h2>
-          <button class="more-btn" data-go="dogam">더보기</button>
-        </div>
-        <div class="hscroll" id="home-spirits"></div>
       </div>
 
       <div class="home-sec">
@@ -510,9 +504,10 @@
   <!-- ===================== 커뮤니티 ===================== -->
   <section class="view" id="view-community" hidden>
     <header class="tabbar" id="community-tabs">
-      <button class="tab active" data-tab="all">전체</button>
+      <button class="tab active" data-tab="free">자유</button>
+      <button class="tab" data-tab="owner">사장님</button>
+      <button class="tab" data-tab="staff">바텐더</button>
       <button class="tab" data-tab="hot">인기</button>
-      <button class="tab" data-tab="free">자유</button>
       <button class="tab" data-tab="promo">홍보</button>
     </header>
     <div class="scroll-area">
@@ -766,6 +761,7 @@
       </div>
 
       <h2 class="section-title mt">프로필 변경</h2>
+      <div class="role-grid card" id="role-grid"></div>
       <div class="color-grid card" id="color-grid"></div>
       <button class="big-btn" id="btn-profile-save" disabled>변경하기</button>
 
