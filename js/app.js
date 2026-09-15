@@ -54,7 +54,7 @@
   // 그 역할이 고를 수 있는 색 번호들
   const roleColorIdx = (role) => ROLES[role] ? ROLES[role].colors.map((_, j) => ROLES[role].from + j) : USER_COLORS.map((_, j) => j);
   const isMetal = (c) => +c >= METAL_FROM && +c < ROLE_FROM;
-  // 물방울 옆에 붙는 작은 역할 꼬리표. 역할을 안 정한 옛 계정은 아무것도 안 붙어요.
+  // 역할은 물방울 색 계열로만 보여줘요 (글자 꼬리표는 2.47.2 에서 뺐어요). 설정 화면 등에서만 씁니다.
   const roleTagHTML = (col) => {
     const r = roleOfColor(col);
     return r ? `<span class="role-tag ${r}">${ROLES[r].short}</span>` : "";
@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.47.1";
+  const APP_BUILD = "2.47.2";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -2136,7 +2136,6 @@
       const no = nums && nums.get(speakerKey(who));
       name = esc(ANON_NAME) + (no || "");
     }
-    if (!who.official) { const rt = roleTagHTML(colorOf(who)); if (rt) tags.unshift(rt); }
     if (who.mine) tags.push('<span class="me-tag">나</span>');
     return name + (tags.length ? " " + tags.join(" ") : "");
   };
@@ -5845,7 +5844,7 @@
       <div class="post-item" data-id="${p.id}">
         <div class="post-main">
           <div class="post-head">
-            ${avatarHTML(colorOf(p))}${p.official || p.cat === "promo" ? "" : roleTagHTML(colorOf(p))}
+            ${avatarHTML(colorOf(p))}
             ${p.boostUntil && p.boostUntil > Date.now() ? '<span class="boost-tag">📌 AD</span>' : ""}
             ${posterName(p) ? `<span class="post-nick${p.official ? " official" : ""}">${posterName(p)}</span>` : ""}${officialTag(p)}
             <span class="post-time">${posterName(p) ? "· " : ""}${fmtTime(p.time)}</span>
@@ -5934,7 +5933,7 @@
       <div class="detail-wrap">
         <div class="detail-head">
           ${avatarHTML(colorOf(p), "md")}
-          <div><div class="detail-nick">${p.official ? `<span class="official">${esc(p.nick)}</span>` : p.cat === "promo" ? `<span class="biz-link" id="biz-link">${esc(p.nick)}</span>` : `<span class="op-name">글쓴이</span>${roleTagHTML(colorOf(p))}`}${officialTag(p)}${p.cat === "promo" ? ` <span class="biz-tag">📢 ${esc(p.biz || "비즈니스")}</span>` : ""}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""} · 조회 ${p.views || 0}</div></div>
+          <div><div class="detail-nick">${p.official ? `<span class="official">${esc(p.nick)}</span>` : p.cat === "promo" ? `<span class="biz-link" id="biz-link">${esc(p.nick)}</span>` : `<span class="op-name">글쓴이</span>`}${officialTag(p)}${p.cat === "promo" ? ` <span class="biz-tag">📢 ${esc(p.biz || "비즈니스")}</span>` : ""}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""} · 조회 ${p.views || 0}</div></div>
           <span class="cat-tag detail-cat">${CAT_LABEL[p.cat] || "자유"}</span>
         </div>
         <div class="detail-title">${esc(p.title)}</div>
