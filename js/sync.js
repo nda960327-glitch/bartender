@@ -2084,6 +2084,8 @@
         return { ok: true };
       } catch (e) { return { ok: false, error: (e && e.message) || "처리하지 못했어요." }; }
     },
+    passFindNick(nick)              { return callRpc("pass_find_nick", { p_nick: nick }); },
+    passAddOwnerId(barKey, barName, userId) { return callRpc("pass_add_owner_id", { p_bar: barKey, p_bar_name: barName, p_user: userId }); },
     passAddOwner(barKey, barName, nick, info) { return callRpc("pass_add_owner", { p_bar: barKey, p_bar_name: barName, p_nick: nick || null, p_info: info || null }); },
     /* 연계(패스 운영) 가게 목록 — 바 찾기에는 이 가게들만 보입니다.
        손님에게 열린 가게 + 내가 운영자인 가게(아직 안 열었어도) */

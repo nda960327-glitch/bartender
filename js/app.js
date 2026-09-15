@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.56.1";
+  const APP_BUILD = "2.56.2";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -9164,10 +9164,25 @@
     $("#pa-owner-add").addEventListener("click", async () => {
       const nick = await btPrompt("추가할 운영자의 닉네임을 정확히 적어주세요.\n(상대가 마이페이지에서 쓰는 닉네임)", "");
       if (!nick || !nick.trim()) return;
-      const rr = await Sync.passAddOwner(a.barKey, a.barName, nick.trim(), null);
-      if (!rr.ok) { passFail(rr); return; }
-      toast(`${(rr.data && rr.data.nick) || nick.trim()}님을 운영자로 추가했어요.`);
-      renderPassOwners(a);
+      const done = (rr, label) => {
+        if (!rr.ok) { passFail(rr); return; }
+        toast(`${(rr.data && rr.data.nick) || label}님을 운영자로 추가했어요.`);
+        renderPassOwners(a);
+      };
+      // 같은 닉네임이 여러 명이면 가입일·물방울 색·쓴 글 수로 골라요 (pass-owner.sql). 없는 서버면 예전 방식.
+      const f = await Sync.passFindNick(nick.trim());
+      if (!f.ok) { done(await Sync.passAddOwner(a.barKey, a.barName, nick.trim(), null), nick.trim()); return; }
+      const cands = Array.isArray(f.data) ? f.data : [];
+      if (!cands.length) { toast("그 닉네임을 찾을 수 없어요. 상대가 마이페이지에서 쓰는 닉네임 그대로인지 확인해주세요."); return; }
+      if (cands.length === 1) { done(await Sync.passAddOwnerId(a.barKey, a.barName, cands[0].id), cands[0].nick); return; }
+      const roleName = (col) => { const r = roleOfColor(col); return r ? ROLES[r].short : "색 미정"; };
+      const labels = cands.map((c, i) => `${i + 1}. ${c.nick} · ${roleName(c.color)} · 가입 ${fmtDay(String(c.joined))} · 글 ${c.posts}${c.bars ? " · 운영 중 " + c.bars + "곳" : ""}`);
+      openSheet(`같은 닉네임이 ${cands.length}명이에요 — 누구예요?`, labels, null, async (v) => {
+        const c = cands[labels.indexOf(v)];
+        if (!c) return;
+        if (!await btConfirm(`${c.nick} (가입 ${fmtDay(String(c.joined))}, ${roleName(c.color)})님을 운영자로 추가할까요?\n\n상대에게 물방울 색과 가입일을 확인하면 정확해요.`, { yes: "추가" })) return;
+        done(await Sync.passAddOwnerId(a.barKey, a.barName, c.id), c.nick);
+      });
     });
     $$("#pa-owners [data-owner-rm]").forEach((b) => b.addEventListener("click", async () => {
       const me = b.textContent.trim() === "나가기";
