@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.41.2";
+  const APP_BUILD = "2.42.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -7292,6 +7292,7 @@
   }
 
   async function renderCards() {
+    if (state.cardExam) { renderCardExam(); return; }
     if (state.cardDeck) { renderCardStudy(); return; }
     $("#cards-area").innerHTML = '<div class="empty-state">카드를 불러오는 중…</div>';
     const ok = await lazyData("js/cards-data.js", "CARDS_DATA");
@@ -7322,6 +7323,10 @@
         <button class="big-btn accent ready" id="cards-todo">못 외운 카드</button>
         <button class="big-btn" id="cards-all">전체 섞어서</button>
       </div>
+      <div class="cards-actions" style="margin-top:8px">
+        <button class="big-btn cards-mode" id="cards-recall">🙈 가리고 떠올리기</button>
+        <button class="big-btn cards-mode" id="cards-exam">⏱ 실기 모의시험</button>
+      </div>
       <div class="chip-wrap cards-filter">
         ${[["all", "전체"], ["todo", "못 외움"], ["done", "외움"]].map(([k, label]) =>
           `<button class="chip${f === k ? " active" : ""}" data-f="${k}">${label}</button>`).join("")}
@@ -7343,6 +7348,17 @@
       startCardDeck(shuffle(todo));
     });
     $("#cards-all").addEventListener("click", () => startCardDeck(shuffle(ready)));
+    // 범위를 고른 뒤 시작하는 두 모드 (영상의 '문제 출제범위'와 같아요)
+    const pickRange = (title, go) => {
+      const todo = ready.filter((c) => !known[c.no]), doneL = ready.filter((c) => known[c.no]);
+      openSheet(title, [`전체 레시피 (${ready.length})`, `못 외운 레시피 (${todo.length})`, `다 외운 레시피 (${doneL.length})`], null, (v) => {
+        const pool = v.startsWith("못") ? todo : v.startsWith("다") ? doneL : ready;
+        if (!pool.length) { toast("해당하는 카드가 없어요."); return; }
+        go(pool);
+      });
+    };
+    $("#cards-recall").addEventListener("click", () => pickRange("가리고 떠올리기 — 범위", (pool) => startCardDeck(shuffle(pool), null, true)));
+    $("#cards-exam").addEventListener("click", () => pickRange("실기 모의시험 — 출제 범위", (pool) => startCardExam(pool)));
     $$("#cards-area .card-tile").forEach((b) => b.addEventListener("click", () => {
       const c = all.find((x) => x.no === +b.dataset.no);
       if (!c.ings) { toast("이 칵테일은 레시피를 확인하는 중이에요."); return; }
@@ -7350,17 +7366,76 @@
     }));
   }
 
-  function startCardDeck(list, openNo) {
+  function startCardDeck(list, openNo, recall) {
     if (!list.length) return;
     const i = openNo ? Math.max(0, list.findIndex((c) => c.no === openNo)) : 0;
-    state.cardDeck = { list, i, flipped: !!openNo, known: 0, todo: 0 };
+    state.cardDeck = { list, i, flipped: !!openNo, known: 0, todo: 0, recall: !!recall, shown: {} };
     renderCardStudy();
+  }
+
+  // 가리고 떠올리기 — 이름만 보고 칸을 하나씩 탭해서 확인
+  function recallCardHTML(c, d) {
+    const s = d.shown;
+    const field = (key, label, html, wide) => `
+      <div class="recall-f${wide ? " wide" : ""}${s[key] ? " open" : ""}" data-f="${key}">
+        <span>${label}</span>${s[key] ? html : '<b class="recall-q">?</b>'}
+      </div>`;
+    return `
+      <div class="recall" id="study-card" data-m="${methodKey(c.method)}">
+        <div class="recall-top">
+          <span class="flip-no">No.${String(c.no).padStart(2, "0")}</span>
+          ${cardsKnown()[c.no] ? '<span class="flip-badge">✓ 외움</span>' : ""}
+          <div class="flip-glass">${s.glass ? glassSVG(c.glass) : '<b class="recall-q big">?</b>'}</div>
+          <h2>${esc(c.name)}</h2>
+          <p class="flip-en">${esc(c.en)}</p>
+          <p class="recall-desc">${esc(c.desc || "")}</p>
+        </div>
+        <div class="recall-body">
+          <div class="spec-grid">
+            ${field("glass", "글라스", cardTerm(c.glass))}
+            ${field("method", "기법", cardTerm(c.method))}
+            ${field("garnish", "가니시", c.garnish ? cardTerm(c.garnish) : "<b>없음</b>", true)}
+          </div>
+          <div class="recall-f ings${s.ings ? " open" : ""}" data-f="ings">
+            <span>레시피</span>
+            ${s.ings ? `<ul class="spec-ings">${c.ings.map(([name, amt]) => `<li>${cardTerm(name)}<b>${esc(cardAmt(amt))}</b></li>`).join("")}</ul>` : '<b class="recall-q">? <small>탭해서 확인</small></b>'}
+          </div>
+          <button class="host-chat-btn recall-all" id="recall-all">${Object.keys(s).length >= 4 ? "다시 가리기" : "모두 보기"}</button>
+        </div>
+      </div>`;
   }
 
   function renderCardStudy() {
     const d = state.cardDeck;
     if (d.i >= d.list.length) { renderCardDone(); return; }
     const c = d.list[d.i];
+    if (d.recall) {
+      $("#cards-area").innerHTML = `
+        <div class="study">
+          <div class="study-top">
+            <div class="study-bar"><i style="width:${(d.i / d.list.length) * 100}%"></i></div>
+            <span class="study-count">${d.i + 1} / ${d.list.length}</span>
+          </div>
+          ${recallCardHTML(c, d)}
+          <div class="study-btns">
+            <button class="study-btn no" id="study-no">✕ <span>못 외웠어요</span></button>
+            <button class="study-btn yes" id="study-yes">✓ <span>외웠어요</span></button>
+          </div>
+        </div>`;
+      $("#study-no").addEventListener("click", () => markCard(false));
+      $("#study-yes").addEventListener("click", () => markCard(true));
+      $$("#study-card .recall-f").forEach((el) => el.addEventListener("click", () => {
+        if (d.shown[el.dataset.f]) return;
+        d.shown[el.dataset.f] = true;
+        sfx("tap");
+        renderCardStudy();
+      }));
+      $("#recall-all").addEventListener("click", () => {
+        d.shown = Object.keys(d.shown).length >= 4 ? {} : { glass: 1, method: 1, garnish: 1, ings: 1 };
+        renderCardStudy();
+      });
+      return;
+    }
     $("#cards-area").innerHTML = `
       <div class="study">
         <div class="study-top">
@@ -7375,6 +7450,7 @@
               <div class="flip-glass">${glassSVG(c.glass)}</div>
               <h2>${esc(c.name)}</h2>
               <p class="flip-en">${esc(c.en)}</p>
+              ${c.desc ? `<p class="flip-desc">${esc(c.desc)}</p>` : ""}
               <p class="flip-hint">탭해서 레시피 보기</p>
             </div>
             <div class="flip-face back">
@@ -7413,7 +7489,7 @@
       if (Math.abs(dx) > 90) { markCard(dx > 0); return; }
       card.style.transform = "";
       card.dataset.swipe = "";
-      if (Math.abs(dx) < 6) { d.flipped = !d.flipped; card.classList.toggle("on", d.flipped); }
+      if (Math.abs(dx) < 6 && !d.recall) { d.flipped = !d.flipped; card.classList.toggle("on", d.flipped); }
     });
     card.addEventListener("pointercancel", () => { x0 = null; card.classList.remove("drag"); card.style.transform = ""; card.dataset.swipe = ""; });
   }
@@ -7428,7 +7504,214 @@
     if (yes) d.known++; else d.todo++;
     d.i++;
     d.flipped = false;
+    d.shown = {};
     renderCardStudy();
+  }
+
+  /* ---------- 실기 모의시험 — 7분 안에 3잔, 글라스·기법·가니시·재료·용량을 직접 고릅니다 ---------- */
+  const EXAM_MIN = 7, EXAM_N = 3;
+  const EXAM_AMOUNTS = ["1/4", "1/3", "1/2", "3/4", "1", "1 1/4", "1 1/3", "1 1/2", "1 3/4", "2", "2 1/4", "2 1/3", "2 1/2", "2 3/4", "3"];
+  const EXAM_UNITS = ["oz", "tsp", "dash", "part", "ea", "fill-up", "on-top"];
+  let cardExamTimer = null;
+  const cardsD = () => window.CARDS_DATA;
+  const koOf = (en) => (cardsD().ko && cardsD().ko[en]) || en;
+  const canonIng = (en) => (cardsD().alias && cardsD().alias[en]) || en;
+  // "1 1/2oz" → {q:"1 1/2", u:"oz"} · "Fill" → fill-up · 빈 값(On Top with Cola) → on-top
+  function parseAmt(a) {
+    a = String(a || "").trim();
+    if (!a) return { q: "", u: "on-top" };
+    if (/^fill$/i.test(a)) return { q: "", u: "fill-up" };
+    const m = a.match(/^([\d\/ ]*?)\s*(oz|tsp|dash|part|ea)$/);
+    return m ? { q: m[1].trim(), u: m[2] } : { q: a, u: "" };
+  }
+  const fmtUserAmt = (x) => x.u === "fill-up" ? "채우기" : x.u === "on-top" ? "위에 얹기" : `${x.q} ${x.u}`;
+  function examUniq(key) { return [...new Set(cardsD().cocktails.map((c) => c[key]).filter(Boolean))]; }
+
+  function startCardExam(pool) {
+    const list = shuffle(pool).slice(0, EXAM_N);
+    state.cardDeck = null;
+    state.cardExam = { list, i: 0, ans: list.map(() => ({ glass: "", method: "", garnish: null, ings: [] })), endsAt: Date.now() + EXAM_MIN * 60000, done: false };
+    renderCardExam();
+    clearInterval(cardExamTimer);
+    cardExamTimer = setInterval(() => {
+      const ex = state.cardExam;
+      if (!ex || ex.done || state.view !== "cards") { clearInterval(cardExamTimer); return; }
+      const left = Math.max(0, ex.endsAt - Date.now());
+      const el = $("#exam-timer");
+      if (el) { el.textContent = `${Math.floor(left / 60000)}분 ${String(Math.floor(left / 1000) % 60).padStart(2, "0")}초`; el.classList.toggle("urgent", left < 60000); }
+      if (left === 0) { finishCardExam(); btAlert("7분이 끝나서 채점했어요."); }
+    }, 1000);
+  }
+  function renderCardExam() {
+    const ex = state.cardExam;
+    if (ex.done) { renderCardExamResult(); return; }
+    const c = ex.list[ex.i], a = ex.ans[ex.i];
+    const left = Math.max(0, ex.endsAt - Date.now());
+    $("#cards-area").innerHTML = `
+      <div class="exam">
+        <div class="exam-timer" id="exam-timer">${Math.floor(left / 60000)}분 ${String(Math.floor(left / 1000) % 60).padStart(2, "0")}초</div>
+        <div class="exam-card">
+          <div class="exam-head">
+            <span class="exam-q">Q ${ex.i + 1}/${ex.list.length}</span>
+            <h2>${esc(c.name)}</h2>
+            <p>${esc(c.desc || c.en)}</p>
+          </div>
+          <div class="exam-body">
+            <div class="exam-grid">
+              <div><span>글라스</span><button class="exam-pick${a.glass ? " set" : ""}" data-pick="glass">${a.glass ? esc(koOf(a.glass)) : "글라스 선택"}</button></div>
+              <div><span>기법</span><button class="exam-pick${a.method ? " set" : ""}" data-pick="method">${a.method ? esc(koOf(a.method)) : "기법 선택"}</button></div>
+              <div class="wide"><span>가니시</span><button class="exam-pick${a.garnish !== null ? " set" : ""}" data-pick="garnish">${a.garnish === null ? "가니시 선택" : (a.garnish ? esc(koOf(a.garnish)) : "없음")}</button></div>
+            </div>
+            <span class="exam-label">레시피</span>
+            ${a.ings.map((g, k) => `
+              <div class="exam-ing">
+                <button class="exam-pick set name" data-ing="${k}">${esc(koOf(g.name))}</button>
+                <button class="exam-pick set amt" data-amt="${k}">${esc(fmtUserAmt(g))}</button>
+                <button class="exam-rm" data-rm="${k}" aria-label="빼기">✕</button>
+              </div>`).join("")}
+            <button class="exam-pick add" id="exam-add">+ 재료 추가</button>
+          </div>
+        </div>
+        <div class="exam-nav">
+          <button class="exam-nav-btn" id="exam-prev" ${ex.i === 0 ? "disabled" : ""}><b>‹</b><span>이전 문제</span></button>
+          <button class="exam-nav-btn end" id="exam-end"><b>■</b><span>종료·채점</span></button>
+          <button class="exam-nav-btn" id="exam-next" ${ex.i === ex.list.length - 1 ? "disabled" : ""}><b>›</b><span>다음 문제</span></button>
+        </div>
+      </div>`;
+    $$("#cards-area [data-pick]").forEach((b) => b.addEventListener("click", () => openExamPicker(b.dataset.pick)));
+    $$("#cards-area [data-ing]").forEach((b) => b.addEventListener("click", () => openExamIngredient(+b.dataset.ing)));
+    $$("#cards-area [data-amt]").forEach((b) => b.addEventListener("click", () => openExamAmount(+b.dataset.amt)));
+    $$("#cards-area [data-rm]").forEach((b) => b.addEventListener("click", () => { a.ings.splice(+b.dataset.rm, 1); renderCardExam(); }));
+    $("#exam-add").addEventListener("click", () => openExamIngredient(-1));
+    $("#exam-prev").addEventListener("click", () => { if (ex.i > 0) { ex.i--; renderCardExam(); } });
+    $("#exam-next").addEventListener("click", () => { if (ex.i < ex.list.length - 1) { ex.i++; renderCardExam(); } });
+    $("#exam-end").addEventListener("click", async () => {
+      if (await btConfirm("답안을 채점할까요?", { yes: "채점" })) finishCardExam();
+    });
+  }
+  function openExamPicker(kind) {
+    const ex = state.cardExam, a = ex.ans[ex.i];
+    if (kind === "glass") {
+      const bd = openSheetHTML(`<h3>글라스 선택</h3><div class="exam-glass-grid">${examUniq("glass").map((g) => `
+        <button class="exam-glass${a.glass === g ? " on" : ""}" data-v="${esc(g)}">${glassSVG(g)}<span>${esc(koOf(g))}</span></button>`).join("")}</div>`);
+      bd.querySelectorAll("[data-v]").forEach((b) => b.addEventListener("click", () => { a.glass = b.dataset.v; bd.remove(); renderCardExam(); }));
+      return;
+    }
+    if (kind === "method") {
+      const opts = examUniq("method");
+      openSheet("기법 선택", opts.map(koOf), a.method ? koOf(a.method) : null, (v) => { a.method = opts.find((m) => koOf(m) === v) || ""; renderCardExam(); });
+      return;
+    }
+    const opts = ["", ...examUniq("garnish")];
+    const label = (g) => g ? koOf(g) : "없음";
+    openSheet("가니시 선택", opts.map(label), a.garnish === null ? null : label(a.garnish), (v) => { a.garnish = opts.find((g) => label(g) === v) || ""; renderCardExam(); });
+  }
+  function openExamIngredient(idx) {
+    const ex = state.cardExam, a = ex.ans[ex.i];
+    const cats = cardsD().cats;
+    const bd = openSheetHTML(`<h3>재료(카테고리) 선택</h3><div class="exam-cats" id="exam-cats">${cats.map(([name], i) => `<button class="exam-cat" data-c="${i}">${esc(name)}</button>`).join("")}</div>`);
+    bd.querySelectorAll(".exam-cat").forEach((b) => b.addEventListener("click", () => {
+      const [name, list] = cats[+b.dataset.c];
+      bd.querySelector(".sheet").innerHTML = `<button class="sheet-close" aria-label="닫기">✕</button><h3>${esc(name)}</h3><div class="exam-cats two">${list.map((en) => `<button class="exam-cat" data-v="${esc(en)}">${esc(koOf(en))}</button>`).join("")}</div><button class="host-chat-btn" id="exam-cat-back" style="margin-top:12px">← 카테고리로</button>`;
+      bd.querySelector(".sheet-close").addEventListener("click", () => bd.remove());
+      bd.querySelector("#exam-cat-back").addEventListener("click", () => { bd.remove(); openExamIngredient(idx); });
+      bd.querySelectorAll("[data-v]").forEach((x) => x.addEventListener("click", () => {
+        const en = x.dataset.v;
+        bd.remove();
+        if (idx >= 0) { a.ings[idx].name = en; renderCardExam(); }
+        else { a.ings.push({ name: en, q: "", u: "" }); renderCardExam(); openExamAmount(a.ings.length - 1); }
+      }));
+    }));
+  }
+  function openExamAmount(idx) {
+    const ex = state.cardExam, a = ex.ans[ex.i], g = a.ings[idx];
+    if (!g) return;
+    let q = g.q, u = g.u || "oz";
+    const bd = openSheetHTML(`
+      <h3>${esc(koOf(g.name))} — 용량</h3>
+      <div class="exam-amts" id="exam-amts">${EXAM_AMOUNTS.map((v) => `<button class="exam-amt${q === v ? " on" : ""}" data-q="${v}">${v}</button>`).join("")}</div>
+      <h3 style="margin-top:14px">단위</h3>
+      <div class="exam-amts units" id="exam-units">${EXAM_UNITS.map((v) => `<button class="exam-amt${u === v ? " on" : ""}" data-u="${v}">${v}</button>`).join("")}</div>
+      <button class="big-btn accent ready" id="exam-amt-ok" style="margin-top:16px">확인</button>`);
+    const paint = () => {
+      bd.querySelectorAll("[data-q]").forEach((b) => b.classList.toggle("on", b.dataset.q === q));
+      bd.querySelectorAll("[data-u]").forEach((b) => b.classList.toggle("on", b.dataset.u === u));
+    };
+    bd.querySelectorAll("[data-q]").forEach((b) => b.addEventListener("click", () => { q = b.dataset.q; paint(); }));
+    bd.querySelectorAll("[data-u]").forEach((b) => b.addEventListener("click", () => { u = b.dataset.u; if (u === "fill-up" || u === "on-top") q = ""; paint(); }));
+    bd.querySelector("#exam-amt-ok").addEventListener("click", () => {
+      if (!q && u !== "fill-up" && u !== "on-top") { toast("용량을 골라주세요."); return; }
+      g.q = q; g.u = u; bd.remove(); renderCardExam();
+    });
+  }
+  function gradeExam(c, a) {
+    const rows = [];
+    rows.push({ k: "글라스", mine: a.glass ? koOf(a.glass) : "—", right: koOf(c.glass), ok: a.glass === c.glass });
+    rows.push({ k: "기법", mine: a.method ? koOf(a.method) : "—", right: koOf(c.method), ok: a.method === c.method });
+    rows.push({ k: "가니시", mine: a.garnish === null ? "—" : (a.garnish ? koOf(a.garnish) : "없음"), right: c.garnish ? koOf(c.garnish) : "없음", ok: a.garnish !== null && (a.garnish || "") === (c.garnish || "") });
+    const used = new Set();
+    c.ings.forEach(([name, amt]) => {
+      const cn = canonIng(name), ca = parseAmt(amt), top = /^On Top/i.test(name);
+      const k = a.ings.findIndex((g, i) => !used.has(i) && canonIng(g.name) === cn);
+      let ok = false, mine = "—";
+      if (k >= 0) {
+        used.add(k);
+        const g = a.ings[k];
+        mine = `${koOf(canonIng(g.name))} ${fmtUserAmt(g)}`;
+        ok = (g.q === ca.q && g.u === ca.u) || (top && g.u === "on-top") || (ca.u === "fill-up" && g.u === "fill-up");
+      }
+      rows.push({ k: "재료", mine, right: `${koOf(cn)} ${cardAmt(amt)}`, ok });
+    });
+    a.ings.forEach((g, i) => { if (!used.has(i)) rows.push({ k: "재료", mine: `${koOf(canonIng(g.name))} ${fmtUserAmt(g)}`, right: "(없어야 함)", ok: false, extra: true }); });
+    const need = rows.filter((r) => !r.extra);
+    return { rows, score: need.filter((r) => r.ok).length, total: need.length };
+  }
+  function finishCardExam() {
+    const ex = state.cardExam;
+    if (!ex || ex.done) return;
+    ex.done = true;
+    ex.usedMs = Math.min(Date.now(), ex.endsAt) - (ex.endsAt - EXAM_MIN * 60000);
+    clearInterval(cardExamTimer);
+    if (state.view === "cards") renderCardExamResult();
+  }
+  function renderCardExamResult() {
+    const ex = state.cardExam;
+    const graded = ex.list.map((c, i) => Object.assign({ c }, gradeExam(c, ex.ans[i])));
+    const score = graded.reduce((n, g) => n + g.score, 0), total = graded.reduce((n, g) => n + g.total, 0);
+    const pct = total ? Math.round((score / total) * 100) : 0;
+    const known = cardsKnown();
+    $("#cards-area").innerHTML = `
+      <div class="cbt-result ${pct >= 60 ? "pass" : "fail"}" style="padding-top:24px">
+        <div class="cbt-badge">${pct >= 60 ? "합격권" : "더 연습"}</div>
+        <div class="cbt-score">${pct}<small>점</small></div>
+        <p>${total}항목 중 ${score}개 정답 · ${Math.max(1, Math.round(ex.usedMs / 60000))}분 걸렸어요</p>
+      </div>
+      ${graded.map((g) => `
+        <div class="card exam-res">
+          <div class="exam-res-head"><b>${esc(g.c.name)}</b><span class="${g.score === g.total ? "ok" : ""}">${g.score}/${g.total}</span></div>
+          ${g.rows.map((r) => `
+            <div class="exam-row ${r.ok ? "ok" : "no"}">
+              <span class="exam-row-k">${r.k}</span>
+              <span class="exam-row-v"><em>${esc(r.mine)}</em>${r.ok ? "" : `<i>→ ${esc(r.right)}</i>`}</span>
+              <span class="exam-row-m">${r.ok ? "✓" : "✗"}</span>
+            </div>`).join("")}
+          <div class="exam-res-acts">
+            <button class="chip" data-know="${g.c.no}">${known[g.c.no] ? "외움 표시 해제" : "외웠어요 표시"}</button>
+            <button class="chip" data-open="${g.c.no}">카드 보기</button>
+          </div>
+        </div>`).join("")}
+      <div class="cbt-result-btns">
+        <button class="big-btn accent ready" id="exam-again">다시 3잔 뽑기</button>
+        <button class="big-btn" id="exam-list">카드 목록</button>
+      </div>`;
+    $("#cards-area").scrollTop = 0;
+    $$("#cards-area [data-know]").forEach((b) => b.addEventListener("click", () => {
+      const k = cardsKnown(); if (k[+b.dataset.know]) delete k[+b.dataset.know]; else k[+b.dataset.know] = true;
+      store.set("cardsKnown", k); renderCardExamResult();
+    }));
+    $$("#cards-area [data-open]").forEach((b) => b.addEventListener("click", () => { state.cardExam = null; startCardDeck([cardsD().cocktails.find((c) => c.no === +b.dataset.open)], +b.dataset.open); }));
+    $("#exam-again").addEventListener("click", () => startCardExam(cardsD().cocktails));
+    $("#exam-list").addEventListener("click", () => { state.cardExam = null; paintCardList(); });
   }
 
   function renderCardDone() {
@@ -8266,6 +8549,12 @@
   $$(".back-btn").forEach((b) => b.addEventListener("click", () => {
     if (b.id === "admin-back" && adminBack()) return;
     if (state.view === "cbt" && cbtBack()) return;
+    if (state.view === "cards" && state.cardExam) {
+      const ex = state.cardExam;
+      if (ex.done) { state.cardExam = null; renderCards(); return; }
+      btConfirm("모의시험을 그만둘까요?").then((ok) => { if (ok && state.cardExam === ex) { clearInterval(cardExamTimer); state.cardExam = null; renderCards(); } });
+      return;
+    }
     if (state.view === "cards" && state.cardDeck) { state.cardDeck = null; renderCards(); return; }
     // 패스 화면은 들어온 곳(가게·홈·마이)이 다 달라서 브라우저 뒤로가기를 그대로 씁니다.
     if ((state.view === "pass" || state.view === "pass-admin") && history.length > 1) { history.back(); return; }
