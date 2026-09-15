@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.54.0";
+  const APP_BUILD = "2.55.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -1612,7 +1612,7 @@
       (view === "doc" && (state.docFrom === "onboard" || state.docFrom === "login"));
     $("#bottom-nav").style.display = hideNav ? "none" : "";
     const navView = NAV_VIEWS.includes(view) ? view
-      : { jobs: "home", alerts: "home", chat: "home", cbt: "home", cards: "home", guide: "home", pass: "mypage", "pass-admin": "mypage", market: "home", "market-detail": "home", cart: "home", search: "home", bars: "home", mybars: "mypage", bar: "home", listing: "home", "listing-write": "listing", pros: "home", pro: "pros", "pro-edit": "pros", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
+      : { jobs: "home", alerts: "home", chat: "home", cbt: "home", cards: "home", guide: "home", exam: "home", pass: "mypage", "pass-admin": "mypage", market: "home", "market-detail": "home", cart: "home", search: "home", bars: "home", mybars: "mypage", bar: "home", listing: "home", "listing-write": "listing", pros: "home", pro: "pros", "pro-edit": "pros", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
     $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === navView));
     if (view === "home") renderHome();
     if (view === "market") renderStore();
@@ -1630,6 +1630,7 @@
     if (view === "cbt") renderCbt();
     if (view === "cards") renderCards();
     if (view === "guide") renderGuide();
+    if (view === "exam") renderExam();
     if (view === "pass") renderPassView();
     if (view === "pass-admin") renderPassAdmin();
     if (state.view !== "pass-admin" && view !== "pass-admin") stopPassScanner();
@@ -7128,6 +7129,139 @@
   /* ---------- 실기 합격 가이드 ----------
    * 시험이 어떻게 진행되고 어디서 깎이는지, 초보자가 독학으로 준비하는 순서.
    * 글은 js/guide-data.js 에, 40종 표는 카드 데이터에서 그때그때 만들어요. */
+  /* ---------- 조주기능사 시험일정 ----------
+   * 정기 기능사 일정(한국산업인력공단 2026년 시행공고). 조주기능사는 정기 기능사 종목이라 이 일정을 따라요.
+   * 날짜는 공단 공고를 기준으로 적었고, 접수 첫날·빈자리 접수는 Q-net 공지로 바뀔 수 있어요. */
+  const EXAM_YEAR = 2026;
+  const EXAM_ROUNDS = [
+    { no: 1, w1: ["2026-01-06", "2026-01-09"], w2: ["2026-01-20", "2026-01-24"], w3: "2026-01-30", p1: ["2026-02-02", "2026-02-05"], p2: ["2026-03-14", "2026-04-01"], p3: ["2026-04-10", "2026-04-17"] },
+    { no: 2, w1: ["2026-03-16", "2026-03-20"], w2: ["2026-04-04", "2026-04-09"], w3: "2026-04-22", p1: ["2026-04-27", "2026-04-30"], p2: ["2026-05-30", "2026-06-14"], p3: ["2026-06-26", "2026-07-03"] },
+    { no: 3, w1: ["2026-06-08", "2026-06-11"], w2: ["2026-06-27", "2026-07-02"], w3: "2026-07-15", p1: ["2026-07-27", "2026-07-30"], p2: ["2026-08-29", "2026-09-16"], p3: ["2026-10-02", "2026-10-08"] },
+    { no: 4, w1: ["2026-08-24", "2026-08-27"], w2: ["2026-09-16", "2026-09-21"], w3: "2026-10-07", p1: ["2026-10-12", "2026-10-15"], p2: ["2026-11-14", "2026-12-02"], p3: ["2026-12-11", "2026-12-18"] },
+  ];
+  const EXAM_STEPS = [
+    ["w1", "필기 원서접수", "📝", "Q-net 에서 접수 · 첫날 10시 시작"],
+    ["w2", "필기시험 (CBT)", "💻", "60문항 · 60분 · 60점 이상 합격"],
+    ["w3", "필기 합격 발표", "📢", ""],
+    ["p1", "실기 원서접수", "🎫", "필기 합격자만 · 자리가 빨리 차요"],
+    ["p2", "실기시험 (작업형)", "🍸", "7분 안에 3잔 · 60점 이상 합격"],
+    ["p3", "최종 합격 발표", "🏆", "1차·2차 발표"],
+  ];
+  const EXAM_LINKS = { qnet: "https://www.q-net.or.kr", info: "https://www.q-net.or.kr/crf005.do?id=crf00503&jmCd=7916" };
+  const exDate = (s) => new Date(s + "T00:00:00");
+  const exToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+  const exDays = (s) => Math.round((exDate(s) - exToday()) / 86400e3);
+  const exRange = (v) => Array.isArray(v) ? v : [v, v];
+  const exFmt = (s) => { const d = exDate(s); return `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]})`; };
+  const exFmtRange = (v) => { const [a, b] = exRange(v); return a === b ? exFmt(a) : `${exFmt(a)} ~ ${exFmt(b)}`; };
+  // 지남 / 진행 중 / 예정
+  function exState(v) {
+    const [a, b] = exRange(v);
+    if (exDays(b) < 0) return "past";
+    if (exDays(a) <= 0) return "now";
+    return "soon";
+  }
+  function exDday(v) {
+    const [a, b] = exRange(v), st = exState(v);
+    if (st === "past") return "지남";
+    if (st === "now") return a === b ? "오늘" : `진행 중 · ${exDays(b)}일 남음`;
+    const n = exDays(a);
+    return n === 0 ? "오늘" : `D-${n}`;
+  }
+  // 다음에 올 일정 (오늘 이후 가장 가까운 것)
+  function exUpcoming(limit) {
+    const out = [];
+    EXAM_ROUNDS.forEach((r) => EXAM_STEPS.forEach(([k, label, ic]) => {
+      const st = exState(r[k]);
+      if (st !== "past") out.push({ round: r.no, key: k, label, ic, v: r[k], st, at: exDate(exRange(r[k])[0]).getTime() });
+    }));
+    out.sort((x, y) => (x.st === "now" ? 0 : 1) - (y.st === "now" ? 0 : 1) || x.at - y.at);
+    return out.slice(0, limit || 3);
+  }
+  function renderExam() {
+    const area = $("#exam-area");
+    const up = exUpcoming(3);
+    const remind = !!store.get("examRemind", false);
+    area.innerHTML = `
+      <div class="ex-hero">
+        <p class="ex-eyebrow">국가기술자격 · 정기 기능사 · 한국산업인력공단</p>
+        <h2>${EXAM_YEAR}년 조주기능사 시험일정</h2>
+        <p>1년에 4번, 필기 → 실기 순서예요. 필기에 붙으면 2년 안에 실기를 볼 수 있어요.</p>
+      </div>
+
+      <div class="card ex-next">
+        <div class="pass-sec-head"><h3 class="card-h">다음 일정</h3><button class="chip ${remind ? "active" : ""}" id="ex-remind">${remind ? "🔔 접수 알림 켬" : "🔕 접수 알림 받기"}</button></div>
+        ${up.length ? up.map((u) => `
+          <div class="ex-up ${u.st}">
+            <span class="ex-up-ic">${u.ic}</span>
+            <div class="ex-up-body"><b>${u.round}회 ${esc(u.label)}</b><span>${exFmtRange(u.v)}</span></div>
+            <em class="ex-dday">${exDday(u.v)}</em>
+          </div>`).join("") : '<p class="pass-note">올해 일정이 모두 끝났어요. 내년 공고는 12월에 Q-net 에 올라와요.</p>'}
+      </div>
+
+      ${EXAM_ROUNDS.map((r) => {
+        const done = exState(r.p3) === "past";
+        const active = !done && EXAM_STEPS.some(([k]) => exState(r[k]) !== "past") && exState(r.w1) !== "soon";
+        return `
+        <div class="card ex-round ${done ? "done" : ""} ${active ? "active" : ""}">
+          <div class="ex-round-h"><b>${r.no}회</b><span>${done ? "끝남" : active ? "진행 중" : "예정"}</span></div>
+          <ol class="ex-steps">
+            ${EXAM_STEPS.map(([k, label, ic, hint]) => { const st = exState(r[k]); return `
+              <li class="${st}">
+                <i>${ic}</i>
+                <div><b>${esc(label)}</b><span>${exFmtRange(r[k])}${hint ? ` · <small>${esc(hint)}</small>` : ""}</span></div>
+                <em>${exDday(r[k])}</em>
+              </li>`; }).join("")}
+          </ol>
+        </div>`; }).join("")}
+
+      <div class="card">
+        <h3 class="card-h">접수할 때 알아둘 것</h3>
+        <ul class="gd-list">
+          <li><b>응시 자격 제한 없음</b><p>나이·학력·경력 상관없이 누구나 볼 수 있어요. 큐넷(Q-net) 회원가입 후 접수해요.</p></li>
+          <li><b>접수는 첫날 10시부터 선착순</b><p>실기는 시험장 자리가 정해져 있어서 서울·수도권은 첫날 오전에 마감되는 회차가 많아요. 접수 시작 시각에 맞춰 들어가세요.</p></li>
+          <li><b>빈자리 접수</b><p>정규 접수가 끝난 뒤 취소된 자리가 풀리는 "빈자리 접수"가 시험 며칠 전에 열려요. 놓쳤다면 Q-net 공지를 확인해요.</p></li>
+          <li><b>필기 합격 → 2년 유효</b><p>필기에 붙은 날부터 2년 안에는 필기 없이 실기만 다시 볼 수 있어요. 한 번 떨어져도 다음 회차에 실기만 접수하면 돼요.</p></li>
+          <li><b>준비물</b><p>필기: 신분증. 실기: 신분증·수험표, 복장은 흰 상의·검정 하의·구두. 자세한 건 실기 합격 가이드에.</p></li>
+        </ul>
+        <p class="pass-note">수수료·시험장·세부 시간은 접수 화면에서 확인돼요. 위 날짜는 공단 시행공고 기준이고 공지로 바뀔 수 있어요.</p>
+      </div>
+
+      <div class="ex-actions">
+        <button class="big-btn accent ready" id="ex-qnet">Q-net 원서접수 바로가기</button>
+        <button class="host-chat-btn" id="ex-info">조주기능사 종목 정보 (Q-net)</button>
+        <div class="pass-links"><button class="text-btn" data-jump-view="cbt">📝 필기 기출 CBT</button><button class="text-btn" data-jump-view="cards">🃏 실기 암기 카드</button><button class="text-btn" data-jump-view="guide">🎓 실기 합격 가이드</button></div>
+      </div>
+      <div style="height:24px"></div>`;
+    $("#ex-qnet").addEventListener("click", () => window.open(EXAM_LINKS.qnet, "_blank", "noopener"));
+    $("#ex-info").addEventListener("click", () => window.open(EXAM_LINKS.info, "_blank", "noopener"));
+    $$("#exam-area [data-jump-view]").forEach((b) => b.addEventListener("click", () => show(b.dataset.jumpView)));
+    $("#ex-remind").addEventListener("click", () => {
+      const on = !store.get("examRemind", false);
+      store.set("examRemind", on);
+      toast(on ? "원서접수 3일 전과 당일에 알림함에 알려드려요." : "접수 알림을 껐어요.");
+      if (on) checkExamReminders();
+      renderExam();
+    });
+  }
+  // 접수 시작 3일 전·당일에 알림함에 한 번씩 (앱을 열 때 확인)
+  function checkExamReminders() {
+    if (!store.get("examRemind", false)) return;
+    const seen = store.get("examRemindSeen", {});
+    let changed = false;
+    EXAM_ROUNDS.forEach((r) => [["w1", "필기"], ["p1", "실기"]].forEach(([k, what]) => {
+      const start = exRange(r[k])[0], d = exDays(start);
+      [[3, "3일 뒤"], [0, "오늘 10시"]].forEach(([n, when]) => {
+        const key = `${r.no}${k}${n}`;
+        if (d === n && !seen[key]) {
+          addNoti("📅", `조주기능사 ${r.no}회 ${what} 원서접수가 ${when} 시작돼요 (${exFmtRange(r[k])}). 자리가 빨리 차니 서두르세요!`);
+          seen[key] = 1; changed = true;
+        }
+      });
+    }));
+    if (changed) store.set("examRemindSeen", seen);
+  }
+
   async function renderGuide() {
     $("#guide-area").innerHTML = '<div class="empty-state">가이드를 불러오는 중…</div>';
     const [ok, okCards] = await Promise.all([
@@ -12201,6 +12335,7 @@
     finishPassPayReturn();
     askRoleIfMissing();
     askPhoneIfMissing();
+    checkExamReminders();
   }
 
   /* 역할(사장님·바텐더·손님·학생)을 아직 안 정한 계정.

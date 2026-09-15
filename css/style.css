@@ -1663,6 +1663,41 @@ select.input { appearance: auto; }
 .gd-link { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--bg-card); color: var(--text); font: inherit; font-size: 13.5px; font-weight: 600; text-align: left; cursor: pointer; }
 .gd-foot { margin: 18px 0 28px; font-size: 12px; line-height: 1.6; color: var(--text-muted); word-break: keep-all; }
 
+/* ---------- 시험일정 ---------- */
+.ex-hero { margin: 16px 16px 10px; padding: 20px; border-radius: 20px; color: #fff; background: linear-gradient(135deg, #0f766e, #1b64da); }
+.ex-eyebrow { font-size: 11.5px; letter-spacing: .04em; opacity: .85; margin-bottom: 6px; }
+.ex-hero h2 { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+.ex-hero p { font-size: 13.5px; line-height: 1.55; opacity: .92; word-break: keep-all; }
+.ex-next .pass-sec-head { margin-bottom: 8px; }
+.ex-up { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.ex-up:first-of-type { border-top: none; }
+.ex-up-ic { font-size: 22px; width: 32px; text-align: center; }
+.ex-up-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ex-up-body b { font-size: 14.5px; font-weight: 800; }
+.ex-up-body span { font-size: 12.5px; color: var(--text-sub); }
+.ex-dday { font-style: normal; font-size: 12.5px; font-weight: 800; padding: 4px 9px; border-radius: 999px; background: var(--bg-gray); color: var(--text-sub); white-space: nowrap; }
+.ex-up.now .ex-dday { background: #e2f5ea; color: #1f7a4d; }
+.ex-up.soon .ex-dday { background: #fff1ec; color: var(--accent); }
+.ex-round-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.ex-round-h b { font-size: 17px; font-weight: 800; }
+.ex-round-h span { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--bg-gray); color: var(--text-sub); }
+.ex-round.active .ex-round-h span { background: #e2f5ea; color: #1f7a4d; }
+.ex-round.done { opacity: .55; }
+.ex-steps { list-style: none; display: flex; flex-direction: column; }
+.ex-steps li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+.ex-steps li:first-child { border-top: none; }
+.ex-steps li i { font-style: normal; font-size: 18px; width: 26px; text-align: center; }
+.ex-steps li > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ex-steps li b { font-size: 14px; font-weight: 700; }
+.ex-steps li span { font-size: 12.5px; color: var(--text-sub); line-height: 1.45; word-break: keep-all; }
+.ex-steps li small { color: var(--text-muted); }
+.ex-steps li em { font-style: normal; font-size: 11.5px; font-weight: 800; padding: 3px 8px; border-radius: 999px; background: var(--bg-gray); color: var(--text-muted); white-space: nowrap; }
+.ex-steps li.now em { background: #e2f5ea; color: #1f7a4d; }
+.ex-steps li.soon em { background: #fff1ec; color: var(--accent); }
+.ex-steps li.past { opacity: .55; }
+.ex-actions { padding: 6px 16px 0; }
+.ex-actions .host-chat-btn { margin-top: 10px; }
+
 /* ---------- 결과 화면 (실기 암기 카드) ---------- */
 .quiz-result { text-align: center; padding: 40px 24px; }
 .quiz-result .qs-emoji { font-size: 56px; margin-bottom: 14px; }
