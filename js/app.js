@@ -75,7 +75,7 @@
   const SPIRIT_CATS = ["위스키", "진", "럼", "보드카", "데킬라", "리큐르", "와인", "전통주", "브랜디", "기타"];
   const COCKTAIL_BASES = ["진", "럼", "위스키", "보드카", "데킬라", "리큐르", "논알콜", "기타"];
   const EMOJIS = ["🥃", "🍸", "🍹", "🍷", "🍾", "🍺", "🍶", "🧉", "🥂", "🍋"];
-  const CAT_LABEL = { free: "자유", owner: "사장님", staff: "바텐더", promo: "홍보", hot: "자유" };
+  const CAT_LABEL = { free: "자유", owner: "자유", staff: "자유", promo: "홍보", hot: "자유" };   // 예전 사장님·바텐더 게시판 글은 자유로
   const THUMB_COLORS = ["#4a6cf7", "#12b5a5", "#1f2937", "#7c3aed", "#0ea5e9", "#e11d48"];
   const STORE_CATS = ["전체", "기물", "글라스", "재료/시럽", "서적", "굿즈", "소모품"];
   const PRODUCTS = [
@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.57.0";
+  const APP_BUILD = "2.58.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -1567,7 +1567,7 @@
 
   /* 질문으로 글쓰기. 쓰던 글이 있으면 지우지 않습니다. */
   function openQuestionWrite(q, who) {
-    state.writeCat = ["free", "owner", "staff", "promo"].includes(state.commTab) ? state.commTab : "free";
+    state.writeCat = state.commTab === "promo" ? "promo" : "free";
     show("write");
     const t = $("#write-title"), b = $("#write-body");
     if (!t.value.trim() && !b.value.trim()) {
@@ -5724,12 +5724,15 @@
     if (state.previewUser) list = list.filter((p) => p.remote);
     // 게시판은 글 쓸 때 고른 것 그대로. 사장님이 바텐더 게시판에 써도 되고, 그 반대도 돼요.
     // 예전 '인기(hot)' 글은 자유 게시판으로 칩니다. 전체 탭에는 홍보를 뺀 모든 게시판이 모여요.
-    if (state.commTab === "all") list = list.filter((p) => p.cat !== "promo");
-    else if (state.commTab === "free") list = list.filter((p) => p.cat === "free" || p.cat === "hot" || !p.cat);
+    // 전체 = 홍보 뺀 모든 글(인기 먼저) · 자유 = 홍보 아닌 글 · 인기 = 공감·댓글 점수 5점 이상만 · 홍보
+    if (state.commTab === "all" || state.commTab === "free") list = list.filter((p) => p.cat !== "promo");
+    else if (state.commTab === "hot") list = list.filter((p) => p.cat !== "promo" && isHotPost(p));
     else list = list.filter((p) => p.cat === state.commTab);
     if (q) list = list.filter((p) => has(p.title, q) || has(p.body, q));
     const isBoost = (x) => x.boostUntil && x.boostUntil > Date.now() ? 1 : 0;
-    if (state.commTab === "all") {
+    if (state.commTab === "hot") {
+      list.sort((a, b) => isBoost(b) - isBoost(a) || hotScore(b) - hotScore(a) || b.time - a.time);
+    } else if (state.commTab === "all") {
       // 전체: 광고 고정 → 인기글(점수순) → 나머지 최신순
       list.sort((a, b) => isBoost(b) - isBoost(a) || (isHotPost(b) - isHotPost(a)) || (isHotPost(a) ? hotScore(b) - hotScore(a) : 0) || b.time - a.time);
     } else {
@@ -5739,8 +5742,7 @@
     const ph = { all: "전체 글 검색", hot: "커뮤니티 인기 검색", free: "자유 게시판 검색", promo: "홍보 게시판 검색", owner: "사장님 게시판 검색", staff: "바텐더 게시판 검색" };
     $("#post-search").placeholder = ph[state.commTab] || "커뮤니티 검색";
 
-    const emptyMsg = state.commTab === "owner" ? "사장님 게시판에 아직 글이 없어요.<br>가게 운영 이야기를 첫 글로 남겨보세요."
-      : state.commTab === "staff" ? "바텐더 게시판에 아직 글이 없어요.<br>현장 이야기를 첫 글로 남겨보세요."
+    const emptyMsg = state.commTab === "hot" ? "아직 인기글이 없어요.<br>공감 3개 또는 공감·댓글이 모이면 여기 올라와요. 🔥"
       : "아직 글이 없어요.<br>첫 글을 남겨보세요. ✏️";
     $("#post-list").innerHTML = previewBarHTML() + (list.length
       ? list.map(postItemHTML).join("")
@@ -6273,7 +6275,7 @@
     setPendingImg(null);
     $("#write-file").value = "";
     updateSubmit();
-    state.commTab = state.writeCat || "free";
+    state.commTab = state.writeCat === "promo" ? "promo" : "free";
     $$("#community-tabs .tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === state.commTab));
     show("community");
     addPoints(30, "게시글 작성");
@@ -9857,7 +9859,7 @@
     $("#view-write .topbar-title").textContent = "글쓰기";
     // 보고 있던 게시판이 기본. (사장님 탭에서 글쓰기 → 사장님 게시판)
     if (!$("#write-title").value && !$("#write-body").value) {
-      state.writeCat = ["free", "owner", "staff", "promo"].includes(state.commTab) ? state.commTab : "free";
+      state.writeCat = state.commTab === "promo" ? "promo" : "free";
       $$(".cat-chip").forEach((x) => x.classList.toggle("active", x.dataset.cat === state.writeCat));
       updateBizHint();
     }
@@ -10008,7 +10010,7 @@
     state.editPost = p.id;
     $("#write-title").value = p.title;
     $("#write-body").value = p.body;
-    state.writeCat = ["free", "owner", "staff", "promo"].includes(p.cat) ? p.cat : "free";
+    state.writeCat = p.cat === "promo" ? "promo" : "free";
     $$(".cat-chip").forEach((x) => x.classList.toggle("active", x.dataset.cat === state.writeCat));
     $("#view-write .topbar-title").textContent = "글 수정";
     updateSubmit();
@@ -11161,7 +11163,7 @@
       window.open(`https://map.kakao.com/link/search/${q}`, "_blank", "noopener");
     });
     $("#bar-write").addEventListener("click", () => {
-      state.writeCat = ["free", "owner", "staff", "promo"].includes(state.commTab) ? state.commTab : "free";
+      state.writeCat = state.commTab === "promo" ? "promo" : "free";
       show("write");
       const t = $("#write-title");
       if (t) t.value = `${b.name} 다녀왔어요`;
@@ -11605,8 +11607,27 @@
     $$("#pro-regions .chip").forEach((ch) =>
       ch.addEventListener("click", () => { state.proRegion = ch.dataset.r; state.pros = null; renderPros(); }));
 
+    // 대회 우승 바텐더 (js/champions-data.js) — 처음 한 번만 받아요
+    if (!window.CHAMPIONS_DATA && !state.champLoading) {
+      state.champLoading = true;
+      lazyData("js/champions-data.js", "CHAMPIONS_DATA").then(() => { state.champLoading = false; if (state.view === "pros") renderPros(); });
+    }
+    const champs = (window.CHAMPIONS_DATA || []).slice().sort((x, y) => (y.year || 0) - (x.year || 0));
+    const champHTML = champs.length ? `
+      <div class="champ-head"><b>🏆 대회 우승 바텐더</b><span>공개 보도 기준 · 소속은 우승 당시</span></div>
+      <div class="champ-scroll">
+        ${champs.map((p) => `
+          <a class="champ-card pressable" href="${esc(p.src)}" target="_blank" rel="noopener">
+            <span class="champ-year">${p.year || "역대"}</span>
+            <b>${esc(p.name)}</b>
+            <span class="champ-bar">${esc(p.bar)}</span>
+            <span class="champ-comp">${esc(p.comp)}</span>
+            <em>${esc(p.title)}</em>
+          </a>`).join("")}
+      </div>
+      <div class="comment-sec-title" style="padding:14px 16px 4px">바텐더 프로필</div>` : "";
     const rows = state.pros;
-    $("#pros-area").innerHTML = rows === null
+    $("#pros-area").innerHTML = champHTML + (rows === null
       ? '<div class="empty-state">불러오는 중이에요…</div>'
       : rows === "off"
         ? `<div class="card" style="margin-top:12px">
@@ -11622,7 +11643,7 @@
                <p class="sheet-note" style="text-align:center;margin:0 0 18px">
                  첫 번째로 프로필을 만들어보세요.<br>사진 · 경력 · 시그니처 칵테일을 남길 수 있어요.</p>
                <button class="big-btn accent ready" id="pros-first">내 프로필 만들기</button>
-             </div>`;
+             </div>`);
 
     $$("#pros-area .pro-item").forEach((el) =>
       el.addEventListener("click", () => openPro(el.dataset.uid)));

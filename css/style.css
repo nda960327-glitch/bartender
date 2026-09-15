@@ -1664,6 +1664,22 @@ select.input { appearance: auto; }
 .gd-link { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--bg-card); color: var(--text); font: inherit; font-size: 13.5px; font-weight: 600; text-align: left; cursor: pointer; }
 .gd-foot { margin: 18px 0 28px; font-size: 12px; line-height: 1.6; color: var(--text-muted); word-break: keep-all; }
 
+/* ---------- 대회 우승 바텐더 ---------- */
+.champ-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 14px 16px 8px; }
+.champ-head b { font-size: 16px; font-weight: 800; }
+.champ-head span { font-size: 11.5px; color: var(--text-muted); }
+.champ-scroll { display: flex; gap: 10px; overflow-x: auto; padding: 0 16px 6px; scrollbar-width: none; }
+.champ-scroll::-webkit-scrollbar { display: none; }
+.champ-card {
+  flex: 0 0 168px; display: flex; flex-direction: column; gap: 3px; padding: 14px 14px 12px; border-radius: 16px;
+  background: var(--bg-card); border: 1px solid var(--line-strong); text-decoration: none; color: var(--text);
+}
+.champ-year { font-size: 11px; font-weight: 800; color: #b8860b; letter-spacing: .02em; }
+.champ-card b { font-size: 16px; font-weight: 800; }
+.champ-bar { font-size: 12.5px; color: var(--text-sub); }
+.champ-comp { font-size: 11.5px; color: var(--text-muted); line-height: 1.35; margin-top: 4px; word-break: keep-all; }
+.champ-card em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--accent); margin-top: 4px; }
+
 /* ---------- 대회·행사 달력 ---------- */
 #view-listing #listing-area { padding-top: 12px; }
 #view-listing .card { margin: 0 16px 10px; padding: 16px 18px; border-radius: 18px; }
