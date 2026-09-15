@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.58.0";
+  const APP_BUILD = "2.59.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8319,6 +8319,12 @@
    * 잔당 가격·위약금 비율은 가게 설정(상품·설정)에서 바꿔요. 기본 15,000원 · 10%.
    * 시작 전이면 전액, 원데이는 입장 전 전액·입장 후 0원. 결과는 안내용이고 최종 금액은 가게가 정해요. */
   const REFUND_DRINK_DEFAULT = 15000, REFUND_PENALTY_DEFAULT = 10;
+  /* 정기 구독(카드 자동결제)이 기본이자 제일 싼 선택. "이번 한 번만" 결제는 정가보다 n% 비싸요 (기본 20%, 가게 설정).
+     원데이·3개월권처럼 원래 한 번 내는 상품에는 붙이지 않아요. 언제든 해지할 수 있으니 손님이 손해 볼 일은 없어요. */
+  const ONCE_MARKUP_DEFAULT = 20;
+  const onceApplies = (plan) => plan && plan.kind !== "oneday" && (plan.duration_days || 30) <= 31;
+  const onceMarkup = (settings) => settings && settings.once_markup_pct != null ? +settings.once_markup_pct : ONCE_MARKUP_DEFAULT;
+  const oncePrice = (plan, settings) => onceApplies(plan) ? Math.round(plan.price * (1 + onceMarkup(settings) / 100) / 100) * 100 : plan.price;
   function passRefundCalc(p, o) {
     o = o || {};
     const paid = +p.price || 0;
@@ -8463,11 +8469,12 @@
               <button class="pass-plan pressable" data-plan="${p.id}">
                 <span class="pp-name">${esc(p.name)}${p.kind !== "personal" ? ` <i>${PASS_KIND[p.kind]}</i>` : ""}</span>
                 <span class="pp-price">${passWon(p.price)}<small>${passPer(p)}</small></span>
+                ${CFG.TOSS_CLIENT_KEY && onceApplies(p) ? `<span class="pp-once">정기 구독 가격 · 언제든 해지 <b>· 한 번만 ${passWon(oncePrice(p, r.settings))}</b></span>` : ""}
                 <span class="pp-line">${esc(passPlanLine(p))}</span>
                 ${p.note ? `<span class="pp-note">${esc(p.note)}</span>` : ""}
               </button>`).join("")}
           </div>
-          <p class="pass-note">${CFG.TOSS_CLIENT_KEY ? "앱에서 결제하면 바로 시작돼요. 매달 자동결제(카드) 또는 한 번만 결제(카드·카카오페이·네이버페이·토스페이·삼성페이)." : "신청하면 가게에서 결제한 뒤 운영자가 승인해요."} 팀 패스 초대를 받았다면 아래에서 코드를 넣어주세요.</p>
+          <p class="pass-note">${CFG.TOSS_CLIENT_KEY ? `앱에서 결제하면 바로 시작돼요. <b>매달 자동결제</b>가 정가이고 체크카드도 돼요. 언제든 해지할 수 있어요. 한 번만 결제(카드·카카오페이·삼성페이 등)는 ${onceMarkup(r.settings)}% 더 내요.` : "신청하면 가게에서 결제한 뒤 운영자가 승인해요."} 팀 패스 초대를 받았다면 아래에서 코드를 넣어주세요.</p>
           <button class="host-chat-btn" id="bar-pass-team" style="margin:6px 0 2px">초대 코드로 팀 패스 참여</button>` : ""}
         ${on && !mine && !r.plans.length ? '<p class="pass-note">아직 판매 중인 상품이 없어요.</p>' : ""}
         ${on && r.settings.special_drink ? `<p class="pass-note">이달 ${r.settings.stamp_goal}번째 방문에 <b>${esc(r.settings.special_drink)}</b> 1잔을 드려요.</p>` : ""}
@@ -8502,9 +8509,11 @@
     const line = `${plan.name} · ${passWon(plan.price)}${passPer(plan)}\n${passPlanLine(plan)}`;
     if (CFG.TOSS_CLIENT_KEY && plan.price > 0) {
       // 앱 결제만 받아요. 자동결제는 카드만, 1회 결제는 간편결제까지. 원데이는 1회 결제만.
-      if (plan.kind === "oneday") { startPassPay(b, key, plan); return; }
-      const opts = ["💳 매달 자동결제 (카드 · 해지 전까지)", "📱 이번 한 번만 결제 (카드·카카오페이·삼성페이…)"];
-      openSheet(line, opts, null, (v) => v.startsWith("💳") ? startPassBilling(b, key, plan) : startPassPay(b, key, plan));
+      if (plan.kind === "oneday" || !onceApplies(plan)) { startPassPay(b, key, plan); return; }
+      const st = (passCache.byBar[key] && passCache.byBar[key].settings) || null;
+      const once = oncePrice(plan, st);
+      const opts = [`💳 매달 자동결제 ${passWon(plan.price)}/월 — 체크카드도 돼요 · 언제든 해지`, `📱 이번 한 번만 ${passWon(once)} — 정기보다 ${onceMarkup(st)}% 비싸요 (간편결제 가능)`];
+      openSheet(`${plan.name}\n${passPlanLine(plan)}`, opts, null, (v) => v.startsWith("💳") ? startPassBilling(b, key, plan) : startPassPay(b, key, plan, once));
       return;
     }
     if (!await btConfirm(`${line}\n\n신청할까요? 가게에서 결제하면 운영자가 승인해요.\n\n환불·해지: 결제 전 취소 무료 · 시작 전 전액 · 시작 후 남은 기간 일할 환불(위약금 10%). 자세한 규정은 내 패스에서 볼 수 있어요.`, { yes: "신청" })) return;
@@ -8749,7 +8758,7 @@
     const months = Math.max(1, Math.round((plan.duration_days || 30) / 30));
     const autoRenew = plan.kind !== "oneday";
     const ok0 = await btConfirm(autoRenew
-      ? `${plan.name} · ${passWon(plan.price)}${passPer(plan)}\n\n오늘 결제 후 ${months === 1 ? "매달" : months + "개월마다"} 같은 날 같은 카드로 ${passWon(plan.price)}이 자동 결제돼요. 해지하기 전까지 계속되고, 내 패스에서 언제든 해지할 수 있어요(해지하면 이번 기간까지만 쓰고 끝나요).\n\n환불·해지 규정: 결제 후 7일 안에 한 번도 안 썼으면 전액 환불, 그 뒤엔 남은 기간 일할 환불.`
+      ? `${plan.name} · ${passWon(plan.price)}${passPer(plan)}\n\n오늘 결제 후 ${months === 1 ? "매달" : months + "개월마다"} 같은 날 같은 카드로 ${passWon(plan.price)}이 자동 결제돼요. 해지하기 전까지 계속되고, 내 패스에서 언제든 해지할 수 있어요(해지하면 이번 기간까지만 쓰고 끝나요). 체크카드도 등록돼요.\n\n환불·해지 규정: 결제 후 7일 안에 한 번도 안 썼으면 전액 환불, 그 뒤엔 남은 기간 일할 환불.`
       : `${plan.name} · ${passWon(plan.price)}\n\n오늘 한 번만 결제돼요. 입장 전에는 전액 환불, 입장 후에는 환불이 안 돼요.`, { yes: "결제 진행" });
     if (!ok0) return;
     try {
@@ -8770,19 +8779,20 @@
    * 자동결제는 카드(빌링키)만 되지만, 한 번만 내는 결제는 간편결제까지 열려요.
    * 흐름: 결제창 → ?pass_pay=ok 로 돌아옴 → 서버(action=confirm)가 토스에 승인 요청 → 패스 시작 */
   const PASS_PAY_METHODS = [["💳 신용·체크카드", null], ["카카오페이", "카카오페이"], ["네이버페이", "네이버페이"], ["토스페이", "토스페이"], ["삼성페이", "삼성페이"]];
-  async function startPassPay(b, key, plan) {
+  async function startPassPay(b, key, plan, payAmount) {
     if (!await ensureMemberInfo()) return;
+    const amount = payAmount || oncePrice(plan, (passCache.byBar[key] && passCache.byBar[key].settings) || null);
     const ok = await lazyData(TOSS_LIB, "TossPayments");
     if (!ok || !window.TossPayments) { toast("결제 모듈을 불러오지 못했어요."); return; }
     const labels = PASS_PAY_METHODS.map((m) => m[0]);
-    openSheet(`${plan.name} · ${passWon(plan.price)} — 결제 수단`, labels, null, async (v) => {
+    openSheet(`${plan.name} · ${passWon(amount)} (1회) — 결제 수단`, labels, null, async (v) => {
       const easy = (PASS_PAY_METHODS.find((m) => m[0] === v) || [])[1];
       const orderId = `pass-${plan.id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
       const base = location.origin + location.pathname;
       try {
-        store.set("passPayIntent", { barKey: key, barName: b.name, barId: b.id, planId: plan.id, orderId, amount: plan.price, member: memberInfo(), at: Date.now() });
+        store.set("passPayIntent", { barKey: key, barName: b.name, barId: b.id, planId: plan.id, orderId, amount, member: memberInfo(), at: Date.now() });
         const req = {
-          amount: plan.price, orderId, orderName: `${b.name} ${plan.name}`,
+          amount, orderId, orderName: `${b.name} ${plan.name}${amount !== plan.price ? " (1회)" : ""}`,
           customerName: state.user.name || state.user.nick, customerEmail: undefined,
           successUrl: base + "?pass_pay=ok", failUrl: base + "?pass_pay=fail",
         };
@@ -9247,6 +9257,9 @@
           <label class="form-label">위약금 (%)<input class="input" id="pa-penalty" type="number" min="0" max="100" value="${st.refund_penalty_pct != null ? st.refund_penalty_pct : REFUND_PENALTY_DEFAULT}" inputmode="numeric"></label>
         </div>
         <p class="pass-note">해지 때 이용한 잔은 이 가격으로 빼요. 보통 비회원 단품가(클래식 15,000원)로 잡아요.</p>
+        <label class="form-label">"이번 한 번만" 결제 할증 (%) <span class="label-opt">정기 구독을 기본으로 만들어요</span></label>
+        <input class="input" id="pa-once" type="number" min="0" max="100" value="${st.once_markup_pct != null ? st.once_markup_pct : ONCE_MARKUP_DEFAULT}" inputmode="numeric">
+        <p class="pass-note">카드 자동결제(정기)는 정가, 한 번만 내는 결제는 이만큼 더 받아요. 라이트 45,000원이면 한 번만 결제는 ${passWon(Math.round(45000 * (1 + (st.once_markup_pct != null ? +st.once_markup_pct : ONCE_MARKUP_DEFAULT) / 100) / 100) * 100)}. 0이면 같은 가격.</p>
         <label class="form-label">환불·해지 규정 <span class="label-opt">비우면 기본 규정</span></label>
         <textarea class="input" id="pa-refund" rows="6" maxlength="2000" placeholder="${esc(PASS_REFUND_DEFAULT)}">${esc(st.refund_policy || "")}</textarea>
         <p class="pass-note">손님이 신청·해지할 때 이 규정을 봐요. 소비자분쟁해결기준(계속거래)에 맞춰 "시작 후 해지 = 남은 기간 일할 환불 − 위약금 10%"를 기본으로 뒀어요.</p>
@@ -9280,7 +9293,7 @@
     renderPassOwners(a);
     $("#pa-save").addEventListener("click", async () => {
       const goal = Math.max(2, Math.min(10, +$("#pa-goal").value || 4));
-      const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: !!st.enabled, stamp_goal: goal, special_drink: $("#pa-special").value.trim(), notice: $("#pa-notice").value.trim(), refund_policy: $("#pa-refund").value.trim(), refund_drink_price: Math.max(0, +$("#pa-drink-price").value || 0), refund_penalty_pct: Math.max(0, Math.min(100, +$("#pa-penalty").value || 0)) });
+      const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: !!st.enabled, stamp_goal: goal, special_drink: $("#pa-special").value.trim(), notice: $("#pa-notice").value.trim(), refund_policy: $("#pa-refund").value.trim(), refund_drink_price: Math.max(0, +$("#pa-drink-price").value || 0), refund_penalty_pct: Math.max(0, Math.min(100, +$("#pa-penalty").value || 0)), once_markup_pct: Math.max(0, Math.min(100, +$("#pa-once").value || 0)) });
       if (!r.ok) { passFail(r); return; }
       d.settings = r.settings; passCache.byBar = {}; toast("저장했어요.");
     });

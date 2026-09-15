@@ -45,6 +45,12 @@ function addDays(iso, n) {
   return d.toISOString().slice(0, 10);
 }
 const q = encodeURIComponent;
+// 1회 결제 가격 = 정가 + n% (가게 설정 once_markup_pct, 기본 20). 원데이·3개월권은 정가.
+function oncePrice(plan, st) {
+  const applies = plan.kind !== "oneday" && (plan.duration_days || 30) <= 31;
+  const pct = st && st.once_markup_pct != null ? Number(st.once_markup_pct) : 20;
+  return applies ? Math.round(plan.price * (1 + pct / 100) / 100) * 100 : plan.price;
+}
 
 /* 카드 등록 + 첫 결제 + 패스 발급 */
 async function issue(me, body) {
@@ -87,10 +93,11 @@ async function issue(me, body) {
    service role 은 신청 고정 트리거를 안 탑니다. */
 async function activatePass(me, plan, st, body, opts) {
   const start = kstToday(0), end = addDays(start, plan.duration_days - 1);
+  const paid = opts.price != null ? opts.price : plan.price;
   const fields = {
     bar_key: plan.bar_key, bar_name: st.bar_name, plan_id: plan.id, plan_name: plan.name, user_id: me.id,
     status: "active", kind: plan.kind, days: plan.days, drinks_per_day: plan.drinks_per_day, monthly_cap: plan.monthly_cap,
-    team_size: plan.team_size, duration_days: plan.duration_days, price: plan.price,
+    team_size: plan.team_size, duration_days: plan.duration_days, price: paid,
     starts_at: start, ends_at: end, paid_via: "toss", auto_renew: !!opts.autoRenew && plan.kind !== "oneday",
     approved_at: new Date().toISOString(),
   };
@@ -119,7 +126,8 @@ async function confirm(me, body) {
   if (!plan) return { error: "지금 판매 중인 상품이 아니에요." };
   const st = (await db("bar_pass_settings?bar_key=eq." + q(plan.bar_key) + "&select=*"))[0];
   if (!st || !st.enabled) return { error: "이 가게는 아직 패스를 받지 않아요." };
-  if (Number(body.amount) !== Number(plan.price)) return { error: "결제 금액이 상품 가격과 달라요." };
+  const expected = oncePrice(plan, st);
+  if (Number(body.amount) !== expected) return { error: "결제 금액이 상품 가격과 달라요. (1회 결제 " + expected.toLocaleString("ko-KR") + "원)" };
 
   // 같은 주문을 두 번 승인하지 않게 (새로고침 등)
   const done = (await db("pass_payments?order_id=eq." + q(orderId) + "&status=eq.paid&select=pass_id"))[0];
@@ -130,14 +138,14 @@ async function confirm(me, body) {
   const dup = await db("passes?user_id=eq." + me.id + "&bar_key=eq." + q(plan.bar_key) + "&status=in.(active,grace)&select=id");
   if (dup.length) return { error: "이 가게에 이미 쓰고 있는 패스가 있어요. 결제는 승인하지 않았으니 카드사 승인 내역은 자동 취소돼요." };
 
-  const pay = await toss.confirm(paymentKey, orderId, plan.price);
+  const pay = await toss.confirm(paymentKey, orderId, expected);
   if (!pay.ok) {
-    await db("pass_payments", { method: "POST", body: JSON.stringify({ user_id: me.id, bar_key: plan.bar_key, order_id: orderId, amount: plan.price, status: "failed", fail_reason: pay.error }) });
+    await db("pass_payments", { method: "POST", body: JSON.stringify({ user_id: me.id, bar_key: plan.bar_key, order_id: orderId, amount: expected, status: "failed", fail_reason: pay.error }) });
     return { error: "결제 승인 실패: " + pay.error };
   }
-  const pass = await activatePass(me, plan, st, body, { autoRenew: false });
+  const pass = await activatePass(me, plan, st, body, { autoRenew: false, price: expected });
   await db("pass_payments", { method: "POST", body: JSON.stringify({
-    pass_id: pass.id, user_id: me.id, bar_key: plan.bar_key, order_id: orderId, amount: plan.price,
+    pass_id: pass.id, user_id: me.id, bar_key: plan.bar_key, order_id: orderId, amount: expected,
     status: "paid", receipt_url: pay.receiptUrl || null, paid_at: new Date().toISOString(),
   }) });
   await notifyOwners(me, plan, st, pay.method || "앱");

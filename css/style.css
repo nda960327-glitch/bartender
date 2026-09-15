@@ -506,6 +506,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .ps-plan-row b { font-weight: 800; }
 .ps-plan-row small { color: var(--text-sub); min-width: 70px; text-align: right; }
 
+.pp-once { display: block; font-size: 11.5px; color: var(--text-sub); margin: 2px 0 4px; }
+.pp-once b { color: var(--text-muted); font-weight: 600; }
+
 /* 환불 계산기 */
 .rc-box { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: var(--bg-gray); }
 .rc-box.customer { margin: 0 0 10px; background: #fff1ec; }
