@@ -75,7 +75,7 @@
   const SPIRIT_CATS = ["위스키", "진", "럼", "보드카", "데킬라", "리큐르", "와인", "전통주", "브랜디", "기타"];
   const COCKTAIL_BASES = ["진", "럼", "위스키", "보드카", "데킬라", "리큐르", "논알콜", "기타"];
   const EMOJIS = ["🥃", "🍸", "🍹", "🍷", "🍾", "🍺", "🍶", "🧉", "🥂", "🍋"];
-  const CAT_LABEL = { free: "자유", promo: "홍보", hot: "인기" };
+  const CAT_LABEL = { free: "자유", owner: "사장님", staff: "바텐더", promo: "홍보", hot: "인기" };
   const THUMB_COLORS = ["#4a6cf7", "#12b5a5", "#1f2937", "#7c3aed", "#0ea5e9", "#e11d48"];
   const STORE_CATS = ["전체", "기물", "글라스", "재료/시럽", "서적", "굿즈", "소모품"];
   const PRODUCTS = [
@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.44.0";
+  const APP_BUILD = "2.45.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -230,16 +230,8 @@
     { id: 4, region: "부산", title: "부산 플레어 연습 모임", date: now + 10 * D, place: "서면 연습실", max: 5, joined: 2, desc: "플레어 바텐딩 같이 연습해요. 기물은 각자 지참, 초보 환영입니다.", host: "익명", hostColor: 4, isJoined: false, comments: [] },
   ];
 
-  const SEED_POSTS = [
-    { id: 1, cat: "free", color: 5, nick: "익명", time: now - 9 * M, title: "엥", body: "이런.. 오늘 첫 출근인데 사장님이 안 계심", likes: 0, comments: [{ color: 3, text: "ㅋㅋㅋ 전화해보세요", time: now - 5 * M }], emoji: "🍸" },
-    { id: 2, cat: "free", color: 7, nick: "익명", time: now - 11 * M, title: "씻어야하는데", body: "마감하고 왔더니 너무 졸려 ㅜㅜㅜㅜ", likes: 0, comments: [{ color: 1, text: "고생하셨어요 ㅠㅠ", time: now - 8 * M }] },
-    { id: 3, cat: "free", color: 6, nick: "익명", time: now - 14 * M, title: "지거 추천 좀", body: "일제 지거 쓰다가 떨어뜨려서 새로 사야해요. 뭐가 좋나요?", likes: 0, comments: [] },
-    { id: 4, cat: "free", color: 7, nick: "익명", time: now - 15 * M, title: "하이 환상", body: "홍대 칵테일바 이번주 신메뉴", likes: 0, comments: [{ color: 4, text: "오 어디요?", time: now - 10 * M }, { color: 2, text: "궁금", time: now - 9 * M }, { color: 8, text: "저도 가볼래요", time: now - 7 * M }, { color: 0, text: "위치 좀요", time: now - 4 * M }] },
-    { id: 5, cat: "hot", color: 8, nick: "익명", time: now - 4 * H, title: "ㄹㅇ진상손님 11", body: "하 그냥 셰이커 던질뻔했다 ....", likes: 2, comments: Array.from({ length: 19 }, (_, i) => ({ color: i % 10, text: ["고생하셨어요", "무슨 일이에요?", "저도 어제 겪음", "참으세요 ㅠ", "사장님한테 말해요"][i % 5], time: now - (200 - i * 9) * M })), emoji: "💬" },
-    { id: 6, cat: "hot", color: 2, nick: "익명", time: now - 5 * H, title: "돈왜버는건지모르겠어요", body: "어차피 집이 못사는것도 아니고 빚이 있는것도 아닌데 차라리 자격증 공부나 할까", likes: 6, comments: Array.from({ length: 12 }, (_, i) => ({ color: (i + 3) % 10, text: ["다들 그런 시기 있어요", "조주기능사 따세요", "화이팅", "저도요.."][i % 4], time: now - (280 - i * 12) * M })) },
-    { id: 7, cat: "hot", color: 3, nick: "익명", time: now - 6 * H, title: "손님이 준 팁 최고 기록", body: "다들 팁 얼마까지 받아봤어요? 궁금", likes: 1, comments: Array.from({ length: 45 }, (_, i) => ({ color: (i + 1) % 10, text: ["5만원이요", "저는 아직 ㅠ", "ㅋㅋㅋ", "외국 손님이 후하죠"][i % 4], time: now - (350 - i * 6) * M })), emoji: "💸" },
-    { id: 8, cat: "hot", color: 5, nick: "익명", time: now - 11 * H - 30 * M, title: "와 대박", body: "역시 연습했더니 플레어 성공함 영상 봐줘", likes: 6, comments: Array.from({ length: 31 }, (_, i) => ({ color: (i + 5) % 10, text: ["멋있어요!!", "오 대박", "몇 년 차세요?", "부럽다"][i % 4], time: now - (500 - i * 10) * M })), emoji: "🎬" },
-  ];
+  /* 예시 글은 더 이상 넣지 않아요. 커뮤니티는 진짜 글로만 채워집니다. */
+  const SEED_POSTS = [];
 
   /* ---------- 확장 시드 데이터 v2 ---------- */
   SEED_SPIRITS.push(
@@ -803,42 +795,6 @@
     }
   }
 
-  SEED_POSTS.push(
-    { id: 501, cat: "free", color: 4, nick: "익명", time: now - 2 * H, title: "조주기능사 실기 합격했어요!!", body: "3트만에 드디어 붙었습니다 ㅠㅠ 사이드카에서 계량 실수한 줄 알았는데 합격. 다들 화이팅!", likes: 8, comments: [
-      { color: 1, text: "축하드려요!! 저는 다음달 시험", time: now - 100 * M },
-      { color: 6, text: "3트 존버 승리 ㅋㅋ 축하합니다", time: now - 80 * M },
-      { color: 9, text: "실기 팁 좀 공유해주세요", time: now - 60 * M },
-    ], emoji: "🎉" },
-    { id: 502, cat: "free", color: 8, nick: "익명", time: now - 3 * H, title: "보스턴 vs 코블러 셰이커", body: "여러분은 어떤 거 쓰세요? 저는 보스턴파인데 신입이 코블러 편하다고 해서 갑자기 궁금해짐", likes: 3, comments: [
-      { color: 5, text: "영업은 보스턴, 연습은 코블러요", time: now - 150 * M },
-      { color: 2, text: "코블러 거름망 막히는 거 스트레스라 보스턴", time: now - 120 * M },
-    ] },
-    { id: 503, cat: "free", color: 0, nick: "익명", time: now - 7 * H, title: "오늘 단골손님이 케이크 사옴", body: "우리 바 1주년이라고 케이크 사오셨는데 순간 울컥했다.. 이 맛에 바텐더 하는 듯", likes: 12, comments: [
-      { color: 3, text: "이런 손님 진짜 소중해요 ㅠㅠ", time: now - 6 * H },
-      { color: 7, text: "1주년 축하드려요!!", time: now - 5 * H },
-    ], emoji: "🎂" },
-    { id: 504, cat: "free", color: 6, nick: "익명", time: now - 9 * H, title: "발주 실수로 캄파리 12병 옴", body: "3병 시킨다는게 12병 시킴.. 사장님한테 말하기 전에 네그로니 프로모션 기획서부터 쓰는 중 ㅋㅋㅋ", likes: 9, comments: [
-      { color: 8, text: "ㅋㅋㅋㅋ위기를 기회로", time: now - 8 * H },
-      { color: 4, text: "네그로니 위크 하면 되겠네요", time: now - 7 * H },
-      { color: 1, text: "스프리츠도 팔아요 여름이잖아요", time: now - 6 * H },
-    ] },
-    { id: 505, cat: "free", color: 2, nick: "익명", time: now - 12 * H, title: "얼음 기계 고장났을 때 꿀팁", body: "근처 편의점 각얼음 쓸어오는 것 말고 방법 있나요? 내일 아침에 기사님 오신다는데 오늘 영업이 문제", likes: 2, comments: [
-      { color: 0, text: "근처 바에 SOS 쳐보세요. 은근 다 도와줌", time: now - 11 * H },
-      { color: 9, text: "제빙기 커뮤니티 카페 있어요. 셀프 수리법도 나옴", time: now - 10 * H },
-    ] },
-    { id: 506, cat: "hot", color: 3, nick: "익명", time: now - 18 * H, title: "바텐더 월급 공개해봄 (3년차)", body: "세후 280 + 팁 평균 30. 서울 칵테일바 기준이고 주 5일 밤 근무. 다들 어느 정도 받아요?", likes: 15, comments: Array.from({ length: 28 }, (_, i) => ({ color: (i + 2) % 10, text: ["저랑 비슷하네요", "지방은 그거보다 낮아요 ㅠ", "팁 문화 부럽다", "호텔바는 더 줘요", "5년차인데 320이요"][i % 5], time: now - (1000 - i * 30) * M })), emoji: "💰" },
-    { id: 507, cat: "hot", color: 9, nick: "익명", time: now - 22 * H, title: "진상 대처법 모음 (댓글로 추가해줘)", body: "1. 목소리는 낮추고 속도는 천천히 2. 동료와 아이컨택 3. 사장 콜은 빠르게. 다들 노하우 공유점", likes: 11, comments: Array.from({ length: 17 }, (_, i) => ({ color: (i + 4) % 10, text: ["물 한잔 먼저 드리면 텐션 내려가요", "CCTV 가리키면 조용해짐 ㅋㅋ", "마지막 잔은 무알콜로 슬쩍", "저장했습니다", "이건 국룰"][i % 5], time: now - (1200 - i * 40) * M })) },
-    { id: 508, cat: "free", color: 5, nick: "익명", time: now - 26 * H, title: "시그니처 메뉴 이름 짓는 거 너무 어려움", body: "유자+진+얼그레이 조합인데 이름이 안 떠오름. 공모합니다. 채택되면 오시면 한 잔 쏨", likes: 6, comments: [
-      { color: 7, text: "'달빛유자' 어때요", time: now - 25 * H },
-      { color: 2, text: "얼그레이서울", time: now - 24 * H },
-      { color: 8, text: "시트러스 가든", time: now - 23 * H },
-    ], emoji: "🍋" },
-    { id: 512, cat: "free", color: 7, nick: "익명", time: now - 32 * H, title: "새벽 마감하고 보는 일출", body: "힘든데 이 순간 때문에 버티는 것 같기도. 다들 마감 후 루틴 있어요?", likes: 7, comments: [
-      { color: 3, text: "국밥 먹고 자기. 국룰임", time: now - 30 * H },
-      { color: 5, text: "저는 무조건 반신욕", time: now - 29 * H },
-    ], emoji: "🌅" }
-  );
-
   /* ---------- 상태 ---------- */
   const DEFAULT_USER = {
     nick: "", color: 2, points: 0, onboarded: false, refCode: "",
@@ -855,8 +811,7 @@
    */
   if (window.BARTALK_SEED) {
     const S = window.BARTALK_SEED;
-    SEED_POSTS.length = 0;
-    S.posts.forEach((p) => SEED_POSTS.push(Object.assign({ seed: true }, p)));
+    // 예시 글(S.posts)은 더 이상 쓰지 않아요 — 모임만 가져옵니다.
     SEED_MEETS.length = 0;
     S.meets.forEach((m) => SEED_MEETS.push(Object.assign({ seed: true }, m)));
   }
@@ -1030,10 +985,13 @@
   /* 11 = 예시 홍보글(강남루프탑바·조주학원·바용품샵·미나언니·몰트하우스·바텐더마켓·
    *      칵테일챔피언십·루프탑바 문라이트·믹스랩·바용품상회·포도상점)을 걷어냅니다.
    *      가짜 업체 홍보가 진짜처럼 보이면 안 되니까요. */
-  const SEED_V = 11;
+  const SEED_V = 12;   // 12 = 예시 글을 전부 걷어냅니다 (커뮤니티는 진짜 글만)
   /* 예전 판에서 서버에까지 올라갔을 수 있는 예시 홍보글 번호.
      서버 사본(remote)은 dropOldSeed 가 건드리지 않으니 여기서 따로 지웁니다. */
-  const PURGED_PROMO_IDS = [9, 10, 11, 12, 509, 510, 511, 1027, 1028, 1029, 1030];
+  const PURGED_PROMO_IDS = [];
+  for (let i = 1; i <= 12; i++) PURGED_PROMO_IDS.push(i);
+  for (let i = 501; i <= 512; i++) PURGED_PROMO_IDS.push(i);
+  for (let i = 1001; i <= 1030; i++) PURGED_PROMO_IDS.push(i);
   if (store.get("seedv", 1) < SEED_V) {
     const mergeSeed = (arr, seed) => {
       const ids = new Set(arr.map((x) => x.id));
@@ -1627,7 +1585,7 @@
 
   /* 질문으로 글쓰기. 쓰던 글이 있으면 지우지 않습니다. */
   function openQuestionWrite(q, who) {
-    state.writeCat = "free";
+    state.writeCat = ["free", "owner", "staff", "promo"].includes(state.commTab) ? state.commTab : "free";
     show("write");
     const t = $("#write-title"), b = $("#write-body");
     if (!t.value.trim() && !b.value.trim()) {
@@ -4571,7 +4529,7 @@
           <div class="hm-title">${esc(p.title)}</div>
           <div class="hm-sub">공감 ${p.likes} · 댓글 ${p.comments.length}</div>
         </div>
-      </div>`).join("");
+      </div>`).join("") || '<div class="empty-state" style="padding:26px 0">아직 글이 없어요. 첫 글을 남겨보세요.</div>';
     $$("#home-posts .home-mini").forEach((el) =>
       el.addEventListener("click", () => openPost(+el.dataset.id)));
   }
@@ -5719,20 +5677,20 @@
     let list = state.posts.filter((p) => !hidden.includes(p.id) && !isBlockedPost(p));
     if (state.previewUser) list = list.filter((p) => p.remote);
     if (state.commTab === "hot") list = list.filter((p) => p.cat === "hot" || p.likes + p.comments.length >= 10);
-    // 사장님·바텐더 탭: 글쓴이의 역할(물방울 색 계열)로 갈라요. 홍보글은 홍보 탭에만.
-    else if (state.commTab === "owner" || state.commTab === "staff") list = list.filter((p) => p.cat !== "promo" && roleOfColor(colorOf(p)) === state.commTab);
-    else if (state.commTab === "free") list = list.filter((p) => p.cat !== "promo");
+    // 게시판은 글 쓸 때 고른 것 그대로. 사장님이 바텐더 게시판에 써도 되고, 그 반대도 돼요.
+    // 예전 '인기(hot)' 글은 자유 게시판으로 칩니다.
+    else if (state.commTab === "free") list = list.filter((p) => p.cat === "free" || p.cat === "hot" || !p.cat);
     else if (state.commTab !== "all") list = list.filter((p) => p.cat === state.commTab);
     if (q) list = list.filter((p) => has(p.title, q) || has(p.body, q));
     const isBoost = (x) => x.boostUntil && x.boostUntil > Date.now() ? 1 : 0;
     list.sort((a, b) => isBoost(b) - isBoost(a) || b.time - a.time);
 
-    const ph = { all: "커뮤니티 전체 검색", hot: "커뮤니티 인기 검색", free: "커뮤니티 자유 검색", promo: "커뮤니티 홍보 검색", owner: "사장님 이야기 검색", staff: "바텐더 이야기 검색" };
+    const ph = { all: "커뮤니티 전체 검색", hot: "커뮤니티 인기 검색", free: "자유 게시판 검색", promo: "홍보 게시판 검색", owner: "사장님 게시판 검색", staff: "바텐더 게시판 검색" };
     $("#post-search").placeholder = ph[state.commTab] || "커뮤니티 검색";
 
-    const emptyMsg = state.commTab === "owner" ? "아직 사장님이 쓴 글이 없어요.<br>사장님 계정으로 첫 글을 남겨보세요."
-      : state.commTab === "staff" ? "아직 바텐더가 쓴 글이 없어요.<br>바텐더 계정으로 첫 글을 남겨보세요."
-      : "게시글이 없어요.";
+    const emptyMsg = state.commTab === "owner" ? "사장님 게시판에 아직 글이 없어요.<br>가게 운영 이야기를 첫 글로 남겨보세요."
+      : state.commTab === "staff" ? "바텐더 게시판에 아직 글이 없어요.<br>현장 이야기를 첫 글로 남겨보세요."
+      : "아직 글이 없어요.<br>첫 글을 남겨보세요. ✏️";
     $("#post-list").innerHTML = previewBarHTML() + (list.length
       ? list.map(postItemHTML).join("")
       : `<div class="empty-state">${emptyMsg}</div>`);
@@ -6263,7 +6221,7 @@
     setPendingImg(null);
     $("#write-file").value = "";
     updateSubmit();
-    state.commTab = state.writeCat === "promo" ? "promo" : "free";
+    state.commTab = state.writeCat || "free";
     $$("#community-tabs .tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === state.commTab));
     show("community");
     addPoints(30, "게시글 작성");
@@ -9139,6 +9097,12 @@
   $("#fab-write").addEventListener("click", () => {
     state.editPost = null;
     $("#view-write .topbar-title").textContent = "글쓰기";
+    // 보고 있던 게시판이 기본. (사장님 탭에서 글쓰기 → 사장님 게시판)
+    if (!$("#write-title").value && !$("#write-body").value) {
+      state.writeCat = ["free", "owner", "staff", "promo"].includes(state.commTab) ? state.commTab : "free";
+      $$(".cat-chip").forEach((x) => x.classList.toggle("active", x.dataset.cat === state.writeCat));
+      updateBizHint();
+    }
     // 임시저장 복원
     const d = store.get("draft", null);
     if (d && !$("#write-title").value && !$("#write-body").value) {
@@ -9286,7 +9250,7 @@
     state.editPost = p.id;
     $("#write-title").value = p.title;
     $("#write-body").value = p.body;
-    state.writeCat = p.cat === "promo" ? "promo" : "free";
+    state.writeCat = ["free", "owner", "staff", "promo"].includes(p.cat) ? p.cat : "free";
     $$(".cat-chip").forEach((x) => x.classList.toggle("active", x.dataset.cat === state.writeCat));
     $("#view-write .topbar-title").textContent = "글 수정";
     updateSubmit();
@@ -10423,7 +10387,7 @@
       window.open(`https://map.kakao.com/link/search/${q}`, "_blank", "noopener");
     });
     $("#bar-write").addEventListener("click", () => {
-      state.writeCat = "free";
+      state.writeCat = ["free", "owner", "staff", "promo"].includes(state.commTab) ? state.commTab : "free";
       show("write");
       const t = $("#write-title");
       if (t) t.value = `${b.name} 다녀왔어요`;
@@ -11567,12 +11531,12 @@
   /* 예전 판의 "예시 글 서버에 올리기"로 올라간 가짜 홍보글을 서버에서도 지웁니다.
      삭제는 작성자(author_id)가 나일 때만 먹히니, 남의 글은 건드리지 못해요. */
   function purgeSeedPromoOnServer() {
-    if (store.get("promoPurgeV", 0) >= 1) return;
+    if (store.get("promoPurgeV", 0) >= 2) return;
     PURGED_PROMO_IDS.forEach((id) => Sync.deletePost(id));
     const before = state.posts.length;
     state.posts = state.posts.filter((p) => !PURGED_PROMO_IDS.includes(p.id));
     if (state.posts.length !== before) savePosts();
-    store.set("promoPurgeV", 1);
+    store.set("promoPurgeV", 2);
   }
 
   /* ---------- 로그인 화면 ---------- */
