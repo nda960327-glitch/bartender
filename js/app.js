@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.49.1";
+  const APP_BUILD = "2.49.2";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8652,13 +8652,22 @@
   function scanResultHTML(s) {
     const p = s.result;
     const stamps = Math.min(p.stamps, p.stamp_goal);
+    // 잔수는 서버가 세요. 스캔하자마자 "오늘 다 썼는지"가 보이고, 다 썼으면 잔 사용 버튼이 잠겨요.
+    const dayFull = p.today_drinks >= p.drinks_per_day;
+    const monthFull = !!p.monthly_cap && p.month_drinks >= p.monthly_cap;
+    const left = Math.max(0, p.drinks_per_day - p.today_drinks);
+    const limitHTML = s.error ? "" : monthFull
+      ? `<div class="sr-limit">🚫 이달 상한 ${p.monthly_cap}잔을 다 썼어요 — 추가 잔은 회원가로 계산</div>`
+      : dayFull ? `<div class="sr-limit">🚫 오늘 ${p.drinks_per_day}잔 다 썼어요 — 추가 잔은 회원가로 계산</div>`
+      : `<div class="sr-left">오늘 <b>${left}잔</b> 더 쓸 수 있어요</div>`;
     return `
       <div class="scan-result ${s.error ? "err" : ""}">
         <div class="sr-head">
           <span class="avatar md" style="background:${COLORS[(s.color || 0) % COLORS.length]}"></span>
-          <div class="sr-who"><b>${esc(p.nick || "손님")}</b><span>${esc(p.plan_name)} · ${PASS_DAYS[p.days] || ""} · ${fmtDay(p.ends_at)}까지</span></div>
+          <div class="sr-who"><b>${esc(p.member_name || p.nick || "손님")}</b><span>${p.member_name ? esc(p.nick || "") + " · " : ""}${esc(p.plan_name)} · ${PASS_DAYS[p.days] || ""} · ${fmtDay(p.ends_at)}까지</span></div>
         </div>
         ${s.error ? `<div class="sr-err">${esc(s.error)}</div>` : `<div class="sr-ok">${s.msg || "입장 확인 ✓"}</div>`}
+        ${limitHTML}
         <div class="sr-nums">
           <div><span>오늘 잔</span><b>${p.today_drinks}<small>/${p.drinks_per_day}</small></b></div>
           <div><span>이달 잔</span><b>${p.month_drinks}${p.monthly_cap ? `<small>/${p.monthly_cap}</small>` : ""}</b></div>
@@ -8669,7 +8678,7 @@
         </div>
         ${p.reward_pending ? `<div class="pass-reward">🎁 <b>${esc(p.special_drink)}</b> 1잔 드릴 차례예요!</div>` : ""}
         <div class="sr-acts">
-          <button class="big-btn accent ready" data-act="drink">🍸 잔 사용 +1</button>
+          <button class="big-btn ${dayFull || monthFull ? "" : "accent ready"}" data-act="drink" ${dayFull || monthFull ? "disabled" : ""}>${dayFull || monthFull ? "🍸 잔 사용 불가 (" + p.today_drinks + "/" + p.drinks_per_day + ")" : "🍸 잔 사용 +1 (" + p.today_drinks + "/" + p.drinks_per_day + ")"}</button>
           <button class="big-btn ${p.side_today ? "ready" : ""}" data-act="side">${p.side_today ? "🍟 사이드 주문 ✓" : "🍟 사이드 주문했어요"}</button>
           ${p.reward_pending ? '<button class="big-btn ready" data-act="reward" style="background:#2eb872;color:#fff">🎁 한정 칵테일 제공</button>' : ""}
         </div>
