@@ -1991,7 +1991,7 @@
           sb.from("bar_pass_settings").select("*").eq("bar_key", barKey).maybeSingle(),
           sb.from("pass_plans").select("*").eq("bar_key", barKey).eq("active", true).order("sort").order("id"),
           sb.from("passes").select("*").eq("bar_key", barKey).eq("user_id", S.uid)
-            .in("status", ["requested", "active", "grace"]).order("id", { ascending: false }).limit(1),
+            .in("status", ["requested", "active", "grace"]).order("status").order("id", { ascending: false }).limit(1),
           sb.from("bar_owners").select("bar_key").eq("bar_key", barKey).eq("user_id", S.uid).limit(1),
         ]);
         if (r[0].error) return { ok: false, error: notInstalled(r[0].error) };
@@ -2004,16 +2004,21 @@
         };
       } catch (e) { return { ok: false, error: (e && e.message) || "불러오지 못했어요." }; }
     },
-    async passRequest(planId, member) {
+    async passRequest(planId, member, opts) {
       if (!ready()) return { ok: false, error: "로그인이 필요해요." };
       try {
         var row = { plan_id: planId, user_id: S.uid };
+        // 상품 바꾸기(업그레이드): 승인되면 이 패스가 끝나요 (pass-lifecycle.sql)
+        if (opts && opts.replaces) row.replaces_id = opts.replaces;
         // 회원 이름·번호 (pass-member.sql 을 넣은 서버). 칸이 없으면 그것만 빼고 다시 시도해요.
         if (member && member.phone) { row.member_name = member.name || ""; row.member_phone = member.phone; }
         var res = await sb.from("passes").insert(row).select("*").single();
         if (res.error && /member_(name|phone)/.test(res.error.message || "")) {
           delete row.member_name; delete row.member_phone;
           res = await sb.from("passes").insert(row).select("*").single();
+        }
+        if (res.error && row.replaces_id && /replaces_id/.test(res.error.message || "")) {
+          return { ok: false, error: "서버에 상품 바꾸기 기능이 아직 설치되지 않았어요. (supabase/pass-lifecycle.sql)" };
         }
         if (res.error) return { ok: false, error: rpcMsg(res.error) };
         return { ok: true, pass: res.data };
@@ -2046,6 +2051,12 @@
       return r;
     },
     passCancel(id)                  { return callRpc("pass_cancel_mine", { p_pass: id }); },
+    /* 생애주기 (pass-lifecycle.sql): 해지·환불 요청, 연장 요청, 팀 나가기·내보내기 */
+    passRequestCancel(id, reason)   { return callRpc("pass_request_cancel", { p_pass: id, p_reason: reason || "" }); },
+    passWithdrawCancel(id)          { return callRpc("pass_withdraw_cancel", { p_pass: id }); },
+    passRequestRenew(id)            { return callRpc("pass_request_renew", { p_pass: id }); },
+    passTeamLeave(id)               { return callRpc("pass_team_leave", { p_pass: id }); },
+    passTeamRemove(memberId)        { return callRpc("pass_team_remove", { p_member: memberId }); },
     passDashboard(barKey)           { return callRpc("pass_dashboard", { p_bar: barKey }); },
     passCardLabel(barKey)           { return callRpc("pass_card_label", { p_bar: barKey }); },
     passAddOwner(barKey, barName, nick, info) { return callRpc("pass_add_owner", { p_bar: barKey, p_bar_name: barName, p_nick: nick || null, p_info: info || null }); },
@@ -2099,6 +2110,11 @@
       if (!ready()) return { ok: false, error: "로그인이 필요해요." };
       try {
         var res = await sb.from("bar_pass_settings").upsert(row, { onConflict: "bar_key" }).select("*").single();
+        // 환불 규정 칸(pass-lifecycle.sql)이 없는 서버면 그 칸만 빼고 다시 저장해요
+        if (res.error && row.refund_policy != null && /refund_policy/.test(res.error.message || "")) {
+          var r2 = Object.assign({}, row); delete r2.refund_policy;
+          res = await sb.from("bar_pass_settings").upsert(r2, { onConflict: "bar_key" }).select("*").single();
+        }
         if (res.error) return { ok: false, error: rpcMsg(res.error) };
         return { ok: true, settings: res.data };
       } catch (e) { return { ok: false, error: (e && e.message) || "저장하지 못했어요." }; }

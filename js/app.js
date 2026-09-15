@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.48.0";
+  const APP_BUILD = "2.49.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8045,6 +8045,89 @@
   }
   const qrGlyph = () => '<svg viewBox="0 0 24 24" class="qr-glyph" aria-hidden="true"><path d="M3 3h7v7H3zM5 5v3h3V5zM14 3h7v7h-7zM16 5v3h3V5zM3 14h7v7H3zM5 16v3h3v-3zM14 14h3v3h-3zM19 14h2v2h-2zM14 19h2v2h-2zM17 17h4v4h-4z"/></svg>';
 
+  /* ---------- 패스 생애주기: 환불 규정 · 업그레이드 · 해지/연장 요청 ----------
+   * 규정은 가게가 상품·설정에서 고칠 수 있고, 비워두면 아래 기본 규정이 보여요.
+   * 실제 환불은 가게가 결제받은 수단으로 직접 하고, 앱은 요청·기록·종료 처리만 해요. */
+  const PASS_REFUND_DEFAULT = `1. 승인(결제) 전 — 언제든 신청을 취소할 수 있고 비용이 없어요.
+2. 결제 후 시작 전 — 전액 환불해요.
+3. 시작 후 해지 — 남은 일수를 일할 계산해 환불하되, 이미 마신 잔은 회원 추가잔 가격으로 계산해 빼고, 총 결제액의 10%를 위약금으로 공제해요. 계산 결과가 0보다 작으면 환불액은 없어요.
+4. 원데이 — 입장 전에는 전액 환불, 입장 후에는 환불이 안 돼요.
+5. 팀 패스 — 팀장이 결제·해지·환불의 당사자예요. 팀원이 나가도 환불되지 않고, 빈자리에 새 팀원을 초대할 수 있어요.
+6. 자동 갱신 — 갱신일 전에 끄면 다음 달은 결제되지 않아요. 갱신 결제 후 7일 안에 한 번도 이용하지 않았다면 전액 환불해요.
+7. 상품 바꾸기(업그레이드) — 새 상품이 승인되는 날부터 새 패스가 시작되고 기존 패스는 그날 끝나요. 기존 패스의 남은 일수는 일할 계산해 차액에서 빼드려요.
+8. 가게 사정(휴업·폐업)으로 이용할 수 없으면 남은 기간만큼 연장하거나 일할 환불해요.
+9. 환불은 결제한 수단으로, 요청일부터 영업일 3일 안에 처리해요.`;
+  const refundText = (p) => (p && p.refund_policy && p.refund_policy.trim()) || PASS_REFUND_DEFAULT;
+  function openRefundPolicy(p) {
+    openSheetHTML(`
+      <h3>환불·해지 규정</h3>
+      <p class="sheet-sub">${esc(p && p.bar_name ? p.bar_name : "이 가게")}의 하우스 패스 규정이에요.</p>
+      <div class="refund-text">${escMsg(refundText(p))}</div>`);
+  }
+  // 남은 기간의 가치와 업그레이드 차액 (안내용 추정치 — 실제 금액은 가게가 정해요)
+  function passRemainDays(p) {
+    if (!p || !p.ends_at) return 0;
+    const end = new Date(p.ends_at + "T23:59:59").getTime();
+    return Math.max(0, Math.ceil((end - Date.now()) / 86400e3));
+  }
+  function passUpgradeQuote(oldP, newPlan) {
+    const remain = passRemainDays(oldP);
+    const credit = oldP && oldP.duration_days ? Math.round((oldP.price || 0) * remain / oldP.duration_days / 100) * 100 : 0;
+    const diff = Math.max(0, (newPlan.price || 0) - credit);
+    return { remain, credit, diff };
+  }
+  // 상품 바꾸기(업그레이드) — 지금 패스보다 위 상품만 보여줘요. 승인되면 기존 패스가 그날 끝나요.
+  async function openUpgradeSheet(p) {
+    const r = await Sync.passProgram(p.bar_key);
+    if (!r.ok) { passFail(r); return; }
+    const plans = (r.plans || []).filter((x) => x.kind !== "oneday" && x.id !== p.plan_id && x.price >= (p.price || 0) && x.active !== false);
+    if (!plans.length) { toast("지금 패스보다 위 상품이 아직 없어요."); return; }
+    if (!nameValid(state.user.name) || !phoneValid(state.user.phone)) { if (!await ensureMemberInfo()) return; }
+    const bd = openSheetHTML(`
+      <h3>상품 바꾸기</h3>
+      <p class="sheet-sub">지금: <b>${esc(p.plan_name)}</b> · ${fmtDay(p.ends_at)}까지 (${passRemainDays(p)}일 남음)<br>새 상품이 승인되면 그날부터 새 패스가 시작되고 지금 패스는 끝나요. 남은 일수는 차액에서 빼드려요.</p>
+      <div class="pass-plans">
+        ${plans.map((x) => { const q = passUpgradeQuote(p, x); return `
+          <button class="pass-plan pressable" data-plan="${x.id}">
+            <span class="pp-name">${esc(x.name)}${x.kind !== "personal" ? ` <i>${PASS_KIND[x.kind]}</i>` : ""}</span>
+            <span class="pp-price">${passWon(x.price)}<small>${passPer(x)}</small></span>
+            <span class="pp-line">${esc(passPlanLine(x))}</span>
+            <span class="pp-note">차액 약 <b>${passWon(q.diff)}</b> (남은 ${q.remain}일 ≈ ${passWon(q.credit)} 인정)</span>
+          </button>`; }).join("")}
+      </div>
+      <button class="text-btn" id="up-policy" style="margin-top:10px">환불·해지 규정 보기</button>`);
+    bd.querySelector("#up-policy").addEventListener("click", () => openRefundPolicy(p));
+    bd.querySelectorAll(".pass-plan").forEach((el) => el.addEventListener("click", async () => {
+      const x = plans.find((y) => y.id === +el.dataset.plan);
+      const q = passUpgradeQuote(p, x);
+      if (!await btConfirm(`${x.name} · ${passWon(x.price)}${passPer(x)}\n\n가게에서 차액 약 ${passWon(q.diff)}을 결제하면 운영자가 승인하고, 그날부터 새 패스가 시작돼요. 신청할까요?`, { yes: "신청" })) return;
+      const rr = await Sync.passRequest(x.id, memberInfo(), { replaces: p.id });
+      if (!rr.ok) { passFail(rr); return; }
+      bd.remove();
+      invalidatePasses();
+      Sync.notify && Sync.notify({ type: "passRequest", passId: rr.pass.id });
+      toast("바꾸기 신청을 보냈어요. 가게에서 차액을 결제하면 승인돼요. 🎫");
+      if (state.view === "pass") renderPassView(); else renderBarDetail();
+    }));
+  }
+  // 해지·환불 요청 — 규정을 보여주고 사유를 받아요. 가게가 환불 처리하면 그때 종료돼요.
+  async function openCancelRequest(p) {
+    const bd = openSheetHTML(`
+      <h3>해지·환불 요청</h3>
+      <p class="sheet-sub">요청하면 가게가 규정에 따라 환불하고 패스를 종료해요. 처리 전까지는 그대로 쓸 수 있어요.</p>
+      <div class="refund-text small">${escMsg(refundText(p))}</div>
+      <label class="form-label">사유 <span class="label-opt">선택</span></label>
+      <textarea class="input" id="cr-reason" rows="2" maxlength="200" placeholder="예) 이사 가요 / 주말만 오게 돼서"></textarea>
+      <button class="big-btn accent ready" id="cr-send" style="margin-top:12px">해지·환불 요청 보내기</button>`);
+    bd.querySelector("#cr-send").addEventListener("click", async () => {
+      const rr = await Sync.passRequestCancel(p.id, bd.querySelector("#cr-reason").value.trim());
+      if (!rr.ok) { passFail(rr); return; }
+      bd.remove(); invalidatePasses();
+      toast(rr.data && rr.data.status === "cancelled" ? "신청을 취소했어요." : "요청을 보냈어요. 가게에서 환불 처리하면 종료돼요.");
+      if (state.view === "pass") renderPassView();
+    });
+  }
+
   /* ---------- 마이페이지 줄 ---------- */
   async function paintMyPagePass() {
     const row = $("#btn-mypass"), admin = $("#btn-passadmin");
@@ -8119,9 +8202,10 @@
           <button class="pass-mine pressable" id="bar-pass-mine">
             <span class="ph-qr">${passActive(mine) ? qrGlyph() : "⏳"}</span>
             <span class="ph-body"><b>${esc(mine.plan_name)} · ${PASS_STATUS[mine.status]}</b>
-              <span>${passActive(mine) ? `${fmtDay(mine.ends_at)}까지 · 탭해서 QR 보기` : "가게에서 결제하면 운영자가 승인해요"}</span></span>
+              <span>${passActive(mine) ? `${fmtDay(mine.ends_at)}까지 · 탭해서 QR 보기` : mine.replaces_id ? "바꾸기 승인 대기 · 기존 패스는 그대로 써요" : "가게에서 결제하면 운영자가 승인해요"}</span></span>
             <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
-          </button>` : ""}
+          </button>
+          ${passActive(mine) && !mine.team_id ? `<div class="pass-links"><button class="text-btn" id="bar-pass-upgrade">⬆️ 상품 바꾸기</button><button class="text-btn" id="bar-pass-policy">환불·해지 규정</button></div>` : ""}` : ""}
         ${on && !mine && r.plans.length ? `
           <div class="pass-plans">
             ${r.plans.map((p) => `
@@ -8141,6 +8225,10 @@
     if (manage) manage.addEventListener("click", () => r.owner ? openPassAdmin(key, b.name, "plans") : claimBarOwner(b, key));
     const mineBtn = $("#bar-pass-mine");
     if (mineBtn) mineBtn.addEventListener("click", () => openPass(mine.id));
+    const upBtn = $("#bar-pass-upgrade");
+    if (upBtn) upBtn.addEventListener("click", () => openUpgradeSheet(Object.assign({ bar_name: b.name, refund_policy: r.settings && r.settings.refund_policy }, mine)));
+    const polBtn = $("#bar-pass-policy");
+    if (polBtn) polBtn.addEventListener("click", () => openRefundPolicy({ bar_name: b.name, refund_policy: r.settings && r.settings.refund_policy }));
     $$("#bar-pass .pass-plan").forEach((el) => el.addEventListener("click", () => choosePassPlan(b, key, r.plans.find((p) => p.id === +el.dataset.plan))));
     const team = $("#bar-pass-team");
     if (team) team.addEventListener("click", joinTeamPass);
@@ -8166,7 +8254,7 @@
       openSheet(line, opts, null, (v) => v.startsWith("💳") ? startPassBilling(b, key, plan) : requestPass(b, key, plan));
       return;
     }
-    if (!await btConfirm(`${line}\n\n신청할까요? 가게에서 결제하면 운영자가 승인해요.`, { yes: "신청" })) return;
+    if (!await btConfirm(`${line}\n\n신청할까요? 가게에서 결제하면 운영자가 승인해요.\n\n환불·해지: 결제 전 취소 무료 · 시작 전 전액 · 시작 후 남은 기간 일할 환불(위약금 10%). 자세한 규정은 내 패스에서 볼 수 있어요.`, { yes: "신청" })) return;
     requestPass(b, key, plan);
   }
   /* 패스에는 회원 이름·번호가 붙어야 운영자가 계산할 때 사람을 알아봐요.
@@ -8286,7 +8374,41 @@
       </div>
       ${p.last_payment_error ? `<p class="pass-note" style="margin:0 20px">최근 결제 실패: ${esc(p.last_payment_error)}</p>` : ""}` : ""}
 
-      ${p.status === "requested" ? '<button class="big-btn" id="pass-cancel" style="margin:8px 16px">신청 취소</button>' : ""}
+      ${p.status === "requested" ? `
+      <div class="card">
+        ${p.replaces_id ? `<p class="pass-note"><b>상품 바꾸기 승인 대기</b> · 가게에서 차액을 결제하면 승인되고, 그때까지 기존 ${esc(p.replaces_name || "패스")}는 그대로 써요.</p>` : ""}
+        <button class="big-btn" id="pass-cancel">신청 취소</button>
+      </div>` : ""}
+
+      ${live && !p.team_id ? `
+      <div class="card">
+        <h3 class="card-h">패스 관리</h3>
+        ${p.cancel_requested_at ? `
+          <div class="pass-flag">🛑 해지·환불 요청 중 <small>${fmtRel(new Date(p.cancel_requested_at).getTime())}</small><span>가게에서 환불 처리하면 종료돼요. 그때까지는 그대로 쓸 수 있어요.</span></div>
+          <button class="host-chat-btn" id="pass-cancel-withdraw">요청 취소하기</button>` : `
+          ${p.renew_requested_at ? `<div class="pass-flag">🔁 연장 요청 중 <small>${fmtRel(new Date(p.renew_requested_at).getTime())}</small><span>가게에서 다음 달 요금을 결제하면 연장돼요.</span></div>`
+            : p.kind !== "oneday" && !p.auto_renew ? `<button class="host-chat-btn" id="pass-renew-req">🔁 다음 달 연장 요청</button>` : ""}
+          <button class="host-chat-btn" id="pass-upgrade">⬆️ 상품 바꾸기 (업그레이드)</button>
+          <button class="host-chat-btn danger-text" id="pass-cancel-req">해지·환불 요청</button>`}
+        <button class="text-btn" id="pass-policy" style="margin-top:6px">환불·해지 규정 보기</button>
+      </div>` : ""}
+
+      ${p.kind === "team" && !p.team_id && p.team_members && p.team_members.length ? `
+      <div class="card">
+        <h3 class="card-h">팀원 ${p.team_members.length}명</h3>
+        ${p.team_members.map((m) => `
+          <div class="pm-row">
+            <div class="pm-who"><b>${esc(m.member_name || m.nick || "팀원")}</b>${m.member_name ? `<small class="pm-nick">${esc(m.nick || "")}</small>` : ""}<span>${fmtDay(m.starts_at)}부터</span></div>
+            ${live ? `<button class="chip" data-remove="${m.id}">내보내기</button>` : ""}
+          </div>`).join("")}
+        <p class="pass-note">내보내면 그 사람은 오늘부터 못 써요. 빈자리에는 초대 코드로 새 팀원을 받을 수 있어요.</p>
+      </div>` : ""}
+
+      ${p.team_id && live ? `
+      <div class="card">
+        <button class="host-chat-btn danger-text" id="pass-leave">팀에서 나가기</button>
+        <p class="pass-note">나가면 오늘부터 이 패스를 쓸 수 없어요. 환불은 팀장에게만 해당돼요.</p>
+      </div>` : ""}
       <div style="height:24px"></div>`;
 
     if (live) startPassQr(p.id);
@@ -8309,6 +8431,39 @@
       renew.classList.toggle("on", on);
       toast(on ? "기간이 끝나면 카드로 자동 연장돼요." : "자동 갱신을 꺼뒀어요.");
     });
+    const up = $("#pass-upgrade");
+    if (up) up.addEventListener("click", () => openUpgradeSheet(p));
+    const pol = $("#pass-policy");
+    if (pol) pol.addEventListener("click", () => openRefundPolicy(p));
+    const creq = $("#pass-cancel-req");
+    if (creq) creq.addEventListener("click", () => openCancelRequest(p));
+    const cwd = $("#pass-cancel-withdraw");
+    if (cwd) cwd.addEventListener("click", async () => {
+      const rr = await Sync.passWithdrawCancel(p.id);
+      if (!rr.ok) { passFail(rr); return; }
+      toast("해지 요청을 취소했어요."); renderPassView();
+    });
+    const rreq = $("#pass-renew-req");
+    if (rreq) rreq.addEventListener("click", async () => {
+      if (!await btConfirm(`${p.plan_name} · ${passWon(p.price)}\n\n다음 달 연장을 요청할까요? 가게에서 결제하면 ${fmtDay(p.ends_at)} 다음 날부터 이어져요.`, { yes: "요청" })) return;
+      const rr = await Sync.passRequestRenew(p.id);
+      if (!rr.ok) { passFail(rr); return; }
+      toast("연장 요청을 보냈어요."); renderPassView();
+    });
+    const leave = $("#pass-leave");
+    if (leave) leave.addEventListener("click", async () => {
+      if (!await btConfirm("팀에서 나갈까요? 오늘부터 이 패스를 쓸 수 없어요.", { yes: "나가기" })) return;
+      const rr = await Sync.passTeamLeave(p.id);
+      if (!rr.ok) { passFail(rr); return; }
+      invalidatePasses(); toast("팀에서 나왔어요."); history.back();
+    });
+    $$("#pass-area [data-remove]").forEach((b) => b.addEventListener("click", async () => {
+      const m = (p.team_members || []).find((x) => x.id === +b.dataset.remove);
+      if (!await btConfirm(`${(m && (m.member_name || m.nick)) || "팀원"}님을 팀에서 내보낼까요? 오늘부터 못 써요.`, { yes: "내보내기" })) return;
+      const rr = await Sync.passTeamRemove(+b.dataset.remove);
+      if (!rr.ok) { passFail(rr); return; }
+      toast("내보냈어요."); renderPassView();
+    }));
   }
 
   async function startPassQr(id) {
@@ -8568,7 +8723,7 @@
       <div class="card">
         ${pending.map((p) => `
           <div class="pm-row">
-            <div class="pm-who">${who(p)}<span>${esc(p.plan_name)} · ${passWon(p.price)} · ${fmtRel(new Date(p.created_at).getTime())}</span></div>
+            <div class="pm-who">${who(p)}<span>${p.replaces_id ? `⬆️ 바꾸기 · ${esc((d.passes.find((x) => x.id === p.replaces_id) || {}).plan_name || "기존")} → ` : ""}${esc(p.plan_name)} · ${passWon(p.price)}${p.replaces_id ? (() => { const o = d.passes.find((x) => x.id === p.replaces_id); return o ? ` · 차액 약 ${passWon(passUpgradeQuote(o, p).diff)}` : ""; })() : ""} · ${fmtRel(new Date(p.created_at).getTime())}</span></div>
             <div class="pm-acts">
               <button class="chip" data-reject="${p.id}">거절</button>
               <button class="chip active" data-approve="${p.id}">승인</button>
@@ -8579,7 +8734,7 @@
       <div class="card">
         ${live.length ? live.map((p) => `
           <button class="pm-row pressable" data-open="${p.id}">
-            <div class="pm-who">${who(p)}<span>${esc(p.plan_name)}${p.team_id ? "" : p.kind === "team" ? ` · 초대 ${esc(p.invite_code || "")}` : ""} · ${fmtDay(p.starts_at)}~${fmtDay(p.ends_at)}${p.status === "grace" ? " · 결제 확인 중" : ""}${p.paid_via === "toss" ? " · 💳" : ""}</span></div>
+            <div class="pm-who">${who(p)}<span>${esc(p.plan_name)}${p.team_id ? "" : p.kind === "team" ? ` · 초대 ${esc(p.invite_code || "")}` : ""} · ${fmtDay(p.starts_at)}~${fmtDay(p.ends_at)}${p.status === "grace" ? " · 결제 확인 중" : ""}${p.paid_via === "toss" ? " · 💳" : ""}${p.team_id ? " · 팀원" : ""}</span>${p.cancel_requested_at ? '<em class="pm-flag warn">🛑 해지 요청</em>' : ""}${p.renew_requested_at ? '<em class="pm-flag">🔁 연장 요청</em>' : ""}</div>
             <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
           </button>`).join("") : '<p class="pass-note" style="padding:8px 0">아직 회원이 없어요. 계산할 때 "월 39,000원이면 매일 되는데요"부터 시작해요.</p>'}
       </div>
@@ -8602,7 +8757,9 @@
     if (!p) return;
     const today = new Date();
     const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-    const start = await btPrompt(`${p.plan_name} · ${passWon(p.price)}\n결제를 확인했나요? 시작일을 정해주세요. (YYYY-MM-DD)`, iso, { yes: "승인" });
+    const old = p.replaces_id ? a.data.passes.find((x) => x.id === p.replaces_id) : null;
+    const upLine = old ? `\n⬆️ 바꾸기: 기존 ${old.plan_name}는 승인 즉시 끝나요. 받을 차액 약 ${passWon(passUpgradeQuote(old, p).diff)}` : "";
+    const start = await btPrompt(`${p.plan_name} · ${passWon(p.price)}${upLine}\n결제를 확인했나요? 시작일을 정해주세요. (YYYY-MM-DD)`, iso, { yes: "승인" });
     if (start === null) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(start.trim())) { toast("날짜는 2026-09-14 처럼 적어주세요."); return; }
     const r = await Sync.passUpdate(id, { status: "active", starts_at: start.trim(), ends_at: null });
@@ -8616,32 +8773,85 @@
     const r = await Sync.passInfo(id);
     if (!r.ok) { passFail(r); return; }
     const p = r.data;
+    const old = p.replaces_id && a && a.data ? a.data.passes.find((x) => x.id === p.replaces_id) : null;
+    const quote = old ? passUpgradeQuote(old, p) : null;
     const bd = openSheetHTML(`
       <h3>${esc(p.member_name || p.nick || "손님")} · ${esc(p.plan_name)}</h3>
       ${p.member_name ? `<div class="sheet-row"><span>닉네임</span><span class="r">${esc(p.nick || "손님")}</span></div>` : ""}
       <div class="sheet-row"><span>전화</span><span class="r">${p.member_phone ? `<a href="tel:${esc(p.member_phone)}">${esc(phonePretty(p.member_phone))}</a>` : "없음"}</span></div>
-      <div class="sheet-row"><span>기간</span><span class="r">${fmtDay(p.starts_at)} ~ ${fmtDay(p.ends_at)}</span></div>
+      <div class="sheet-row"><span>상태</span><span class="r">${PASS_STATUS[p.status] || p.status}${p.team_id ? " · 팀원" : ""}</span></div>
+      ${p.starts_at ? `<div class="sheet-row"><span>기간</span><span class="r">${fmtDay(p.starts_at)} ~ ${fmtDay(p.ends_at)} (${passRemainDays(p)}일 남음)</span></div>` : ""}
+      ${passActive(p) ? `
       <div class="sheet-row"><span>오늘 / 이달 잔</span><span class="r">${p.today_drinks}/${p.drinks_per_day} · ${p.month_drinks}${p.monthly_cap ? "/" + p.monthly_cap : ""}</span></div>
-      <div class="sheet-row"><span>이달 방문</span><span class="r">${p.stamps}회${p.reward_pending ? " · 🎁 보상 대기" : ""}</span></div>
+      <div class="sheet-row"><span>이달 방문</span><span class="r">${p.stamps}회${p.reward_pending ? " · 🎁 보상 대기" : ""}</span></div>` : ""}
       ${p.kind === "team" && !p.team_id ? `<div class="sheet-row"><span>팀 초대 코드</span><span class="r">${esc(p.invite_code || "")} · ${p.members}/${p.team_size - 1}명</span></div>` : ""}
       ${p.paid_via === "toss" ? `<div class="sheet-row"><span>결제</span><span class="r">앱 카드${p.auto_renew ? " · 자동 갱신" : ""}</span></div>` : ""}
-      <button class="big-btn accent ready" id="ms-extend" style="margin-top:14px">한 달 연장 (가게에서 결제 받음)</button>
-      <button class="big-btn" id="ms-end" style="margin-top:8px">오늘로 종료</button>`);
-    bd.querySelector("#ms-extend").addEventListener("click", async () => {
+
+      ${p.status === "requested" && old ? `
+      <div class="pass-flag">⬆️ 상품 바꾸기 신청 <span>기존 <b>${esc(old.plan_name)}</b> (${fmtDay(old.ends_at)}까지, ${quote.remain}일 남음 ≈ ${passWon(quote.credit)} 인정) → 새 <b>${esc(p.plan_name)}</b> ${passWon(p.price)}<br>받을 차액 <b>약 ${passWon(quote.diff)}</b> · 승인하면 기존 패스는 오늘 끝나요.</span></div>` : ""}
+      ${p.cancel_requested_at ? `
+      <div class="pass-flag warn">🛑 해지·환불 요청 <small>${fmtRel(new Date(p.cancel_requested_at).getTime())}</small><span>${p.cancel_reason ? "사유: " + esc(p.cancel_reason) : "사유 없음"}<br>규정대로 환불한 뒤 "환불 처리 후 종료"를 눌러주세요.</span></div>
+      <button class="big-btn accent ready" id="ms-refund" style="margin-top:12px">환불 처리 후 종료</button>
+      <button class="big-btn" id="ms-refund-no" style="margin-top:8px">요청 반려 (계속 사용)</button>` : ""}
+      ${p.renew_requested_at ? `<div class="pass-flag">🔁 연장 요청 <small>${fmtRel(new Date(p.renew_requested_at).getTime())}</small><span>다음 달 요금 ${passWon(p.price)}을 받고 아래 연장을 눌러주세요.</span></div>` : ""}
+
+      ${p.kind === "team" && !p.team_id && p.team_members && p.team_members.length ? `
+      <div class="comment-sec-title" style="padding:12px 0 4px">팀원 ${p.team_members.length}명</div>
+      ${p.team_members.map((m) => `
+        <div class="pm-row"><div class="pm-who"><b>${esc(m.member_name || m.nick || "팀원")}</b>${m.member_phone ? `<a class="pm-tel" href="tel:${esc(m.member_phone)}">📞 ${esc(phonePretty(m.member_phone))}</a>` : ""}<span>${fmtDay(m.starts_at)}부터</span></div>
+          <button class="chip" data-remove="${m.id}">내보내기</button></div>`).join("")}` : ""}
+
+      ${passActive(p) && !p.team_id ? `
+      <button class="big-btn ${p.cancel_requested_at ? "" : "accent ready"}" id="ms-extend" style="margin-top:14px">한 달 연장 (가게에서 결제 받음)</button>
+      <button class="big-btn" id="ms-end" style="margin-top:8px">오늘로 종료</button>` : ""}
+      ${passActive(p) && p.team_id ? `<button class="big-btn" id="ms-kick" style="margin-top:14px">팀에서 내보내기</button>` : ""}
+      ${p.status === "requested" ? `<button class="big-btn" id="ms-reject" style="margin-top:14px">신청 거절</button>` : ""}
+      <button class="text-btn" id="ms-policy" style="margin-top:8px">환불·해지 규정 보기</button>`);
+    const on = (sel, fn) => { const el = bd.querySelector(sel); if (el) el.addEventListener("click", fn); };
+    on("#ms-policy", () => openRefundPolicy(Object.assign({}, p, { bar_name: a && a.barName })));
+    on("#ms-extend", async () => {
       const base = new Date(Math.max(new Date(p.ends_at + "T00:00:00").getTime(), Date.now()));
       base.setDate(base.getDate() + (p.duration_days || 30));
       const iso = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-${String(base.getDate()).padStart(2, "0")}`;
-      const rr = await Sync.passUpdate(id, { ends_at: iso, status: "active", expiry_notified_at: null });
+      const rr = await Sync.passUpdate(id, { ends_at: iso, status: "active", expiry_notified_at: null, renew_requested_at: null });
       if (!rr.ok) { passFail(rr); return; }
       bd.remove(); toast(`${fmtDay(iso)}까지 연장했어요.`); passAdminReload();
     });
-    bd.querySelector("#ms-end").addEventListener("click", async () => {
+    on("#ms-end", async () => {
       if (!await btConfirm("이 패스를 오늘로 종료할까요?", { yes: "종료" })) return;
-      const rr = await Sync.passUpdate(id, { status: "expired" });
+      const rr = await Sync.passUpdate(id, { status: "expired", closed_reason: "owner" });
       if (!rr.ok) { passFail(rr); return; }
       bd.remove(); toast("종료했어요."); passAdminReload();
     });
-    void a;
+    on("#ms-refund", async () => {
+      if (!await btConfirm("규정대로 환불을 마쳤나요? 누르면 패스가 오늘 종료돼요.", { yes: "환불 완료 · 종료" })) return;
+      const rr = await Sync.passUpdate(id, { status: "expired", closed_reason: "refund", cancel_requested_at: null });
+      if (!rr.ok) { passFail(rr); return; }
+      bd.remove(); toast("환불 처리하고 종료했어요."); passAdminReload();
+    });
+    on("#ms-refund-no", async () => {
+      const rr = await Sync.passUpdate(id, { cancel_requested_at: null, cancel_reason: "" });
+      if (!rr.ok) { passFail(rr); return; }
+      bd.remove(); toast("요청을 반려했어요. 패스는 그대로 유지돼요."); passAdminReload();
+    });
+    on("#ms-kick", async () => {
+      if (!await btConfirm("이 팀원을 내보낼까요? 오늘부터 못 써요.", { yes: "내보내기" })) return;
+      const rr = await Sync.passTeamRemove(id);
+      if (!rr.ok) { passFail(rr); return; }
+      bd.remove(); toast("내보냈어요."); passAdminReload();
+    });
+    on("#ms-reject", async () => {
+      if (!await btConfirm("이 신청을 거절할까요?", { yes: "거절" })) return;
+      const rr = await Sync.passUpdate(id, { status: "rejected" });
+      if (!rr.ok) { passFail(rr); return; }
+      bd.remove(); passAdminReload();
+    });
+    bd.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", async () => {
+      if (!await btConfirm("이 팀원을 내보낼까요? 오늘부터 못 써요.", { yes: "내보내기" })) return;
+      const rr = await Sync.passTeamRemove(+b.dataset.remove);
+      if (!rr.ok) { passFail(rr); return; }
+      bd.remove(); toast("내보냈어요."); passAdminReload();
+    }));
   }
 
   /* 상품 · 설정 */
@@ -8660,6 +8870,9 @@
         <input class="input" id="pa-special" maxlength="60" value="${esc(st.special_drink || "")}" placeholder="예) 9월 한정 · 피치 스매시">
         <label class="form-label">가게 페이지 안내문</label>
         <textarea class="input" id="pa-notice" rows="3" maxlength="300" placeholder="예) 18~19시 입장 시 데일리 1잔 추가. 동반 비회원은 원데이 15,000원.">${esc(st.notice || "")}</textarea>
+        <label class="form-label">환불·해지 규정 <span class="label-opt">비우면 기본 규정</span></label>
+        <textarea class="input" id="pa-refund" rows="6" maxlength="2000" placeholder="${esc(PASS_REFUND_DEFAULT)}">${esc(st.refund_policy || "")}</textarea>
+        <p class="pass-note">손님이 신청·해지할 때 이 규정을 봐요. 소비자분쟁해결기준(계속거래)에 맞춰 "시작 후 해지 = 남은 기간 일할 환불 − 위약금 10%"를 기본으로 뒀어요.</p>
         <button class="big-btn accent ready" id="pa-save">설정 저장</button>
       </div>
 
@@ -8677,14 +8890,14 @@
     $("#pa-enabled").addEventListener("click", async () => {
       const on = !$("#pa-enabled").classList.contains("on");
       if (on && !d.plans.some((p) => p.active)) { toast("상품을 먼저 하나 만들어 주세요."); return; }
-      const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: on, stamp_goal: st.stamp_goal || 4, special_drink: st.special_drink || "", notice: st.notice || "" });
+      const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: on, stamp_goal: st.stamp_goal || 4, special_drink: st.special_drink || "", notice: st.notice || "", refund_policy: st.refund_policy || "" });
       if (!r.ok) { passFail(r); return; }
       d.settings = r.settings; passCache.byBar = {}; renderPassAdmin();
       toast(on ? "손님에게 열었어요." : "패스 받기를 닫았어요.");
     });
     $("#pa-save").addEventListener("click", async () => {
       const goal = Math.max(2, Math.min(10, +$("#pa-goal").value || 4));
-      const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: !!st.enabled, stamp_goal: goal, special_drink: $("#pa-special").value.trim(), notice: $("#pa-notice").value.trim() });
+      const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: !!st.enabled, stamp_goal: goal, special_drink: $("#pa-special").value.trim(), notice: $("#pa-notice").value.trim(), refund_policy: $("#pa-refund").value.trim() });
       if (!r.ok) { passFail(r); return; }
       d.settings = r.settings; passCache.byBar = {}; toast("저장했어요.");
     });

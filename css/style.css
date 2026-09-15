@@ -485,6 +485,20 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .pass-warn p { font-size: 13px; line-height: 1.55; color: var(--text); word-break: keep-all; }
 .pass-warn code { font-family: ui-monospace, monospace; font-size: 12px; background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 4px; }
 
+/* 패스 생애주기 */
+.refund-text { white-space: pre-wrap; font-size: 13.5px; line-height: 1.65; color: var(--text); padding: 12px 14px; border-radius: 12px; background: var(--bg-gray); word-break: keep-all; }
+.refund-text.small { max-height: 180px; overflow-y: auto; font-size: 12.5px; margin-bottom: 10px; }
+.pass-flag { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; background: var(--bg-gray); font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+.pass-flag small { font-weight: 600; color: var(--text-sub); margin-left: 6px; }
+.pass-flag span { font-size: 12.5px; font-weight: 500; line-height: 1.5; color: var(--text-sub); word-break: keep-all; }
+.pass-flag.warn { background: #fff1ec; }
+.pass-flag.warn b { color: var(--accent); }
+.host-chat-btn.danger-text { color: var(--accent); border-color: #ffd2c4; }
+.pm-flag { font-size: 11px; font-weight: 800; font-style: normal; padding: 2px 7px; border-radius: 6px; background: var(--bg-gray); color: var(--text-sub); }
+.pm-flag.warn { background: #fff1ec; color: var(--accent); }
+.pass-links { display: flex; gap: 14px; padding: 8px 4px 0; }
+.pass-links .text-btn { font-size: 13px; }
+
 /* 모임 상세 · 주최자 메뉴: 명단(주황) → 수정(테두리) → 삭제(작은 글자) 순으로 무게를 둡니다 */
 .host-acts { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
 .host-acts .host-chat-btn { margin-top: 0; }
