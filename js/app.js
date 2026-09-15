@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.52.1";
+  const APP_BUILD = "2.53.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -4157,6 +4157,8 @@
   const saveImgCache = () => store.set("imgCache", state.imgCache);
   // v4: 병/잔 이미지 분류 검증 도입 → 검증 없이 수집된 사진 전부 재수집
   // (칵테일DB 출처 사진은 애초에 칵테일 사진이라 유지)
+  // v5: 술도감 사진을 아예 안 쓰기로 해서 받아둔 사진을 전부 지웁니다 (저장 공간 회수)
+  if (store.get("imgv", 1) < 5) { state.imgCache = {}; saveImgCache(); store.set("imgv", 5); }
   if (store.get("imgv", 1) < 4) {
     Object.keys(state.imgCache).forEach((k) => {
       const v = state.imgCache[k];
@@ -4437,12 +4439,11 @@
       <rect x="30" y="42" width="4" height="32" fill="#aeb9c4" opacity=".6"/>
     </svg>`;
   }
+  /* 술도감은 사진 없이 병·잔 아이콘만 씁니다 (2.53).
+     예전에는 위키·칵테일DB에서 사진을 받아왔는데, 품질이 들쭉날쭉하고 저작권 표시가 번거로워 뺐어요.
+     fetchSpiritImg / fetchCocktailImg / spiritImgURL 은 남겨두되 더 이상 부르지 않습니다. */
   function thumbHTML(sp) {
-    const u = spiritImgURL(sp);
-    if (u) return `<img class="thumb-img" loading="lazy" src="${esc(u)}" alt="" data-fb="${sp.id}">`;
-    if (sp.kind === "cocktail") { fetchCocktailImg(sp); return svgGlass(sp); }
-    fetchSpiritImg(sp);
-    return svgBottle(sp);
+    return sp.kind === "cocktail" ? svgGlass(sp) : svgBottle(sp);
   }
   function wireImgFallback(sel) {
     $$(sel + " img.thumb-img").forEach((img) => {

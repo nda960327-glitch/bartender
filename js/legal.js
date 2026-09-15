@@ -56,7 +56,6 @@
         <h2 class="section-title mt">제6조 (지식재산권)</h2>
         <p>① 앱이 제공하는 술·칵테일 정보 및 디자인에 대한 권리는 운영팀에 있습니다.</p>
         <p>② 이용자가 작성한 게시물의 저작권은 작성자 본인에게 있습니다.</p>
-        <p>③ 앱에 표시되는 일부 술·칵테일 이미지는 위키미디어 공용(Wikimedia Commons) 및 TheCocktailDB의 공개 자료를 이용하며, 각 자료의 원 라이선스가 적용됩니다.</p>
 
         <h2 class="section-title mt">제7조 (면책)</h2>
         <p>① 앱이 제공하는 레시피·도수·가격·채용 정보는 참고용이며, 정확성을 보증하지 않습니다.</p>
@@ -109,9 +108,7 @@
         <p>서버 운영은 <b>Supabase Inc.</b> 에 위탁하고 있으며, 데이터는 아시아 리전 데이터센터에 보관됩니다. 통신 구간은 HTTPS로 암호화됩니다.</p>
         <p>로그인 과정에서 이용자가 선택한 제공자(<b>Google</b>, <b>카카오</b>, <b>네이버</b>)에 인증 요청이 전달됩니다. 운영팀은 각 제공자로부터 계정 식별자와 이메일 주소만 전달받습니다.</p>
         <p>그 밖에 사진·글꼴을 불러오기 위해 아래 서비스에 요청을 보냅니다. 이때 IP 주소 등 통신에 필요한 기본 정보가 전달될 수 있으며, 이용자가 입력한 내용은 전송되지 않습니다.</p>
-        <p>· <b>Wikipedia / Wikimedia Commons</b> — 술 사진 조회<br>
-        · <b>TheCocktailDB</b> — 칵테일 사진 조회<br>
-        · <b>jsDelivr CDN</b> — 글꼴 및 이미지 판별 라이브러리 로드<br>
+        <p>· <b>jsDelivr CDN</b> — 글꼴 및 이미지 판별 라이브러리 로드<br>
         · <b>Google Cloud Storage</b> — 이미지 판별 모델 파일 로드</p>
         <p>사진이 병·잔인지 판별하는 처리는 기기 안에서 이루어집니다.</p>
 
@@ -152,9 +149,6 @@
         <p><b>TensorFlow.js</b> — Apache License 2.0<br>ⓒ Google LLC</p>
         <p><b>TensorFlow.js MobileNet</b> — Apache License 2.0<br>ⓒ Google LLC<br>업로드된 사진이 병·잔인지 기기 안에서 판별하는 데 사용합니다.</p>
 
-        <h2 class="section-title mt">데이터 및 이미지</h2>
-        <p><b>Wikipedia / Wikimedia Commons</b> — CC BY-SA 4.0 등 각 파일의 라이선스<br>술 사진 및 요약 정보</p>
-        <p><b>TheCocktailDB</b> — 무료 API (비상업적 이용)<br>칵테일 사진</p>
 
         <h2 class="section-title mt">문의</h2>
         <p>라이선스 관련 문의는 ${SUPPORT_EMAIL} 으로 보내주세요.</p>`,
