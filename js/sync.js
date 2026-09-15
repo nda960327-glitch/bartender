@@ -496,6 +496,18 @@
     return ids;
   }
 
+  /* 휴대폰 번호 등 비공개 정보. profiles 는 모두가 읽지만 이 표는 본인·운영자만 읽어요.
+     phone.sql 을 아직 안 넣은 서버면 null 이 돌아와 아무 일도 없습니다. */
+  async function pullPrivate() {
+    var res = await sb.from("profile_private").select("*").eq("id", S.uid).maybeSingle();
+    if (res.error || !res.data) return null;
+    return {
+      phone: res.data.phone || "",
+      marketingOk: !!res.data.marketing_ok,
+      marketingAt: res.data.marketing_at ? t(res.data.marketing_at) : 0,
+    };
+  }
+
   async function pullProfile() {
     var res = await sb.from("profiles").select("*").eq("id", S.uid).maybeSingle();
     if (res.error || !res.data) return null;
@@ -661,7 +673,7 @@
     try {
       S.isAdmin = await pullIsAdmin();
       var results = await Promise.allSettled([
-        pullPosts(), pullMeets(), pullSpirits(), pullProfile(), pullBlocks(), pullReports(), pullChats(), pullOverrides(),
+        pullPosts(), pullMeets(), pullSpirits(), pullProfile(), pullBlocks(), pullReports(), pullChats(), pullOverrides(), pullPrivate(),
       ]);
       var data = { isAdmin: S.isAdmin };
       if (results[0].status === "fulfilled") data.posts = results[0].value;
@@ -675,6 +687,7 @@
       if (results[5].status === "fulfilled") data.reports = results[5].value;
       if (results[6].status === "fulfilled") data.chats = results[6].value;
       if (results[7].status === "fulfilled" && results[7].value) data.overrides = results[7].value;
+      if (results[8].status === "fulfilled" && results[8].value) data.private = results[8].value;
 
       var failed = results.filter(function (r) { return r.status === "rejected"; });
       if (failed.length === results.length) { setStatus("offline"); return; }
@@ -1155,6 +1168,18 @@
     // 그 화면이 쓰는 것만 다시 받아요 (탭 전환 때 호출)
     refreshView: function (view) { return pullSome(VIEW_NEEDS[view] || [], "view:" + view); },
     uploadPhoto: uploadPhoto,
+
+    /* 휴대폰 번호·마케팅 수신 동의. 별도 표(profile_private)에 저장해요.
+       profiles 와 따로 보내는 이유: phone.sql 을 아직 안 넣은 서버에서 프로필 저장까지 막히면 안 되니까요. */
+    savePrivate(p) {
+      if (!ready() || !p || !p.phone) return;
+      enqueue({ table: "profile_private", op: "upsert", row: {
+        id: S.uid,
+        phone: p.phone,
+        marketing_ok: !!p.marketingOk,
+        marketing_at: p.marketingOk ? new Date(p.marketingAt || Date.now()).toISOString() : null,
+      } });
+    },
 
     async saveProfile(user) {
       if (!ready()) return;

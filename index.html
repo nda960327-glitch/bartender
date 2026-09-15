@@ -91,6 +91,9 @@
       <p class="onboard-sub">바텐더들의 익명 커뮤니티</p>
       <label class="form-label">닉네임</label>
       <input type="text" class="input" id="ob-nick" placeholder="사용할 닉네임을 입력해주세요." maxlength="10">
+      <label class="form-label">휴대폰 번호</label>
+      <input type="tel" class="input" id="ob-phone" placeholder="010-0000-0000" maxlength="13" inputmode="numeric" autocomplete="tel">
+      <p class="ref-msg bad" id="ob-phone-msg" hidden>휴대폰 번호 형식이 맞지 않아요. (010-0000-0000)</p>
       <label class="form-label">어떤 분이세요?</label>
       <div class="role-grid" id="ob-roles"></div>
       <label class="form-label">프로필 색상 <span class="label-opt" id="ob-color-hint">역할을 먼저 골라주세요</span></label>
@@ -102,8 +105,12 @@
         <svg viewBox="0 0 24 24" class="check-ic"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>
         <span>만 19세 이상이며, 책임 있는 음주 문화에 동의해요</span>
       </button>
+      <button class="agree-row" id="ob-mkt">
+        <svg viewBox="0 0 24 24" class="check-ic"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>
+        <span>연계 바의 이벤트·혜택 안내를 문자로 받을게요 <em class="label-opt">선택</em></span>
+      </button>
       <button class="big-btn accent" id="ob-start" disabled>시작하기</button>
-      <p class="onboard-hint">익명 커뮤니티예요. 닉네임은 나만 보이고,<br>글은 모두 "익명"으로 올라가요.<br>계정 정보는 다른 사람에게 보이지 않아요. 🔒</p>
+      <p class="onboard-hint">익명 커뮤니티예요. 닉네임은 나만 보이고,<br>글은 모두 "익명"으로 올라가요.<br>휴대폰 번호는 본인 확인·패스 안내에만 쓰이고<br>다른 사람에게 보이지 않아요. 🔒</p>
       <p class="onboard-hint">시작하면 <button class="link-btn" id="ob-terms">이용약관</button> 및 <button class="link-btn" id="ob-privacy">개인정보처리방침</button>에<br>동의하는 것으로 봅니다.</p>
     </div>
   </section>
@@ -731,6 +738,16 @@
       <h2 class="section-title">닉네임 변경</h2>
       <input type="text" class="input" id="nick-input" placeholder="새 닉네임" maxlength="10">
       <button class="big-btn" id="btn-nick-save" disabled>변경하기</button>
+
+      <h2 class="section-title mt">휴대폰 번호</h2>
+      <input type="tel" class="input" id="phone-input" placeholder="010-0000-0000" maxlength="13" inputmode="numeric" autocomplete="tel">
+      <p class="ref-msg bad" id="phone-msg" hidden>휴대폰 번호 형식이 맞지 않아요. (010-0000-0000)</p>
+      <button class="agree-row" id="mkt-agree">
+        <svg viewBox="0 0 24 24" class="check-ic"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>
+        <span>연계 바의 이벤트·혜택 안내를 문자로 받을게요</span>
+      </button>
+      <button class="big-btn" id="btn-phone-save" disabled>저장하기</button>
+      <p class="warn-text" style="margin-top:8px">번호는 본인 확인과 하우스 패스 안내에 쓰이고, 다른 이용자에게 보이지 않아요.</p>
 
       <h2 class="section-title mt">알림</h2>
       <div class="push-row" id="push-row">

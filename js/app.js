@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.45.2";
+  const APP_BUILD = "2.46.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -898,6 +898,7 @@
     reviewStars: 5,
     obColor: 2,
     obRole: null,
+    obMkt: false,
     selColor: null,
     agreeWithdraw: false,
     docFrom: "mypage",
@@ -1654,6 +1655,38 @@
   }
 
   /* ---------- 온보딩 ---------- */
+  /* ---------- 휴대폰 번호 ----------
+   * 숫자만 남겨 저장하고(01012345678), 화면에는 하이픈을 넣어 보여줘요.
+   * 다른 이용자에게는 절대 보이지 않고, 서버에서도 본인·운영자만 읽는 표(profile_private)에 둡니다. */
+  const phoneDigits = (v) => String(v || "").replace(/\D/g, "");
+  const phoneValid = (v) => /^01[016789]\d{7,8}$/.test(phoneDigits(v));
+  function phonePretty(v) {
+    const d = phoneDigits(v).slice(0, 11);
+    if (d.length <= 3) return d;
+    if (d.length <= 7) return d.slice(0, 3) + "-" + d.slice(3);
+    if (d.length === 10) return d.slice(0, 3) + "-" + d.slice(3, 6) + "-" + d.slice(6);
+    return d.slice(0, 3) + "-" + d.slice(3, 7) + "-" + d.slice(7);
+  }
+  // 입력칸에 하이픈을 자동으로 넣고, 틀린 형식이면 안내를 보여줘요
+  function bindPhoneInput(inputId, msgId, after) {
+    const el = $(inputId), msg = $(msgId);
+    if (!el) return;
+    el.addEventListener("input", () => {
+      const pretty = phonePretty(el.value);
+      if (el.value !== pretty) el.value = pretty;
+      const d = phoneDigits(el.value);
+      if (msg) msg.hidden = !(d.length >= 10 && !phoneValid(d));
+      if (after) after();
+    });
+  }
+  function savePhone(phone, marketingOk) {
+    state.user.phone = phoneDigits(phone);
+    state.user.marketingOk = !!marketingOk;
+    state.user.marketingAt = marketingOk ? (state.user.marketingAt || Date.now()) : 0;
+    saveUser();
+    Sync.savePrivate({ phone: state.user.phone, marketingOk: state.user.marketingOk, marketingAt: state.user.marketingAt });
+  }
+
   // 역할 고르기 칸 (온보딩·설정 공용)
   function roleGridHTML(sel) {
     return ROLE_KEYS.map((k) => `
@@ -1678,8 +1711,9 @@
     $$("#ob-colors .color-dot").forEach((d) =>
       d.addEventListener("click", () => { state.obColor = +d.dataset.i; renderOnboard(); }));
     $("#ob-adult").classList.toggle("on", !!state.obAdult);
+    $("#ob-mkt").classList.toggle("on", !!state.obMkt);
     renderRefMsg("#ob-ref", "#ob-ref-msg");
-    const ok = $("#ob-nick").value.trim().length >= 1 && !!state.obAdult && !!state.obRole;
+    const ok = $("#ob-nick").value.trim().length >= 1 && phoneValid($("#ob-phone").value) && !!state.obAdult && !!state.obRole;
     $("#ob-start").disabled = !ok;
     $("#ob-start").classList.toggle("ready", ok);
   }
@@ -1747,6 +1781,9 @@
     state.user.role = state.obRole;
     state.user.color = state.obColor;
     state.user.onboarded = true;
+    state.user.phone = phoneDigits($("#ob-phone").value);
+    state.user.marketingOk = !!state.obMkt;
+    state.user.marketingAt = state.obMkt ? Date.now() : 0;
     // 서버가 "맞는 코드"라고 확인해준 것만 저장합니다.
     // 확인이 안 된 코드를 담아 보내면 프로필 저장 자체가 실패할 수 있어요.
     const code = refInput("#ob-ref");
@@ -1755,6 +1792,7 @@
     startSync();
     noteMyColor();
     Sync.saveProfile(state.user);
+    Sync.savePrivate({ phone: state.user.phone, marketingOk: state.user.marketingOk, marketingAt: state.user.marketingAt });
     if (first) {
       addPoints(500, "가입 축하");
       addNoti("🎉", `${nick}님, 바텐톡에 오신 걸 환영해요! 가입 축하 500P를 드렸어요.`);
@@ -6512,6 +6550,10 @@
     $("#btn-withdraw").classList.remove("ready");
     $("#nick-input").value = state.user.nick;
     updateNickBtn();
+    $("#phone-input").value = phonePretty(state.user.phone || "");
+    state.selMkt = !!state.user.marketingOk;
+    $("#mkt-agree").classList.toggle("on", state.selMkt);
+    updatePhoneBtn();
     renderColorGrid();
     renderBizProfile();
     renderRefSetting();
@@ -6577,6 +6619,13 @@
     const changed = state.selColor !== state.user.color || (state.selRole || null) !== (state.user.role || null);
     $("#btn-profile-save").disabled = !changed;
     $("#btn-profile-save").classList.toggle("ready", changed);
+  }
+  function updatePhoneBtn() {
+    const d = phoneDigits($("#phone-input").value);
+    const changed = d !== (state.user.phone || "") || !!state.selMkt !== !!state.user.marketingOk;
+    const ok = changed && phoneValid(d);
+    $("#btn-phone-save").disabled = !ok;
+    $("#btn-phone-save").classList.toggle("ready", ok);
   }
   function updateNickBtn() {
     const v = $("#nick-input").value.trim();
@@ -8819,6 +8868,8 @@
   $("#ob-ref").addEventListener("input", () => onRefTyped("#ob-ref", "#ob-ref-msg"));
   $("#ob-ref").addEventListener("blur", () => onRefTyped("#ob-ref", "#ob-ref-msg"));
   $("#ob-adult").addEventListener("click", () => { state.obAdult = !state.obAdult; renderOnboard(); });
+  $("#ob-mkt").addEventListener("click", () => { state.obMkt = !state.obMkt; renderOnboard(); });
+  bindPhoneInput("#ob-phone", "#ob-phone-msg", renderOnboard);
   $("#ob-start").addEventListener("click", startApp);
   $("#ob-nick").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("#ob-start").disabled) startApp(); });
   $("#ob-terms").addEventListener("click", () => openDoc("terms"));
@@ -9276,6 +9327,8 @@
     $("#ob-nick").value = "";
     state.obColor = state.user.color;
     state.obRole = state.user.role || roleOfColor(state.user.color);
+    $("#ob-phone").value = phonePretty(state.user.phone || "");
+    state.obMkt = !!state.user.marketingOk;
     renderOnboard();
     show("onboard");
   });
@@ -9324,6 +9377,18 @@
     Sync.saveProfile(state.user);
     updateNickBtn();
     toast("닉네임이 변경되었어요.");
+  });
+  bindPhoneInput("#phone-input", "#phone-msg", updatePhoneBtn);
+  $("#mkt-agree").addEventListener("click", () => {
+    state.selMkt = !state.selMkt;
+    $("#mkt-agree").classList.toggle("on", state.selMkt);
+    updatePhoneBtn();
+  });
+  $("#btn-phone-save").addEventListener("click", () => {
+    if (!phoneValid($("#phone-input").value)) return;
+    savePhone($("#phone-input").value, state.selMkt);
+    updatePhoneBtn();
+    toast("휴대폰 번호를 저장했어요.");
   });
   // 추천인 코드 (뒤늦게 넣는 경우)
   const onRefSetting = () => onRefTyped("#ref-input", "#ref-msg", "settings", updateRefBtn);
@@ -11134,6 +11199,14 @@
       if (!state.user.role && roleOfColor(state.user.color)) state.user.role = roleOfColor(state.user.color);
       saveUser();
     }
+    if (data.private) {
+      if (data.private.phone && !state.user.phone) state.user.phone = data.private.phone;
+      if (data.private.marketingOk != null && state.user.marketingOk == null) {
+        state.user.marketingOk = !!data.private.marketingOk;
+        state.user.marketingAt = data.private.marketingAt || 0;
+      }
+      saveUser();
+    }
     if (data.overrides) {
       state.overrides = data.overrides;
       saveOverrides();
@@ -11589,6 +11662,7 @@
     checkMeetReminders();
     finishPassBillingReturn();
     askRoleIfMissing();
+    askPhoneIfMissing();
   }
 
   /* 역할(사장님·바텐더·손님·학생)을 아직 안 정한 계정.
@@ -11608,6 +11682,37 @@
       }));
       const later = root.querySelector("#ask-role-later");
       if (later) later.addEventListener("click", () => root.remove());
+    });
+  }
+  /* 휴대폰 번호를 아직 안 남긴 계정 (2.46 이전 가입자). 하루에 한 번만, 건너뛸 수 있어요. */
+  function askPhoneIfMissing() {
+    if (!state.user.onboarded || state.user.phone) return;
+    if (document.querySelector(".sheet-backdrop")) return;          // 역할 질문이 떠 있으면 다음에
+    const last = store.get("phoneAskedAt", 0);
+    if (Date.now() - last < 24 * 3600e3) return;
+    store.set("phoneAskedAt", Date.now());
+    openSheetHTML(`
+      <h3>휴대폰 번호를 남겨주세요</h3>
+      <p class="sheet-sub">본인 확인과 하우스 패스 안내에 써요. 다른 이용자에게는 보이지 않아요.</p>
+      <input type="tel" class="input" id="ask-phone" placeholder="010-0000-0000" maxlength="13" inputmode="numeric" autocomplete="tel">
+      <p class="ref-msg bad" id="ask-phone-msg" hidden>휴대폰 번호 형식이 맞지 않아요. (010-0000-0000)</p>
+      <button class="agree-row" id="ask-mkt">
+        <svg viewBox="0 0 24 24" class="check-ic"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>
+        <span>연계 바의 이벤트·혜택 안내를 문자로 받을게요 <em class="label-opt">선택</em></span>
+      </button>
+      <button class="big-btn accent" id="ask-phone-save" disabled>저장하기</button>
+      <button class="big-btn" id="ask-phone-later" style="background:none;color:var(--text-muted)">나중에</button>`, (root) => {
+      let mkt = false;
+      const btn = root.querySelector("#ask-phone-save");
+      const sync = () => { const ok = phoneValid(root.querySelector("#ask-phone").value); btn.disabled = !ok; btn.classList.toggle("ready", ok); };
+      bindPhoneInput("#ask-phone", "#ask-phone-msg", sync);
+      root.querySelector("#ask-mkt").addEventListener("click", (e) => { mkt = !mkt; e.currentTarget.classList.toggle("on", mkt); });
+      btn.addEventListener("click", () => {
+        savePhone(root.querySelector("#ask-phone").value, mkt);
+        root.remove();
+        toast("휴대폰 번호를 저장했어요.");
+      });
+      root.querySelector("#ask-phone-later").addEventListener("click", () => root.remove());
     });
   }
   function setMyRole(role, color) {

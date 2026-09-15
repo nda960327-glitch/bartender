@@ -881,6 +881,7 @@ textarea.input { height: auto; }
 }
 .check-ic { width: 24px; height: 24px; color: var(--text-muted); }
 .agree-row.on { color: var(--text); font-weight: 600; }
+.agree-row em.label-opt { font-style: normal; margin-left: 4px; }
 .agree-row.on .check-ic { color: var(--accent); }
 
 /* ---------- 게시글 상세 ---------- */
