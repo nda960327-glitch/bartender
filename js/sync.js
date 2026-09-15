@@ -2125,9 +2125,11 @@
     async passSavePlan(row) {
       if (!ready()) return { ok: false, error: "로그인이 필요해요." };
       try {
+        // 고칠 때는 서버가 매기는 칸(id·created_at)을 빼고 보내요. 넣으면 "column id can only be updated to DEFAULT".
+        var patch = Object.assign({}, row); delete patch.id; delete patch.created_at;
         var res = row.id
-          ? await sb.from("pass_plans").update(row).eq("id", row.id).select("*").single()
-          : await sb.from("pass_plans").insert(row).select("*").single();
+          ? await sb.from("pass_plans").update(patch).eq("id", row.id).select("*").single()
+          : await sb.from("pass_plans").insert(patch).select("*").single();
         if (res.error) return { ok: false, error: rpcMsg(res.error) };
         return { ok: true, plan: res.data };
       } catch (e) { return { ok: false, error: (e && e.message) || "저장하지 못했어요." }; }

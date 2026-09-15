@@ -32,7 +32,16 @@ async function charge(billingKey, { customerKey, amount, orderId, orderName }) {
   return { ok: true, paymentKey: r.data.paymentKey, receiptUrl: r.data.receipt && r.data.receipt.url };
 }
 
+/* 결제창에서 돌아온 결제를 최종 승인 (1회 결제: 카드·간편결제) */
+async function confirm(paymentKey, orderId, amount) {
+  const r = await call("/payments/confirm", { paymentKey, orderId, amount });
+  if (!r.ok) return r;
+  const d = r.data || {};
+  const method = d.easyPay && d.easyPay.provider ? d.easyPay.provider : (d.method || "");
+  return { ok: true, paymentKey: d.paymentKey, receiptUrl: d.receipt && d.receipt.url, method };
+}
+
 /* 주문번호: 영문·숫자·-·_ 로 6~64자 */
 const orderId = (passId) => `pass-${passId || "new"}-${Date.now().toString(36)}`;
 
-module.exports = { enabled, issue, charge, orderId };
+module.exports = { enabled, issue, charge, confirm, orderId };

@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.51.0";
+  const APP_BUILD = "2.52.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8282,7 +8282,7 @@
                 ${p.note ? `<span class="pp-note">${esc(p.note)}</span>` : ""}
               </button>`).join("")}
           </div>
-          <p class="pass-note">${CFG.TOSS_CLIENT_KEY ? "가게에서 결제하거나 앱에서 카드로 바로 결제할 수 있어요." : "신청하면 가게에서 결제한 뒤 운영자가 승인해요."} 팀 패스 초대를 받았다면 아래에서 코드를 넣어주세요.</p>
+          <p class="pass-note">${CFG.TOSS_CLIENT_KEY ? "앱에서 결제하면 바로 시작돼요. 매달 자동결제(카드) 또는 한 번만 결제(카드·카카오페이·네이버페이·토스페이·삼성페이)." : "신청하면 가게에서 결제한 뒤 운영자가 승인해요."} 팀 패스 초대를 받았다면 아래에서 코드를 넣어주세요.</p>
           <button class="host-chat-btn" id="bar-pass-team" style="margin:6px 0 2px">초대 코드로 팀 패스 참여</button>` : ""}
         ${on && !mine && !r.plans.length ? '<p class="pass-note">아직 판매 중인 상품이 없어요.</p>' : ""}
         ${on && r.settings.special_drink ? `<p class="pass-note">이달 ${r.settings.stamp_goal}번째 방문에 <b>${esc(r.settings.special_drink)}</b> 1잔을 드려요.</p>` : ""}
@@ -8316,8 +8316,10 @@
     if (!plan) return;
     const line = `${plan.name} · ${passWon(plan.price)}${passPer(plan)}\n${passPlanLine(plan)}`;
     if (CFG.TOSS_CLIENT_KEY && plan.price > 0) {
-      const opts = ["💳 앱에서 카드로 결제 (바로 시작)", "🏪 가게에서 결제 (운영자 승인 후 시작)"];
-      openSheet(line, opts, null, (v) => v.startsWith("💳") ? startPassBilling(b, key, plan) : requestPass(b, key, plan));
+      // 앱 결제만 받아요. 자동결제는 카드만, 1회 결제는 간편결제까지. 원데이는 1회 결제만.
+      if (plan.kind === "oneday") { startPassPay(b, key, plan); return; }
+      const opts = ["💳 매달 자동결제 (카드 · 해지 전까지)", "📱 이번 한 번만 결제 (카드·카카오페이·삼성페이…)"];
+      openSheet(line, opts, null, (v) => v.startsWith("💳") ? startPassBilling(b, key, plan) : startPassPay(b, key, plan));
       return;
     }
     if (!await btConfirm(`${line}\n\n신청할까요? 가게에서 결제하면 운영자가 승인해요.\n\n환불·해지: 결제 전 취소 무료 · 시작 전 전액 · 시작 후 남은 기간 일할 환불(위약금 10%). 자세한 규정은 내 패스에서 볼 수 있어요.`, { yes: "신청" })) return;
@@ -8579,6 +8581,57 @@
       if (!(e && /USER_CANCEL/i.test(e.code || ""))) toast((e && e.message) || "결제창을 열지 못했어요.");
     }
   }
+  /* ---------- 앱 안 1회 결제 (토스 일반결제: 카드·카카오페이·네이버페이·토스페이·삼성페이) ----------
+   * 자동결제는 카드(빌링키)만 되지만, 한 번만 내는 결제는 간편결제까지 열려요.
+   * 흐름: 결제창 → ?pass_pay=ok 로 돌아옴 → 서버(action=confirm)가 토스에 승인 요청 → 패스 시작 */
+  const PASS_PAY_METHODS = [["💳 신용·체크카드", null], ["카카오페이", "카카오페이"], ["네이버페이", "네이버페이"], ["토스페이", "토스페이"], ["삼성페이", "삼성페이"]];
+  async function startPassPay(b, key, plan) {
+    if (!await ensureMemberInfo()) return;
+    const ok = await lazyData(TOSS_LIB, "TossPayments");
+    if (!ok || !window.TossPayments) { toast("결제 모듈을 불러오지 못했어요."); return; }
+    const labels = PASS_PAY_METHODS.map((m) => m[0]);
+    openSheet(`${plan.name} · ${passWon(plan.price)} — 결제 수단`, labels, null, async (v) => {
+      const easy = (PASS_PAY_METHODS.find((m) => m[0] === v) || [])[1];
+      const orderId = `pass-${plan.id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      const base = location.origin + location.pathname;
+      try {
+        store.set("passPayIntent", { barKey: key, barName: b.name, barId: b.id, planId: plan.id, orderId, amount: plan.price, member: memberInfo(), at: Date.now() });
+        const req = {
+          amount: plan.price, orderId, orderName: `${b.name} ${plan.name}`,
+          customerName: state.user.name || state.user.nick, customerEmail: undefined,
+          successUrl: base + "?pass_pay=ok", failUrl: base + "?pass_pay=fail",
+        };
+        if (easy) { req.flowMode = "DIRECT"; req.easyPay = easy; }
+        await window.TossPayments(CFG.TOSS_CLIENT_KEY).requestPayment("카드", req);
+      } catch (e) {
+        store.set("passPayIntent", null);
+        if (!(e && /USER_CANCEL/i.test(e.code || ""))) toast((e && e.message) || "결제창을 열지 못했어요.");
+      }
+    });
+  }
+  // 토스에서 돌아왔을 때 (?pass_pay=ok&paymentKey=…&orderId=…&amount=…)
+  async function finishPassPayReturn() {
+    let q;
+    try { q = new URLSearchParams(location.search); } catch { return; }
+    const flag = q.get("pass_pay");
+    if (!flag) return;
+    const intent = store.get("passPayIntent", null);
+    try { history.replaceState(history.state, "", location.pathname + location.hash); } catch {}
+    if (flag !== "ok") { toast(q.get("message") || "결제가 취소됐어요."); store.set("passPayIntent", null); return; }
+    if (!intent || Date.now() - intent.at > 3600000 || intent.orderId !== q.get("orderId")) { toast("결제 정보를 찾지 못했어요. 다시 시도해 주세요."); return; }
+    if (String(intent.amount) !== String(q.get("amount"))) { await btAlert("결제 금액이 달라 승인하지 않았어요. 가게에 문의해 주세요."); return; }
+    toast("결제를 확인하는 중…");
+    const r = await Sync.passBilling("confirm", {
+      paymentKey: q.get("paymentKey"), orderId: intent.orderId, amount: intent.amount, planId: intent.planId,
+      memberName: (intent.member || {}).name || state.user.name || "", memberPhone: (intent.member || {}).phone || state.user.phone || "",
+    });
+    if (!r.ok) { await btAlert("결제가 완료되지 않았어요.\n" + r.error); return; }
+    store.set("passPayIntent", null);
+    invalidatePasses();
+    await btAlert(`결제 완료! ${intent.barName}의 패스가 바로 시작됐어요. 🎫${r.method ? "\n" + r.method : ""}`);
+    openPass(r.pass.id);
+  }
+
   // 토스에서 돌아왔을 때 (?pass_billing=ok&authKey=…&customerKey=…)
   async function finishPassBillingReturn() {
     let q;
@@ -12094,6 +12147,7 @@
     dailyAttend();
     checkMeetReminders();
     finishPassBillingReturn();
+    finishPassPayReturn();
     askRoleIfMissing();
     askPhoneIfMissing();
   }
