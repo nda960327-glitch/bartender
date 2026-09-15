@@ -286,6 +286,7 @@
       note: row.note || "",
       by: row.author_id === S.uid ? "익명(나)" : "익명",
       time: t(row.created_at),
+      updated: t(row.updated_at || row.created_at),
       reviews: reviews || [],
       mine: row.author_id === S.uid,
       remote: true,

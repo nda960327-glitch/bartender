@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.55.0";
+  const APP_BUILD = "2.55.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -2056,6 +2056,15 @@
     });
   }
   const hiddenSp = () => state.user.hiddenSpirits || [];
+  /* 술도감 "최신순"은 등록일이 아니라 마지막으로 건드린 시각으로 정렬해요.
+     누가 내용을 고치거나 리뷰를 달면 그 항목이 맨 위로 올라와요. */
+  function touchedAt(sp) {
+    let t0 = Math.max(+sp.updated || 0, +sp.time || 0);
+    const o = ovOf("spirit", sp.id);
+    if (o && o.at) t0 = Math.max(t0, +o.at);
+    (sp.reviews || []).forEach((r) => { if (r && r.time) t0 = Math.max(t0, +r.time); });
+    return t0;
+  }
   const hiddenCount = () => state.spirits.filter((sp) => sp.kind === state.dogamKind && (hiddenSp().includes(sp.id) || ovHidden("spirit", sp.id))).length;
 
   /* ---------- 물방울 색 ----------
@@ -2284,12 +2293,15 @@
         patch.img = url;
         after.img = url;
       }
-      return Sync.saveOverride("spirit", sp.id, patch, ovHidden("spirit", sp.id));
+      const r0 = await Sync.saveOverride("spirit", sp.id, patch, ovHidden("spirit", sp.id));
+      if (r0.ok) { const k0 = ovKey("spirit", sp.id); state.overrides = state.overrides || {}; state.overrides[k0] = Object.assign({}, state.overrides[k0] || { patch: patch, hidden: false }, { at: Date.now() }); }
+      return r0;
     }
     if (!sp.remote) return { ok: false, error: "아직 서버에 올라가지 않은 항목이에요." };
     const row = Object.assign({}, sp, after);
     const res = await Sync.editSpiritRow(row);
     if (res.ok && row.img && row.img !== sp.img) after.img = row.img;   // 업로드된 주소로 교체
+    if (res.ok) sp.updated = Date.now();
     return res;
   }
 
@@ -4618,7 +4630,7 @@
     $$("#dogam-cats .chip").forEach((ch) =>
       ch.addEventListener("click", () => { state.dogamCat = ch.dataset.c; renderDogam(); }));
 
-    const SORTS = [["new", "최신순"], ["stars", "별점순"], ["reviews", "리뷰순"]];
+    const SORTS = [["new", "최근 활동순"], ["stars", "별점순"], ["reviews", "리뷰순"]];
     const isWhisky = state.dogamKind === "spirit" && state.dogamCat === "위스키";
     $("#dogam-sort").innerHTML = SORTS.map(([k, l]) =>
       `<button class="chip ${k === state.dogamSort ? "active" : ""}" data-s="${k}">${l}</button>`).join("") +
@@ -4699,7 +4711,7 @@
       }
       return state.dogamSort === "stars" ? avgStars(b) - avgStars(a) :
         state.dogamSort === "reviews" ? b.reviews.length - a.reviews.length :
-        b.time - a.time;
+        touchedAt(b) - touchedAt(a);
     });
 
     // 점진 렌더: 필터가 바뀌면 100개부터 다시
@@ -5106,7 +5118,7 @@
       <div class="sp-body">
         <h3>${isCt ? "한 줄 메모" : "한 줄 요약"} 📝</h3>
         <p>${esc(sp.note || (deep ? deep.tagline : "") || "아직 설명이 없어요.")}</p>
-        <div class="sp-by">등록 · ${esc(sp.by)} · ${fmtTime(sp.time)}</div>
+        <div class="sp-by">등록 · ${esc(sp.by)} · ${fmtTime(sp.time)}${(() => { const u = Math.max(+sp.updated || 0, (ovOf("spirit", sp.id) || {}).at || 0); return u > (+sp.time || 0) + 60000 ? ` · 수정 ${fmtRel(u)}` : ""; })()}</div>
       </div>
       <div class="comment-sec-title">리뷰 ${sp.reviews.length}</div>
       ${sp.reviews.map((r, vi) => `
