@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.50.3";
+  const APP_BUILD = "2.51.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8435,7 +8435,7 @@
 
       ${live && !p.team_id && p.kind !== "oneday" && CFG.TOSS_CLIENT_KEY ? `
       <div class="card row-link no-tap" style="border-radius:16px">
-        <span class="row-label">자동 갱신 (카드)</span><span class="flex-1"></span>
+        <span class="row-label">월 자동결제 <small style="font-weight:500;color:var(--text-sub)">끄면 이번 기간까지만</small></span><span class="flex-1"></span>
         <button class="toggle ${p.auto_renew ? "on" : ""}" id="pass-renew" role="switch" aria-checked="${p.auto_renew}"><span class="knob"></span></button>
       </div>
       ${p.last_payment_error ? `<p class="pass-note" style="margin:0 20px">최근 결제 실패: ${esc(p.last_payment_error)}</p>` : ""}` : ""}
@@ -8495,7 +8495,7 @@
       const rr = await Sync.passBilling("renew", { passId: p.id, on });
       if (!rr.ok) { passFail(rr); return; }
       renew.classList.toggle("on", on);
-      toast(on ? "기간이 끝나면 카드로 자동 연장돼요." : "자동 갱신을 꺼뒀어요.");
+      toast(on ? "기간이 끝나는 날 카드로 자동 결제돼요." : `자동결제를 껐어요. ${fmtDay(p.ends_at)}까지 쓰고 끝나요.`);
     });
     const up = $("#pass-upgrade");
     if (up) up.addEventListener("click", () => openUpgradeSheet(p));
@@ -8559,7 +8559,12 @@
     if (!await ensureMemberInfo()) return;
     const ok = await lazyData(TOSS_LIB, "TossPayments");
     if (!ok || !window.TossPayments) { toast("결제 모듈을 불러오지 못했어요."); return; }
-    const autoRenew = plan.kind !== "oneday" && await btConfirm(`${plan.name} · ${passWon(plan.price)}\n\n기간이 끝나면 같은 카드로 자동 연장할까요?\n(내 패스에서 언제든 끌 수 있어요)`, { yes: "자동 연장", no: "이번만" });
+    const months = Math.max(1, Math.round((plan.duration_days || 30) / 30));
+    const autoRenew = plan.kind !== "oneday";
+    const ok0 = await btConfirm(autoRenew
+      ? `${plan.name} · ${passWon(plan.price)}${passPer(plan)}\n\n오늘 결제 후 ${months === 1 ? "매달" : months + "개월마다"} 같은 날 같은 카드로 ${passWon(plan.price)}이 자동 결제돼요. 해지하기 전까지 계속되고, 내 패스에서 언제든 해지할 수 있어요(해지하면 이번 기간까지만 쓰고 끝나요).\n\n환불·해지 규정: 결제 후 7일 안에 한 번도 안 썼으면 전액 환불, 그 뒤엔 남은 기간 일할 환불.`
+      : `${plan.name} · ${passWon(plan.price)}\n\n오늘 한 번만 결제돼요. 입장 전에는 전액 환불, 입장 후에는 환불이 안 돼요.`, { yes: "결제 진행" });
+    if (!ok0) return;
     try {
       store.set("passBillingIntent", { barKey: key, barName: b.name, barId: b.id, planId: plan.id, autoRenew: !!autoRenew, at: Date.now(), member: memberInfo() });
       const base = location.origin + location.pathname;
