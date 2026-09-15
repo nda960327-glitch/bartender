@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.41.1";
+  const APP_BUILD = "2.41.2";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -7260,6 +7260,20 @@
   const METHOD_KINDS = [["Blend", "blend"], ["Float", "float"], ["Stir", "stir"], ["Shake", "shake"]];
   const methodKey = (m) => (METHOD_KINDS.find(([word]) => String(m || "").includes(word)) || [, "build"])[1];
   const cardsKnown = () => store.get("cardsKnown", {});
+  // 한글을 크게, 시험 원문(영어)은 작게. 번역이 없는 말은 영어만.
+  function cardTerm(en) {
+    const ko = window.CARDS_DATA && window.CARDS_DATA.ko && window.CARDS_DATA.ko[en];
+    return ko ? `<b>${esc(ko)}<small>${esc(en)}</small></b>` : `<b>${esc(en)}</b>`;
+  }
+  // "1 1/2oz" 뒤에 ml 를 같이 (1oz = 30ml). 시험은 oz 로 말하지만 손에는 ml 가 익어요.
+  function cardAmt(amt) {
+    const ko = window.CARDS_DATA && window.CARDS_DATA.ko && window.CARDS_DATA.ko[amt];
+    if (ko) return ko;
+    const m = String(amt).match(/^(\d+)?\s*(?:(\d)\/(\d))?\s*oz$/);
+    if (!m) return amt.replace(/part$/, " 파트").replace(/dash$/, " 대시").replace(/tsp$/, " tsp");
+    const oz = (+m[1] || 0) + (m[2] ? +m[2] / +m[3] : 0);
+    return `${amt.replace(/oz$/, " oz")} · ${Math.round(oz * 30)}ml`;
+  }
 
   async function renderCards() {
     if (state.cardDeck) { renderCardStudy(); return; }
@@ -7350,11 +7364,11 @@
             <div class="flip-face back">
               <h3>${esc(c.name)} <small>${esc(c.en)}</small></h3>
               <div class="spec-grid">
-                <div><span>글라스</span><b>${esc(c.glass)}</b></div>
-                <div><span>기법</span><b>${esc(c.method)}</b></div>
-                <div class="wide"><span>가니시</span><b>${esc(c.garnish || "없음")}</b></div>
+                <div><span>글라스</span>${cardTerm(c.glass)}</div>
+                <div><span>기법</span>${cardTerm(c.method)}</div>
+                <div class="wide"><span>가니시</span>${c.garnish ? cardTerm(c.garnish) : "<b>없음</b>"}</div>
               </div>
-              <ul class="spec-ings">${c.ings.map(([name, amt]) => `<li><span>${esc(name)}</span><b>${esc(amt)}</b></li>`).join("")}</ul>
+              <ul class="spec-ings">${c.ings.map(([name, amt]) => `<li>${cardTerm(name)}<b>${esc(cardAmt(amt))}</b></li>`).join("")}</ul>
             </div>
           </div>
         </div>
