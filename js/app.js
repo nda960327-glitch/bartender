@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.50.1";
+  const APP_BUILD = "2.50.2";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -7938,20 +7938,20 @@
   /* 하우스 패스 운영안의 멤버십 상품 그대로. 요일 2 × 잔수 2 + 팀 + 원데이 + 3개월 선불.
    * 1잔 = 데일리·클래식·사워 중 1잔 / 하우스 위스키 30ml / 맥주 1병. "무제한"이란 말은 쓰지 않아요. */
   const PASS_PRESET_PLANS = [
-    { name: "라이트", price: 39000, kind: "personal", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 1, duration_days: 30, sort: 1,
-      note: "퇴근하고 한 잔. 화·수·목 하루 1잔, 3번만 와도 본전." },
-    { name: "올데이", price: 59000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: null, team_size: 1, duration_days: 30, sort: 2,
+    { name: "라이트", price: 45000, kind: "personal", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 1, duration_days: 30, sort: 1,
+      note: "퇴근하고 한 잔. 화·수·목 하루 1잔, 3번만 와도 본전 (15,000 × 3잔)." },
+    { name: "올데이", price: 69000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: null, team_size: 1, duration_days: 30, sort: 2,
       note: "금·토에도 오는 분. 매일 하루 1잔." },
-    { name: "트리플", price: 79000, kind: "personal", days: "tue-thu", drinks_per_day: 3, monthly_cap: 24, team_size: 1, duration_days: 30, sort: 3,
-      note: "위스키 손님용. 화·수·목 하루 3잔, 월 24잔까지." },
-    { name: "트리플 올데이", price: 119000, kind: "personal", days: "all", drinks_per_day: 3, monthly_cap: 36, team_size: 1, duration_days: 30, sort: 4,
+    { name: "트리플", price: 89000, kind: "personal", days: "tue-thu", drinks_per_day: 3, monthly_cap: 24, team_size: 1, duration_days: 30, sort: 3,
+      note: "위스키 손님용. 화·수·목 하루 3잔, 월 24잔까지. 위스키 세트 3.5번 값." },
+    { name: "트리플 올데이", price: 139000, kind: "personal", days: "all", drinks_per_day: 3, monthly_cap: 36, team_size: 1, duration_days: 30, sort: 4,
       note: "단골 헤비 유저. 매일 하루 3잔, 월 36잔까지." },
-    { name: "팀 패스", price: 149000, kind: "team", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 5, duration_days: 30, sort: 5,
-      note: "5명 등록 · 화·수·목 각자 하루 1잔. 1인 29,800원, 법인카드 OK." },
+    { name: "팀 패스", price: 179000, kind: "team", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 5, duration_days: 30, sort: 5,
+      note: "5명 등록 · 화·수·목 각자 하루 1잔. 1인 35,800원, 법인카드 OK." },
     { name: "원데이", price: 15000, kind: "oneday", days: "all", drinks_per_day: 2, monthly_cap: null, team_size: 1, duration_days: 1, sort: 6,
       note: "비회원 · 당일 2잔. 회원이 데려온 동료용." },
-    { name: "라이트 3개월", price: 105000, kind: "personal", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 1, duration_days: 90, sort: 7,
-      note: "라이트 3개월 선불. 월 35,000원꼴, 한 달치 아껴요." },
+    { name: "라이트 3개월", price: 120000, kind: "personal", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 1, duration_days: 90, sort: 7,
+      note: "라이트 3개월 선불. 월 40,000원꼴로 15,000원 아껴요." },
   ];
   const PASS_KIND = { personal: "개인", team: "팀", oneday: "원데이" };
   const passCache = { mine: null, owned: null, at: 0, byBar: {} };
@@ -8810,7 +8810,7 @@
           <button class="pm-row pressable" data-open="${p.id}">
             <div class="pm-who">${who(p)}<span>${esc(p.plan_name)}${p.team_id ? "" : p.kind === "team" ? ` · 초대 ${esc(p.invite_code || "")}` : ""} · ${fmtDay(p.starts_at)}~${fmtDay(p.ends_at)}${p.status === "grace" ? " · 결제 확인 중" : ""}${p.paid_via === "toss" ? " · 💳" : ""}${p.team_id ? " · 팀원" : ""}</span>${p.cancel_requested_at ? '<em class="pm-flag warn">🛑 해지 요청</em>' : ""}${p.renew_requested_at ? '<em class="pm-flag">🔁 연장 요청</em>' : ""}</div>
             <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
-          </button>`).join("") : '<p class="pass-note" style="padding:8px 0">아직 회원이 없어요. 계산할 때 "월 39,000원이면 매일 되는데요"부터 시작해요.</p>'}
+          </button>`).join("") : '<p class="pass-note" style="padding:8px 0">아직 회원이 없어요. 계산할 때 "월 45,000원이면 매일 되는데요"부터 시작해요.</p>'}
       </div>
       <button class="host-chat-btn" id="pm-reload" style="margin:12px 16px;width:calc(100% - 32px)">새로고침</button>
       <div style="height:16px"></div>`;
@@ -9006,7 +9006,7 @@
   }
   function openPlanEditor(plan) {
     const a = state.passAdmin;
-    const p = plan || { name: "", price: 39000, kind: "personal", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 5, duration_days: 30, note: "", active: true, sort: (a.data.plans.length || 0) + 1 };
+    const p = plan || { name: "", price: 45000, kind: "personal", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 5, duration_days: 30, note: "", active: true, sort: (a.data.plans.length || 0) + 1 };
     const sel = (name, opts, cur) => `<select class="input" id="pe-${name}">${opts.map(([v, l]) => `<option value="${v}" ${String(v) === String(cur) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
     const bd = openSheetHTML(`
       <h3>${plan ? "상품 수정" : "새 상품"}</h3>
