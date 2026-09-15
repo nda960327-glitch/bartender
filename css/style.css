@@ -1665,16 +1665,25 @@ select.input { appearance: auto; }
 .gd-foot { margin: 18px 0 28px; font-size: 12px; line-height: 1.6; color: var(--text-muted); word-break: keep-all; }
 
 /* ---------- 대회·행사 달력 ---------- */
-.ev-head { padding: 12px 0 4px; }
-.ev-head .chip-wrap { margin: 0; }
+#view-listing #listing-area { padding-top: 12px; }
+#view-listing .card { margin: 0 16px 10px; padding: 16px 18px; border-radius: 18px; }
+.ev-head { padding: 0 16px 10px; }
+.ev-head .chip-wrap { margin: 0; gap: 8px; }
 .ev-sep { width: 100%; height: 0; }
-.ev-kind { font-size: 11.5px; font-weight: 700; color: var(--text-sub); }
 .ev-card { text-align: left; }
-.ev-card.past { opacity: .6; }
+.ev-card .list-top { gap: 8px; margin-bottom: 8px; }
+.ev-kind { font-size: 11.5px; font-weight: 700; color: var(--text-sub); padding: 3px 8px; border-radius: 999px; background: var(--bg-gray); }
+.ev-card .list-top .meet-state { margin-left: auto; font-size: 12px; padding: 3px 9px; border-radius: 999px; background: #fff1ec; }
+.ev-card.now .list-top .meet-state { background: #e2f5ea; color: #1f7a4d; }
+.ev-card .list-top .meet-state.closed { background: var(--bg-gray); }
+.ev-card .list-title { font-size: 16.5px; font-weight: 800; line-height: 1.35; margin-bottom: 6px; word-break: keep-all; }
+.ev-card .list-meta { font-size: 13px; line-height: 1.5; }
+.ev-card.past { opacity: .55; }
 .ev-card.now { box-shadow: 0 0 0 2px #2eb872 inset; }
-.ev-note { font-size: 12.5px; line-height: 1.55; color: var(--text-sub); margin-top: 6px; word-break: keep-all; }
-.ev-link { margin-top: 10px; font-weight: 700; }
-.ev-foot { font-size: 12px; color: var(--text-muted); line-height: 1.55; margin: 6px 4px 0; word-break: keep-all; }
+.ev-note { font-size: 12.5px; line-height: 1.55; color: var(--text-sub); margin-top: 8px; word-break: keep-all; }
+.ev-link { display: block; width: 100%; margin-top: 12px; padding: 10px 0; text-align: center; font-weight: 700; border-radius: 12px; }
+.ev-foot { font-size: 12px; color: var(--text-muted); line-height: 1.55; margin: 4px 20px 0; word-break: keep-all; }
+#view-listing .comment-sec-title { padding: 16px 20px 8px; }
 
 /* ---------- 시험일정 ---------- */
 .ex-hero { margin: 16px 16px 10px; padding: 20px; border-radius: 20px; color: #fff; background: linear-gradient(135deg, #0f766e, #1b64da); }
