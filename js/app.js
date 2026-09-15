@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.53.0";
+  const APP_BUILD = "2.53.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -875,6 +875,7 @@
     authorColors: store.get("authorColors", {}),   // 사람 uuid → 지금 색
     dogamKind: "spirit",
     dogamMine: false,      // 내가 등록한 술만 보기
+    dogamHidden: false,    // 감춘 항목만 보기 (운영자가 감춘 것 + 내가 신고해서 가린 것)
     meetMine: false,       // 내가 참여한 모임만 보기
     dogamCat: "전체",
     meetRegion: "전체",
@@ -2054,6 +2055,7 @@
     });
   }
   const hiddenSp = () => state.user.hiddenSpirits || [];
+  const hiddenCount = () => state.spirits.filter((sp) => sp.kind === state.dogamKind && (hiddenSp().includes(sp.id) || ovHidden("spirit", sp.id))).length;
 
   /* ---------- 물방울 색 ----------
    * 색은 글이 아니라 사람에게 붙어 있습니다.
@@ -2385,9 +2387,10 @@
     toast("처리 중이에요…");
     const res = await Sync.saveOverride("spirit", sp.id, (cur && cur.patch) || {}, now);
     if (!res.ok) { toast("실패: " + res.error); return; }
-    toast(now ? "목록에서 감췄어요. 🙈" : "다시 보이게 했어요. 👁️");
+    toast(now ? "목록에서 감췄어요. 🙈 (도감의 '감춘 항목'에서 다시 찾을 수 있어요)" : "다시 보이게 했어요. 👁️");
     await Sync.refresh("override");
-    if (now) show("dogam");
+    if (!now) state.dogamHidden = false;
+    show("dogam");
   }
 
   async function revertSpirit(sp) {
@@ -4620,7 +4623,10 @@
       `<button class="chip ${k === state.dogamSort ? "active" : ""}" data-s="${k}">${l}</button>`).join("") +
       (state.dogamKind === "spirit" ? `
         <button class="chip ${state.dogamAbv !== "전체" ? "active" : ""}" id="dogam-abv">도수 ${state.dogamAbv === "전체" ? "▾" : state.dogamAbv}</button>
-        <button class="chip ${state.dogamPrice !== "전체" ? "active" : ""}" id="dogam-price">가격 ${state.dogamPrice === "전체" ? "▾" : state.dogamPrice}</button>` : "");
+        <button class="chip ${state.dogamPrice !== "전체" ? "active" : ""}" id="dogam-price">가격 ${state.dogamPrice === "전체" ? "▾" : state.dogamPrice}</button>` : "") +
+      (hiddenCount() ? `<button class="chip ${state.dogamHidden ? "active" : ""}" id="dogam-hidden">🙈 감춘 항목 ${hiddenCount()}</button>` : "");
+    const hidBtn = $("#dogam-hidden");
+    if (hidBtn) hidBtn.addEventListener("click", () => { state.dogamHidden = !state.dogamHidden; renderDogam(); });
     $$("#dogam-sort .chip[data-s]").forEach((ch) =>
       ch.addEventListener("click", () => { state.dogamSort = ch.dataset.s; renderDogam(); }));
     const abvBtn = $("#dogam-abv");
@@ -4674,8 +4680,9 @@
         state.dogamPrice === "10~20만원" ? p > 10 && p <= 20 : p > 20;
     };
     const q = $("#spirit-search").value.trim();
+    const isHid = (sp) => hiddenSp().includes(sp.id) || ovHidden("spirit", sp.id);
     const list = state.spirits.filter((sp) =>
-      !hiddenSp().includes(sp.id) && !ovHidden("spirit", sp.id) &&
+      (state.dogamHidden ? isHid(sp) : !isHid(sp)) &&
       sp.kind === state.dogamKind &&
       (state.dogamCat === "전체" || (sp.kind === "spirit" ? sp.cat : sp.base) === state.dogamCat) &&
       (!isWhisky || state.dogamRegion === "전체" || regionOfWhisky(sp) === state.dogamRegion) &&
@@ -4700,7 +4707,7 @@
       dBar.hidden = !state.dogamMine;
       dBar.textContent = "내가 등록한 것만 보는 중 · 전체 보기";
     }
-    const sig = [state.dogamKind, state.dogamCat, state.dogamRegion, state.dogamAbv, state.dogamPrice, state.dogamSort, state.dogamTag, state.dogamMine, q].join("|");
+    const sig = [state.dogamKind, state.dogamCat, state.dogamRegion, state.dogamAbv, state.dogamPrice, state.dogamSort, state.dogamTag, state.dogamMine, state.dogamHidden, q].join("|");
     if (sig !== state._dogamSig) { state._dogamSig = sig; state.dogamLimit = 100; }
     const full = list.length;
     if (full > state.dogamLimit) list.length = state.dogamLimit;
@@ -9449,7 +9456,8 @@
     const opts = [];
     if (canEditDogam(true)) opts.push("✏️ 내용 수정");
     opts.push("🕘 수정 기록 보기");
-    if (!sp.mine) opts.push("🚩 신고하기");
+    if (hiddenSp().includes(sp.id)) opts.push("👁️ 내 목록에 다시 보이기");
+    else if (!sp.mine) opts.push("🚩 신고하기");
     if (isAdmin()) {
       if (isBuiltinSpirit(sp)) {
         opts.push(ovHidden("spirit", sp.id) ? "👁️ 다시 보이기" : "🙈 목록에서 감추기");
@@ -9463,6 +9471,10 @@
       if (v.includes("내용 수정")) openSpiritEditSheet(sp);
       else if (v.includes("수정 기록")) openEditHistory(sp);
       else if (v.includes("신고")) reportSpirit(sp);
+      else if (v.includes("내 목록에 다시 보이기")) {
+        state.user.hiddenSpirits = hiddenSp().filter((id) => id !== sp.id); saveUser();
+        toast("다시 보이게 했어요. 👁️"); show("dogam");
+      }
       else if (v.includes("감추기") || v.includes("보이기")) toggleSpiritHidden(sp);
       else if (v.includes("되돌리기")) revertSpirit(sp);
       else openAdminSheet("spirit", sp.id, sp.name, sp.authorId, () => show("dogam"));
