@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.42.1";
+  const APP_BUILD = "2.43.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -1640,7 +1640,7 @@
       (view === "doc" && (state.docFrom === "onboard" || state.docFrom === "login"));
     $("#bottom-nav").style.display = hideNav ? "none" : "";
     const navView = NAV_VIEWS.includes(view) ? view
-      : { jobs: "home", alerts: "home", chat: "home", cbt: "home", cards: "home", pass: "mypage", "pass-admin": "mypage", market: "home", "market-detail": "home", cart: "home", search: "home", bars: "home", mybars: "mypage", bar: "home", listing: "home", "listing-write": "listing", pros: "home", pro: "pros", "pro-edit": "pros", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
+      : { jobs: "home", alerts: "home", chat: "home", cbt: "home", cards: "home", guide: "home", pass: "mypage", "pass-admin": "mypage", market: "home", "market-detail": "home", cart: "home", search: "home", bars: "home", mybars: "mypage", bar: "home", listing: "home", "listing-write": "listing", pros: "home", pro: "pros", "pro-edit": "pros", taste: "mypage", admin: "mypage", spirit: "dogam", "spirit-write": "dogam", "meet-detail": "meet", "meet-write": "meet", write: "community", post: "community", settings: "mypage", favjobs: "mypage", myposts: "mypage", orders: "mypage", cellar: "mypage", blocked: "mypage", recipes: "mypage", doc: "mypage" }[view] || "home";
     $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === navView));
     if (view === "home") renderHome();
     if (view === "market") renderStore();
@@ -1657,6 +1657,7 @@
     }
     if (view === "cbt") renderCbt();
     if (view === "cards") renderCards();
+    if (view === "guide") renderGuide();
     if (view === "pass") renderPassView();
     if (view === "pass-admin") renderPassAdmin();
     if (state.view !== "pass-admin" && view !== "pass-admin") stopPassScanner();
@@ -7045,6 +7046,152 @@
     $("#cbt-spacer").hidden = exam;
     $("#cbt-bar").hidden = !exam;
     $("#bottom-nav").style.display = exam ? "none" : "";
+  }
+
+
+  /* ---------- 실기 합격 가이드 ----------
+   * 시험이 어떻게 진행되고 어디서 깎이는지, 초보자가 독학으로 준비하는 순서.
+   * 글은 js/guide-data.js 에, 40종 표는 카드 데이터에서 그때그때 만들어요. */
+  async function renderGuide() {
+    $("#guide-area").innerHTML = '<div class="empty-state">가이드를 불러오는 중…</div>';
+    const [ok, okCards] = await Promise.all([
+      lazyData("js/guide-data.js", "GUIDE_DATA"),
+      lazyData("js/cards-data.js", "CARDS_DATA"),
+    ]);
+    if (state.view !== "guide") return;
+    if (!ok) {
+      $("#guide-area").innerHTML = '<div class="empty-state">가이드를 불러오지 못했어요.<br>인터넷 연결을 확인해주세요.</div>';
+      return;
+    }
+    paintGuide(okCards);
+  }
+  const guideChecks = () => store.get("guideChecks", {});
+
+  function paintGuide(hasCards) {
+    const G = window.GUIDE_DATA;
+    const checks = guideChecks();
+    const ko = (x) => (hasCards && window.CARDS_DATA.ko[x]) || x;
+    const nChecked = Object.values(checks).filter(Boolean).length;
+
+    // 40종을 기법별로 — 카드와 같은 색을 써서 눈에 익게
+    let cheat = "";
+    if (hasCards) {
+      const all = window.CARDS_DATA.cocktails.filter((c) => c.ings);
+      cheat = [["build", "빌드"], ["stir", "스터"], ["shake", "셰이크"], ["float", "플로트"], ["blend", "블렌드"]].map(([m, label]) => {
+        const list = all.filter((c) => methodKey(c.method) === m);
+        if (!list.length) return "";
+        return `<div class="gd-cheat" data-m="${m}">
+          <div class="gd-cheat-h"><b>${label}</b><span>${list.length}종</span></div>
+          ${list.map((c) => `<button class="gd-cheat-row pressable" data-no="${c.no}">
+            <b>${esc(c.name)}</b><span>${esc(ko(c.glass))}</span><span>${c.garnish ? esc(ko(c.garnish)) : "가니시 없음"}</span></button>`).join("")}
+        </div>`;
+      }).join("");
+    }
+
+    const NAV = [["gd-flow", "시험 순서"], ["gd-check", "감점 체크"], ["gd-tech", "기법"], ["gd-memo", "암기법"], ["gd-plan", "4주 계획"], ["gd-home", "집 연습"], ["gd-video", "영상"]];
+
+    $("#guide-area").innerHTML = `
+      <div class="gd-hero">
+        <h2>실기, 이렇게 붙어요</h2>
+        <p>레시피를 외운 만큼 붙는 시험이에요. 시험이 어떻게 흘러가는지, 어디서 깎이는지, 4주 독학 계획까지 한 번에 정리했어요.</p>
+      </div>
+      <div class="kpi-grid gd-facts">
+        ${G.facts.map((f) => `<div class="kpi"><span class="kpi-l">${f.l}</span><span class="kpi-v">${f.v}<small>${f.u}</small></span><span class="kpi-h">${esc(f.h)}</span></div>`).join("")}
+      </div>
+      <div class="chip-scroll gd-nav">${NAV.map(([id, l]) => `<button class="chip" data-jump="${id}">${l}</button>`).join("")}</div>
+
+      <section class="gd-sec" id="gd-flow">
+        <h3>시험은 이렇게 진행돼요</h3>
+        <ol class="gd-flow">${G.flow.map((s, i) => `<li><i>${i + 1}</i><div><b>${esc(s.t)}</b><p>${esc(s.d)}</p></div></li>`).join("")}</ol>
+      </section>
+
+      <section class="gd-sec" id="gd-check">
+        <h3>어디서 깎일까 — 감점 체크리스트</h3>
+        <p class="gd-lead">내가 자주 하는 실수에 체크해두면 시험 전날 그것만 다시 볼 수 있어요. <b id="gd-check-n">${nChecked ? `조심할 것 ${nChecked}개` : ""}</b></p>
+        ${G.penalties.map((grp) => `
+          <div class="gd-pen ${grp.tone}">
+            <div class="gd-pen-h">${esc(grp.g)}</div>
+            ${grp.items.map((it) => `
+              <label class="gd-pen-row">
+                <input type="checkbox" data-k="${it.k}" ${checks[it.k] ? "checked" : ""}>
+                <span class="gd-pen-box"></span>
+                <span class="gd-pen-txt"><b>${esc(it.t)}</b><small>${esc(it.d)}</small></span>
+              </label>`).join("")}
+          </div>`).join("")}
+      </section>
+
+      <section class="gd-sec" id="gd-tech">
+        <h3>기법별 손 순서</h3>
+        <div class="gd-tech-list">${G.techniques.map((t) => `
+          <div class="gd-tech" data-m="${methodKey(t.m)}">
+            <div class="gd-tech-h"><b>${esc(t.t)}</b><span>${esc(t.d)}</span></div>
+            <ol>${t.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+            <p class="gd-tip">💡 ${esc(t.tip)}</p>
+          </div>`).join("")}</div>
+      </section>
+
+      <section class="gd-sec" id="gd-memo">
+        <h3>레시피 외우기가 8할</h3>
+        <ul class="gd-list">${G.memorize.map((m) => `<li><b>${esc(m.t)}</b><p>${esc(m.d)}</p></li>`).join("")}</ul>
+        <div class="cards-actions gd-cta">
+          <button class="big-btn accent ready" data-jump-view="cards">🃏 암기 카드로 가기</button>
+        </div>
+        ${cheat ? `<h4 class="gd-sub">40종 기법별 한눈에 <small>탭하면 카드가 열려요</small></h4>${cheat}` : ""}
+      </section>
+
+      <section class="gd-sec" id="gd-plan">
+        <h3>4주 독학 로드맵</h3>
+        <div class="gd-plan">${G.roadmap.map((r) => `
+          <div class="gd-week">
+            <span class="gd-week-tag">${esc(r.w)}</span>
+            <b>${esc(r.t)}</b><p>${esc(r.d)}</p>
+            <button class="chip gd-week-btn" data-jump-view="${r.go}">${esc(r.btn)} →</button>
+          </div>`).join("")}</div>
+      </section>
+
+      <section class="gd-sec" id="gd-home">
+        <h3>집에서 연습할 때</h3>
+        <ul class="gd-list">${G.home.map((m) => `<li><b>${esc(m.t)}</b><p>${esc(m.d)}</p></li>`).join("")}</ul>
+        <h4 class="gd-sub">시험 당일 챙길 것</h4>
+        <ul class="gd-dayof">${G.dayof.map((d) => `<li>${esc(d)}</li>`).join("")}</ul>
+      </section>
+
+      <section class="gd-sec" id="gd-video">
+        <h3>보면서 익히기</h3>
+        <p class="gd-lead">유튜브에서 바로 검색해 열어요. 최신 영상이 먼저 보여요.</p>
+        <div class="gd-videos">${G.videos.map((v) => `<button class="gd-video pressable" data-q="${esc(v.q)}"><span>${v.ic}</span><b>${esc(v.t)}</b></button>`).join("")}</div>
+        ${hasCards ? `<h4 class="gd-sub">칵테일별 시연 영상</h4>
+          <div class="chip-wrap gd-cocktail-chips">${window.CARDS_DATA.cocktails.filter((c) => c.ings).map((c) => `<button class="chip" data-q="조주기능사 ${esc(c.name)} 실기">${esc(c.name)}</button>`).join("")}</div>` : ""}
+        <div class="gd-links">${G.links.map((l) => `<button class="gd-link" data-u="${esc(l.u)}">🔗 ${esc(l.t)}</button>`).join("")}</div>
+        <p class="gd-foot">시험 시간·합격 기준은 Q-net 공개 기준이고, 감점 항목은 실기 경험자와 학원에서 공통으로 말하는 내용을 정리한 거예요. 복장·지참물·표준레시피 최신 공지는 시험 전 Q-net 에서 다시 확인하세요.</p>
+      </section>`;
+
+    const area = $("#guide-area");
+    area.querySelectorAll("[data-jump]").forEach((b) => b.addEventListener("click", () => {
+      const el = $("#" + b.dataset.jump);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }));
+    area.querySelectorAll("[data-jump-view]").forEach((b) => b.addEventListener("click", () => {
+      const v = b.dataset.jumpView;
+      if (v === "guide-check") { $("#gd-check").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+      show(v);
+    }));
+    area.querySelectorAll(".gd-pen-row input").forEach((cb) => cb.addEventListener("change", () => {
+      const c = guideChecks();
+      if (cb.checked) c[cb.dataset.k] = 1; else delete c[cb.dataset.k];
+      store.set("guideChecks", c);
+      const n = Object.keys(c).length;
+      $("#gd-check-n").textContent = n ? `조심할 것 ${n}개` : "";
+    }));
+    area.querySelectorAll(".gd-cheat-row").forEach((b) => b.addEventListener("click", () => {
+      const all = window.CARDS_DATA.cocktails.filter((c) => c.ings);
+      show("cards");
+      startCardDeck(all, +b.dataset.no);
+    }));
+    area.querySelectorAll("[data-q]").forEach((b) => b.addEventListener("click", () => {
+      window.open("https://www.youtube.com/results?search_query=" + encodeURIComponent(b.dataset.q), "_blank", "noopener");
+    }));
+    area.querySelectorAll("[data-u]").forEach((b) => b.addEventListener("click", () => window.open(b.dataset.u, "_blank", "noopener")));
   }
 
   async function renderCbt() {
