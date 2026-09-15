@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.47.0";
+  const APP_BUILD = "2.47.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -7926,6 +7926,24 @@
   const TOSS_LIB = "https://js.tosspayments.com/v1/payment";
   const PASS_STATUS = { requested: "승인 대기", active: "사용 중", grace: "결제 확인 중", expired: "기간 끝", cancelled: "취소", rejected: "거절" };
   const PASS_DAYS = { all: "매일", "tue-thu": "화·수·목" };
+  /* 하우스 패스 운영안의 멤버십 상품 그대로. 요일 2 × 잔수 2 + 팀 + 원데이 + 3개월 선불.
+   * 1잔 = 데일리·클래식·사워 중 1잔 / 하우스 위스키 30ml / 맥주 1병. "무제한"이란 말은 쓰지 않아요. */
+  const PASS_PRESET_PLANS = [
+    { name: "라이트", price: 39000, kind: "personal", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 1, duration_days: 30, sort: 1,
+      note: "퇴근하고 한 잔. 화·수·목 하루 1잔, 3번만 와도 본전." },
+    { name: "올데이", price: 59000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: null, team_size: 1, duration_days: 30, sort: 2,
+      note: "금·토에도 오는 분. 매일 하루 1잔." },
+    { name: "트리플", price: 79000, kind: "personal", days: "tue-thu", drinks_per_day: 3, monthly_cap: 24, team_size: 1, duration_days: 30, sort: 3,
+      note: "위스키 손님용. 화·수·목 하루 3잔, 월 24잔까지." },
+    { name: "트리플 올데이", price: 119000, kind: "personal", days: "all", drinks_per_day: 3, monthly_cap: 36, team_size: 1, duration_days: 30, sort: 4,
+      note: "단골 헤비 유저. 매일 하루 3잔, 월 36잔까지." },
+    { name: "팀 패스", price: 149000, kind: "team", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 5, duration_days: 30, sort: 5,
+      note: "5명 등록 · 화·수·목 각자 하루 1잔. 1인 29,800원, 법인카드 OK." },
+    { name: "원데이", price: 15000, kind: "oneday", days: "all", drinks_per_day: 2, monthly_cap: null, team_size: 1, duration_days: 1, sort: 6,
+      note: "비회원 · 당일 2잔. 회원이 데려온 동료용." },
+    { name: "라이트 3개월", price: 105000, kind: "personal", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 1, duration_days: 90, sort: 7,
+      note: "라이트 3개월 선불. 월 35,000원꼴, 한 달치 아껴요." },
+  ];
   const PASS_KIND = { personal: "개인", team: "팀", oneday: "원데이" };
   const passCache = { mine: null, owned: null, at: 0, byBar: {} };
   let passQrTimer = null;
@@ -7939,8 +7957,11 @@
     if (p.monthly_cap) bits.push(`월 ${p.monthly_cap}잔까지`);
     if (p.kind === "team") bits.push(`${p.team_size}명`);
     if (p.kind === "oneday" || p.duration_days < 7) bits.push(`${p.duration_days}일`);
+    else if (p.duration_days >= 60) bits.push(`${Math.round(p.duration_days / 30)}개월 선불`);
     return bits.join(" · ");
   }
+  // "/월" · "/3개월" · 원데이는 없음
+  const passPer = (p) => p.kind === "oneday" ? "" : p.duration_days >= 60 ? `/${Math.round(p.duration_days / 30)}개월` : "/월";
   function passFail(r, fallback) {
     if (r && r.error === "not-installed") toast("서버에 패스 기능이 아직 설치되지 않았어요. (supabase/pass.sql)");
     else toast((r && r.error) || fallback || "처리하지 못했어요.");
@@ -8097,7 +8118,7 @@
             ${r.plans.map((p) => `
               <button class="pass-plan pressable" data-plan="${p.id}">
                 <span class="pp-name">${esc(p.name)}${p.kind !== "personal" ? ` <i>${PASS_KIND[p.kind]}</i>` : ""}</span>
-                <span class="pp-price">${passWon(p.price)}<small>${p.kind === "oneday" ? "" : "/월"}</small></span>
+                <span class="pp-price">${passWon(p.price)}<small>${passPer(p)}</small></span>
                 <span class="pp-line">${esc(passPlanLine(p))}</span>
                 ${p.note ? `<span class="pp-note">${esc(p.note)}</span>` : ""}
               </button>`).join("")}
@@ -8130,7 +8151,7 @@
 
   async function choosePassPlan(b, key, plan) {
     if (!plan) return;
-    const line = `${plan.name} · ${passWon(plan.price)}${plan.kind === "oneday" ? "" : "/월"}\n${passPlanLine(plan)}`;
+    const line = `${plan.name} · ${passWon(plan.price)}${passPer(plan)}\n${passPlanLine(plan)}`;
     if (CFG.TOSS_CLIENT_KEY && plan.price > 0) {
       const opts = ["💳 앱에서 카드로 결제 (바로 시작)", "🏪 가게에서 결제 (운영자 승인 후 시작)"];
       openSheet(line, opts, null, (v) => v.startsWith("💳") ? startPassBilling(b, key, plan) : requestPass(b, key, plan));
@@ -8631,11 +8652,11 @@
       <div class="card">
         ${d.plans.map((p) => `
           <button class="pm-row pressable ${p.active ? "" : "off"}" data-plan="${p.id}">
-            <div class="pm-who"><b>${esc(p.name)}${p.active ? "" : " (숨김)"}</b><span>${passWon(p.price)}${p.kind === "oneday" ? "" : "/월"} · ${esc(passPlanLine(p))}</span></div>
+            <div class="pm-who"><b>${esc(p.name)}${p.active ? "" : " (숨김)"}</b><span>${passWon(p.price)}${passPer(p)} · ${esc(passPlanLine(p))}</span></div>
             <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
           </button>`).join("")}
         <button class="host-chat-btn" id="pa-add" style="margin-top:${d.plans.length ? 10 : 0}px">+ 상품 추가</button>
-        ${d.plans.length ? "" : '<button class="host-chat-btn" id="pa-preset" style="margin-top:8px">🏁 기본 5종 한 번에 넣기 (라이트·올데이·트리플·팀·원데이)</button>'}
+        <button class="host-chat-btn" id="pa-preset" style="margin-top:8px">🏁 운영안 상품 7종 채우기 <small style="font-weight:600;color:var(--text-sub)">(있는 건 건너뜀)</small></button>
       </div>
       <p class="pass-note" style="margin:10px 20px 24px">"무제한"이라는 말은 쓰지 마세요 — 잔수와 상한으로 적습니다. 원가 3,000원 넘는 메뉴는 1잔 풀에 넣지 않는 게 원칙이에요.</p>`;
     $("#pa-enabled").addEventListener("click", async () => {
@@ -8656,18 +8677,18 @@
     $("#pa-add").addEventListener("click", () => openPlanEditor(null));
     const preset = $("#pa-preset");
     if (preset) preset.addEventListener("click", async () => {
-      if (!await btConfirm("하우스 패스 운영안의 기본 상품 5종을 넣을까요?\n라이트 39,000 · 올데이 59,000 · 트리플 79,000 · 팀 패스 149,000 · 원데이 15,000\n(나중에 하나씩 고칠 수 있어요)", { yes: "넣기" })) return;
-      const rows = [
-        { name: "라이트", price: 39000, kind: "personal", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 1, duration_days: 30, sort: 1, note: "퇴근하고 한 잔. 3번만 와도 본전." },
-        { name: "올데이", price: 59000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: null, team_size: 1, duration_days: 30, sort: 2, note: "금·토에도 오는 분." },
-        { name: "트리플", price: 79000, kind: "personal", days: "tue-thu", drinks_per_day: 3, monthly_cap: 24, team_size: 1, duration_days: 30, sort: 3, note: "위스키 손님용. 월 24잔까지." },
-        { name: "팀 패스", price: 149000, kind: "team", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 5, duration_days: 30, sort: 4, note: "5명 등록 · 각자 하루 1잔. 법인카드 OK." },
-        { name: "원데이", price: 15000, kind: "oneday", days: "all", drinks_per_day: 2, monthly_cap: null, team_size: 1, duration_days: 1, sort: 5, note: "비회원 · 당일 2잔." },
-      ];
-      for (const row of rows) {
+      const rows = PASS_PRESET_PLANS;
+      const have = new Set(d.plans.map((p) => String(p.name || "").replace(/\s+/g, "")));
+      const todo = rows.filter((row) => !have.has(row.name.replace(/\s+/g, "")));
+      if (!todo.length) { toast("운영안 상품 7종이 이미 다 있어요."); return; }
+      if (!await btConfirm(`하우스 패스 운영안의 상품을 넣을까요?\n\n${todo.map((r) => `· ${r.name} ${passWon(r.price)}`).join("\n")}\n\n(이미 있는 ${rows.length - todo.length}개는 건너뛰고, 나중에 하나씩 고칠 수 있어요)`, { yes: "넣기" })) return;
+      let n = 0;
+      for (const row of todo) {
         const r = await Sync.passSavePlan(Object.assign({ bar_key: a.barKey, active: true }, row));
         if (!r.ok) { passFail(r); break; }
+        n++;
       }
+      if (n) toast(`상품 ${n}개를 넣었어요. 🎫`);
       passAdminReload();
     });
   }
