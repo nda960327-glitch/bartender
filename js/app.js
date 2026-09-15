@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.49.2";
+  const APP_BUILD = "2.50.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8679,7 +8679,6 @@
         ${p.reward_pending ? `<div class="pass-reward">🎁 <b>${esc(p.special_drink)}</b> 1잔 드릴 차례예요!</div>` : ""}
         <div class="sr-acts">
           <button class="big-btn ${dayFull || monthFull ? "" : "accent ready"}" data-act="drink" ${dayFull || monthFull ? "disabled" : ""}>${dayFull || monthFull ? "🍸 잔 사용 불가 (" + p.today_drinks + "/" + p.drinks_per_day + ")" : "🍸 잔 사용 +1 (" + p.today_drinks + "/" + p.drinks_per_day + ")"}</button>
-          <button class="big-btn ${p.side_today ? "ready" : ""}" data-act="side">${p.side_today ? "🍟 사이드 주문 ✓" : "🍟 사이드 주문했어요"}</button>
           ${p.reward_pending ? '<button class="big-btn ready" data-act="reward" style="background:#2eb872;color:#fff">🎁 한정 칵테일 제공</button>' : ""}
         </div>
         <button class="host-chat-btn" id="scan-next">다음 손님 스캔</button>
@@ -8702,7 +8701,7 @@
     } else {
       const prof = a.data && a.data.profiles && a.data.profiles[r.data.user_id];
       a.scan = { token, result: r.data, color: prof ? prof.color : 0, error: "",
-        msg: action === "drink" ? "잔 사용 ✓" : action === "reward" ? "보상 제공 완료 🎁" : side ? "사이드 주문 표시 ✓" : (r.data.entered_today ? "입장 확인 ✓ · 도장 찍었어요" : "입장 확인 ✓") };
+        msg: action === "drink" ? "잔 사용 ✓" : action === "reward" ? "보상 제공 완료 🎁" : (r.data.entered_today ? "입장 확인 ✓ · 도장 찍었어요" : "입장 확인 ✓") };
       vibrate(20);
       sfx("success");
       passCache.at = 0;
@@ -9053,9 +9052,20 @@
     area.innerHTML = '<div class="empty-state">집계 중…</div>';
     const r = await Sync.passDashboard(a.barKey);
     if (state.view !== "pass-admin" || state.passAdmin !== a || a.tab !== "stats") return;
-    if (!r.ok) { area.innerHTML = `<div class="empty-state">${esc(r.error)}</div>`; return; }
-    const d = r.data;
-    const max = Math.max(1, ...d.daily.map((x) => x.n));
+    /* 서버 집계(입장·잔·사이드)는 QR 스캔 기록에서 나와요. 회원·상품·매출은 이미 받아둔 회원 목록으로
+       앱이 직접 세서, 서버 함수가 예전 버전이거나 실패해도 숫자가 비지 않게 합니다. */
+    const d = r.ok && r.data ? r.data : null;
+    const passes = (a.data && a.data.passes) || [];
+    const live = passes.filter(passActive);
+    const pending = passes.filter((p) => p.status === "requested");
+    const now = new Date(), m0 = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const approvedThisMonth = passes.filter((p) => p.approved_at && new Date(p.approved_at).getTime() >= m0);
+    const revenueLocal = approvedThisMonth.reduce((s, p) => s + (+p.price || 0), 0);
+    const monthly = live.filter((p) => !p.team_id).reduce((s, p) => s + (+p.price || 0) * (p.kind === "oneday" ? 0 : 30 / Math.max(1, +p.duration_days || 30)), 0);
+    const cancelReq = live.filter((p) => p.cancel_requested_at).length, renewReq = live.filter((p) => p.renew_requested_at).length;
+    const byPlan = {};
+    live.forEach((p) => { const k = p.team_id ? "팀원" : p.plan_name; byPlan[k] = byPlan[k] || { n: 0, won: 0 }; byPlan[k].n++; byPlan[k].won += p.team_id ? 0 : (+p.price || 0); });
+    const num = (v, digits) => (v == null || isNaN(+v)) ? "–" : (digits ? (+v).toFixed(digits) : Math.round(+v));
     const kpi = (label, val, unit, goal, hint) => `
       <div class="kpi">
         <span class="kpi-l">${label}</span>
@@ -9063,20 +9073,37 @@
         <span class="kpi-g">${goal}</span>
         <span class="kpi-h">${hint}</span>
       </div>`;
+    const visits = d ? +d.visits_month || 0 : 0;
+    const daily = d && Array.isArray(d.daily) ? d.daily : [];
+    const max = Math.max(1, ...daily.map((x) => +x.n || 0));
     area.innerHTML = `
+      ${!r.ok ? `<div class="card pass-warn"><b>⚠️ 서버 집계를 못 받았어요</b><p>${esc(r.error === "not-installed" ? "supabase/pass.sql 의 pass_dashboard 함수가 없어요. SQL Editor 에서 pass.sql 을 실행해주세요." : r.error)} 아래 회원·매출 숫자는 회원 목록으로 앱에서 직접 셌어요.</p></div>` : ""}
       <div class="kpi-grid">
-        ${kpi("회원 수", d.members, "명", "목표 3개월 40 · 6개월 70 · 12개월 90", d.pending ? `신청 대기 ${d.pending}건` : "&nbsp;")}
-        ${kpi("회원 월 방문", d.avg_visits, "회", "4회 밑이면 상품이 아니라 가게를 고쳐야", `이달 입장 ${d.visits_month}회`)}
-        ${kpi("화~목 밤 손님", d.nightly_tt, "명", "20 → 30 → 35~40", "패스 회원 기준 · 하룻밤 평균")}
-        ${kpi("사이드 주문률", d.side_rate === null ? "–" : d.side_rate, d.side_rate === null ? "" : "%", "40% → 45% → 50%", "35% 밑이면 안주 메뉴가 틀린 것")}
+        ${kpi("회원 수", live.length, "명", "목표 3개월 40 · 6개월 70 · 12개월 90", pending.length ? `신청 대기 ${pending.length}건` : "&nbsp;")}
+        ${kpi("회원 월 방문", d ? num(d.avg_visits, 1) : "–", "회", "4회 밑이면 상품이 아니라 가게를 고쳐야", d ? `이달 입장 ${visits}회` : "QR 스캔 기록으로 계산")}
+        ${kpi("화~목 밤 손님", d ? num(d.nightly_tt, 1) : "–", "명", "20 → 30 → 35~40", "패스 회원 기준 · 하룻밤 평균")}
+        ${kpi("이달 패스 매출", passWon(d ? +d.revenue_month || revenueLocal : revenueLocal), "", `승인 ${approvedThisMonth.length}건`, "이달 승인된 패스 결제액 합계")}
       </div>
+      <div class="kpi-grid" style="padding-top:0">
+        ${kpi("월 반복 매출", passWon(Math.round(monthly)), "", "쓰는 중인 패스를 월로 환산", "3개월권은 ÷3 · 원데이 제외")}
+        ${kpi("이달 잔", d ? +d.drinks_month || 0 : "–", "잔", "패스로 나간 잔 수", "QR 스캔 때 \"잔 사용\"으로 집계")}
+      </div>
+
       <div class="card">
-        <div class="pass-sec-head"><h3 class="card-h">최근 14일 입장</h3><span class="pass-note" style="margin:0">이달 잔 ${d.drinks_month} · 이달 패스 매출 ${passWon(d.revenue_month)}</span></div>
-        <div class="bars14">
-          ${d.daily.map((x) => `<div class="b14" title="${x.day} · ${x.n}명"><i style="height:${Math.round((x.n / max) * 100)}%"></i><span>${String(x.day).slice(8)}</span></div>`).join("")}
-        </div>
+        <div class="pass-sec-head"><h3 class="card-h">상품별 회원</h3><span class="pass-note" style="margin:0">${live.length ? `해지 요청 ${cancelReq} · 연장 요청 ${renewReq}` : ""}</span></div>
+        ${Object.keys(byPlan).length ? Object.entries(byPlan).sort((x, y) => y[1].n - x[1].n).map(([name, v]) => `
+          <div class="ps-plan-row"><span>${esc(name)}</span><b>${v.n}명</b><small>${v.won ? passWon(v.won) : ""}</small></div>`).join("")
+          : '<p class="pass-note" style="padding:8px 0">아직 쓰는 중인 회원이 없어요. 회원 탭에서 신청을 승인하면 여기 잡혀요.</p>'}
       </div>
-      <p class="pass-note" style="margin:6px 20px 24px">매출은 결과예요. 위 넷이 맞으면 매출은 따라와요. 사이드 주문률은 스캔할 때 "사이드 주문했어요"를 눌러야 잡혀요.</p>`;
+
+      <div class="card">
+        <div class="pass-sec-head"><h3 class="card-h">최근 14일 입장</h3><span class="pass-note" style="margin:0">${d ? `이달 입장 ${visits}회` : ""}</span></div>
+        ${visits || daily.some((x) => +x.n) ? `
+        <div class="bars14">
+          ${daily.map((x) => `<div class="b14" title="${x.day} · ${x.n}명"><i style="height:${Math.round(((+x.n || 0) / max) * 100)}%"></i><span>${String(x.day).slice(8)}</span></div>`).join("")}
+        </div>` : `<p class="pass-note" style="padding:8px 0">아직 입장 기록이 없어요. <b>입장 확인</b> 탭에서 손님 QR을 찍으면 방문·잔 지표가 쌓여요. 승인만 해서는 안 잡힙니다.</p>`}
+      </div>
+      <p class="pass-note" style="margin:6px 20px 24px">매출은 결과예요. 위 넷이 맞으면 매출은 따라와요. 방문·잔은 QR 스캔 기록으로, 회원·매출은 승인된 패스로 계산해요.</p>`;
   }
 
   /* ---------- 레시피 공유 ---------- */

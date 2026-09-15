@@ -499,6 +499,13 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .pass-links { display: flex; gap: 14px; padding: 8px 4px 0; }
 .pass-links .text-btn { font-size: 13px; }
 
+/* 지표 · 상품별 회원 */
+.ps-plan-row { display: flex; align-items: baseline; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+.ps-plan-row:last-child { border-bottom: none; }
+.ps-plan-row span { flex: 1; }
+.ps-plan-row b { font-weight: 800; }
+.ps-plan-row small { color: var(--text-sub); min-width: 70px; text-align: right; }
+
 /* 환불 계산기 */
 .rc-box { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: var(--bg-gray); }
 .rc-box.customer { margin: 0 0 10px; background: #fff1ec; }
