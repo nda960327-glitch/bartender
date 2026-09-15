@@ -1496,6 +1496,11 @@ textarea.input { height: auto; }
 .pm-who { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .pm-who b { font-size: 15px; font-weight: 700; }
 .pm-who span { width: 100%; font-size: 12.5px; color: var(--text-sub); line-height: 1.5; }
+.pm-who small.pm-nick { font-size: 12px; color: var(--text-muted); }
+.pm-who .pm-tel {
+  font-size: 12.5px; font-weight: 700; color: var(--official); text-decoration: none;
+  padding: 2px 8px; border-radius: 999px; background: var(--bg-gray);
+}
 .pm-acts { display: flex; gap: 6px; flex-shrink: 0; }
 .pm-acts .chip { padding: 7px 12px; font-size: 13px; }
 .pe-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }

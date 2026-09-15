@@ -91,6 +91,8 @@
       <p class="onboard-sub">바텐더들의 익명 커뮤니티</p>
       <label class="form-label">닉네임</label>
       <input type="text" class="input" id="ob-nick" placeholder="사용할 닉네임을 입력해주세요." maxlength="10">
+      <label class="form-label">이름</label>
+      <input type="text" class="input" id="ob-name" placeholder="실명 (패스 회원 확인용)" maxlength="20" autocomplete="name">
       <label class="form-label">휴대폰 번호</label>
       <input type="tel" class="input" id="ob-phone" placeholder="010-0000-0000" maxlength="13" inputmode="numeric" autocomplete="tel">
       <p class="ref-msg bad" id="ob-phone-msg" hidden>휴대폰 번호 형식이 맞지 않아요. (010-0000-0000)</p>
@@ -739,7 +741,8 @@
       <input type="text" class="input" id="nick-input" placeholder="새 닉네임" maxlength="10">
       <button class="big-btn" id="btn-nick-save" disabled>변경하기</button>
 
-      <h2 class="section-title mt">휴대폰 번호</h2>
+      <h2 class="section-title mt">이름 · 휴대폰 번호</h2>
+      <input type="text" class="input" id="name-input" placeholder="이름 (실명)" maxlength="20" autocomplete="name">
       <input type="tel" class="input" id="phone-input" placeholder="010-0000-0000" maxlength="13" inputmode="numeric" autocomplete="tel">
       <p class="ref-msg bad" id="phone-msg" hidden>휴대폰 번호 형식이 맞지 않아요. (010-0000-0000)</p>
       <button class="agree-row" id="mkt-agree">
@@ -747,7 +750,7 @@
         <span>연계 바의 이벤트·혜택 안내를 문자로 받을게요</span>
       </button>
       <button class="big-btn" id="btn-phone-save" disabled>저장하기</button>
-      <p class="warn-text" style="margin-top:8px">번호는 본인 확인과 하우스 패스 안내에 쓰이고, 다른 이용자에게 보이지 않아요.</p>
+      <p class="warn-text" style="margin-top:8px">이름과 번호는 본인 확인과 하우스 패스 회원 확인에 쓰여요. 패스를 신청한 가게의 운영자에게만 보이고, 다른 이용자에게는 보이지 않아요.</p>
 
       <h2 class="section-title mt">알림</h2>
       <div class="push-row" id="push-row">

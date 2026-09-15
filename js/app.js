@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.46.0";
+  const APP_BUILD = "2.47.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -1679,7 +1679,9 @@
       if (after) after();
     });
   }
-  function savePhone(phone, marketingOk) {
+  const nameValid = (v) => String(v || "").trim().length >= 2;
+  function savePhone(phone, marketingOk, name) {
+    if (name != null) state.user.name = String(name).trim().slice(0, 20);
     state.user.phone = phoneDigits(phone);
     state.user.marketingOk = !!marketingOk;
     state.user.marketingAt = marketingOk ? (state.user.marketingAt || Date.now()) : 0;
@@ -1713,7 +1715,7 @@
     $("#ob-adult").classList.toggle("on", !!state.obAdult);
     $("#ob-mkt").classList.toggle("on", !!state.obMkt);
     renderRefMsg("#ob-ref", "#ob-ref-msg");
-    const ok = $("#ob-nick").value.trim().length >= 1 && phoneValid($("#ob-phone").value) && !!state.obAdult && !!state.obRole;
+    const ok = $("#ob-nick").value.trim().length >= 1 && nameValid($("#ob-name").value) && phoneValid($("#ob-phone").value) && !!state.obAdult && !!state.obRole;
     $("#ob-start").disabled = !ok;
     $("#ob-start").classList.toggle("ready", ok);
   }
@@ -1781,6 +1783,7 @@
     state.user.role = state.obRole;
     state.user.color = state.obColor;
     state.user.onboarded = true;
+    state.user.name = $("#ob-name").value.trim().slice(0, 20);
     state.user.phone = phoneDigits($("#ob-phone").value);
     state.user.marketingOk = !!state.obMkt;
     state.user.marketingAt = state.obMkt ? Date.now() : 0;
@@ -6551,6 +6554,7 @@
     $("#nick-input").value = state.user.nick;
     updateNickBtn();
     $("#phone-input").value = phonePretty(state.user.phone || "");
+    $("#name-input").value = state.user.name || "";
     state.selMkt = !!state.user.marketingOk;
     $("#mkt-agree").classList.toggle("on", state.selMkt);
     updatePhoneBtn();
@@ -6621,9 +6625,9 @@
     $("#btn-profile-save").classList.toggle("ready", changed);
   }
   function updatePhoneBtn() {
-    const d = phoneDigits($("#phone-input").value);
-    const changed = d !== (state.user.phone || "") || !!state.selMkt !== !!state.user.marketingOk;
-    const ok = changed && phoneValid(d);
+    const d = phoneDigits($("#phone-input").value), nm = $("#name-input").value.trim();
+    const changed = d !== (state.user.phone || "") || nm !== (state.user.name || "") || !!state.selMkt !== !!state.user.marketingOk;
+    const ok = changed && phoneValid(d) && nameValid(nm);
     $("#btn-phone-save").disabled = !ok;
     $("#btn-phone-save").classList.toggle("ready", ok);
   }
@@ -8135,8 +8139,37 @@
     if (!await btConfirm(`${line}\n\n신청할까요? 가게에서 결제하면 운영자가 승인해요.`, { yes: "신청" })) return;
     requestPass(b, key, plan);
   }
+  /* 패스에는 회원 이름·번호가 붙어야 운영자가 계산할 때 사람을 알아봐요.
+     가입 때 받았지만, 예전 가입자는 없을 수 있어 여기서 한 번 더 확인합니다. */
+  async function ensureMemberInfo() {
+    if (nameValid(state.user.name) && phoneValid(state.user.phone)) return true;
+    return new Promise((done) => {
+      const bd = openSheetHTML(`
+        <h3>회원 정보를 확인해주세요</h3>
+        <p class="sheet-sub">가게 운영자가 계산할 때 회원을 확인하는 데 써요. 이 가게 운영자에게만 보여요.</p>
+        <input type="text" class="input" id="mi-name" placeholder="이름 (실명)" maxlength="20" autocomplete="name" value="${esc(state.user.name || "")}">
+        <input type="tel" class="input" id="mi-phone" placeholder="010-0000-0000" maxlength="13" inputmode="numeric" autocomplete="tel" value="${phonePretty(state.user.phone || "")}">
+        <p class="ref-msg bad" id="mi-phone-msg" hidden>휴대폰 번호 형식이 맞지 않아요. (010-0000-0000)</p>
+        <button class="big-btn accent" id="mi-ok" disabled>확인</button>`, (root) => {
+        const btn = root.querySelector("#mi-ok");
+        const sync = () => { const ok = phoneValid(root.querySelector("#mi-phone").value) && nameValid(root.querySelector("#mi-name").value); btn.disabled = !ok; btn.classList.toggle("ready", ok); };
+        bindPhoneInput("#mi-phone", "#mi-phone-msg", sync);
+        root.querySelector("#mi-name").addEventListener("input", sync);
+        sync();
+        btn.addEventListener("click", () => {
+          savePhone(root.querySelector("#mi-phone").value, state.user.marketingOk, root.querySelector("#mi-name").value);
+          root.remove(); done(true);
+        });
+      });
+      bd.addEventListener("click", (e) => { if (e.target === bd) done(false); });
+      bd.querySelector(".sheet-close").addEventListener("click", () => done(false));
+    });
+  }
+  const memberInfo = () => ({ name: state.user.name || "", phone: state.user.phone || "" });
+
   async function requestPass(b, key, plan) {
-    const r = await Sync.passRequest(plan.id);
+    if (!await ensureMemberInfo()) return;
+    const r = await Sync.passRequest(plan.id, memberInfo());
     if (!r.ok) { passFail(r); return; }
     invalidatePasses();
     Sync.notify && Sync.notify({ type: "passRequest", passId: r.pass.id });
@@ -8146,7 +8179,8 @@
   async function joinTeamPass() {
     const code = await btPrompt("팀장이 알려준 초대 코드 6자리를 넣어주세요.", "");
     if (!code) return;
-    const r = await Sync.passJoinTeam(code.trim().toUpperCase());
+    if (!await ensureMemberInfo()) return;
+    const r = await Sync.passJoinTeam(code.trim().toUpperCase(), memberInfo());
     if (!r.ok) { passFail(r); return; }
     invalidatePasses();
     toast("팀 패스에 참여했어요! 🎉");
@@ -8271,11 +8305,12 @@
 
   /* ---------- 앱 안 카드 결제 (토스) ---------- */
   async function startPassBilling(b, key, plan) {
+    if (!await ensureMemberInfo()) return;
     const ok = await lazyData(TOSS_LIB, "TossPayments");
     if (!ok || !window.TossPayments) { toast("결제 모듈을 불러오지 못했어요."); return; }
     const autoRenew = plan.kind !== "oneday" && await btConfirm(`${plan.name} · ${passWon(plan.price)}\n\n기간이 끝나면 같은 카드로 자동 연장할까요?\n(내 패스에서 언제든 끌 수 있어요)`, { yes: "자동 연장", no: "이번만" });
     try {
-      store.set("passBillingIntent", { barKey: key, barName: b.name, barId: b.id, planId: plan.id, autoRenew: !!autoRenew, at: Date.now() });
+      store.set("passBillingIntent", { barKey: key, barName: b.name, barId: b.id, planId: plan.id, autoRenew: !!autoRenew, at: Date.now(), member: memberInfo() });
       const base = location.origin + location.pathname;
       await window.TossPayments(CFG.TOSS_CLIENT_KEY).requestBillingAuth("카드", {
         customerKey: Sync.uid,
@@ -8300,7 +8335,7 @@
     if (flag !== "ok") { toast(q.get("message") || "카드 등록이 취소됐어요."); return; }
     if (!intent || Date.now() - intent.at > 3600000) { toast("결제 정보를 찾지 못했어요. 다시 시도해 주세요."); return; }
     toast("결제를 확인하는 중…");
-    const r = await Sync.passBilling("issue", { authKey: q.get("authKey"), customerKey: q.get("customerKey"), planId: intent.planId, autoRenew: intent.autoRenew });
+    const r = await Sync.passBilling("issue", { authKey: q.get("authKey"), customerKey: q.get("customerKey"), planId: intent.planId, autoRenew: intent.autoRenew, memberName: (intent.member || {}).name || state.user.name || "", memberPhone: (intent.member || {}).phone || state.user.phone || "" });
     if (!r.ok) { await btAlert("결제가 완료되지 않았어요.\n" + r.error); return; }
     invalidatePasses();
     await btAlert(`결제 완료! ${intent.barName}의 패스가 바로 시작됐어요. 🎫\n${r.cardLabel || ""}`);
@@ -8480,7 +8515,15 @@
   /* 회원 · 신청 */
   function renderPassMembersTab(area, a) {
     const d = a.data, prof = d.profiles || {};
-    const who = (p) => { const u = prof[p.user_id]; return `<span class="avatar" style="background:${COLORS[((u && u.color) || 0) % COLORS.length]}"></span><b>${esc((u && u.nick) || "손님")}</b>`; };
+    // 이름(실명)을 크게, 닉네임은 옆에 작게. 번호는 누르면 바로 전화가 걸려요.
+    const who = (p) => {
+      const u = prof[p.user_id];
+      const nick = (u && u.nick) || "손님";
+      const name = (p.member_name || "").trim();
+      return `<span class="avatar" style="background:${COLORS[((u && u.color) || 0) % COLORS.length]}"></span>`
+        + `<b>${esc(name || nick)}</b>${name ? `<small class="pm-nick">${esc(nick)}</small>` : ""}`
+        + (p.member_phone ? `<a class="pm-tel" href="tel:${esc(p.member_phone)}" data-stop="1">📞 ${esc(phonePretty(p.member_phone))}</a>` : '<small class="pm-nick">번호 없음</small>');
+    };
     const pending = d.passes.filter((p) => p.status === "requested");
     const live = d.passes.filter(passActive).sort((x, y) => String(x.ends_at).localeCompare(String(y.ends_at)));
     area.innerHTML = `
@@ -8515,6 +8558,7 @@
       passAdminReload();
     }));
     $$("#pass-admin-area [data-open]").forEach((b) => b.addEventListener("click", () => openMemberSheet(+b.dataset.open)));
+    $$("#pass-admin-area .pm-tel").forEach((t) => t.addEventListener("click", (e) => e.stopPropagation()));
   }
   async function approvePass(id) {
     const a = state.passAdmin;
@@ -8537,7 +8581,9 @@
     if (!r.ok) { passFail(r); return; }
     const p = r.data;
     const bd = openSheetHTML(`
-      <h3>${esc(p.nick || "손님")} · ${esc(p.plan_name)}</h3>
+      <h3>${esc(p.member_name || p.nick || "손님")} · ${esc(p.plan_name)}</h3>
+      ${p.member_name ? `<div class="sheet-row"><span>닉네임</span><span class="r">${esc(p.nick || "손님")}</span></div>` : ""}
+      <div class="sheet-row"><span>전화</span><span class="r">${p.member_phone ? `<a href="tel:${esc(p.member_phone)}">${esc(phonePretty(p.member_phone))}</a>` : "없음"}</span></div>
       <div class="sheet-row"><span>기간</span><span class="r">${fmtDay(p.starts_at)} ~ ${fmtDay(p.ends_at)}</span></div>
       <div class="sheet-row"><span>오늘 / 이달 잔</span><span class="r">${p.today_drinks}/${p.drinks_per_day} · ${p.month_drinks}${p.monthly_cap ? "/" + p.monthly_cap : ""}</span></div>
       <div class="sheet-row"><span>이달 방문</span><span class="r">${p.stamps}회${p.reward_pending ? " · 🎁 보상 대기" : ""}</span></div>
@@ -8870,6 +8916,7 @@
   $("#ob-adult").addEventListener("click", () => { state.obAdult = !state.obAdult; renderOnboard(); });
   $("#ob-mkt").addEventListener("click", () => { state.obMkt = !state.obMkt; renderOnboard(); });
   bindPhoneInput("#ob-phone", "#ob-phone-msg", renderOnboard);
+  $("#ob-name").addEventListener("input", renderOnboard);
   $("#ob-start").addEventListener("click", startApp);
   $("#ob-nick").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("#ob-start").disabled) startApp(); });
   $("#ob-terms").addEventListener("click", () => openDoc("terms"));
@@ -9328,6 +9375,7 @@
     state.obColor = state.user.color;
     state.obRole = state.user.role || roleOfColor(state.user.color);
     $("#ob-phone").value = phonePretty(state.user.phone || "");
+    $("#ob-name").value = state.user.name || "";
     state.obMkt = !!state.user.marketingOk;
     renderOnboard();
     show("onboard");
@@ -9379,16 +9427,17 @@
     toast("닉네임이 변경되었어요.");
   });
   bindPhoneInput("#phone-input", "#phone-msg", updatePhoneBtn);
+  $("#name-input").addEventListener("input", updatePhoneBtn);
   $("#mkt-agree").addEventListener("click", () => {
     state.selMkt = !state.selMkt;
     $("#mkt-agree").classList.toggle("on", state.selMkt);
     updatePhoneBtn();
   });
   $("#btn-phone-save").addEventListener("click", () => {
-    if (!phoneValid($("#phone-input").value)) return;
-    savePhone($("#phone-input").value, state.selMkt);
+    if (!phoneValid($("#phone-input").value) || !nameValid($("#name-input").value)) return;
+    savePhone($("#phone-input").value, state.selMkt, $("#name-input").value);
     updatePhoneBtn();
-    toast("휴대폰 번호를 저장했어요.");
+    toast("이름과 휴대폰 번호를 저장했어요.");
   });
   // 추천인 코드 (뒤늦게 넣는 경우)
   const onRefSetting = () => onRefTyped("#ref-input", "#ref-msg", "settings", updateRefBtn);
@@ -11686,14 +11735,15 @@
   }
   /* 휴대폰 번호를 아직 안 남긴 계정 (2.46 이전 가입자). 하루에 한 번만, 건너뛸 수 있어요. */
   function askPhoneIfMissing() {
-    if (!state.user.onboarded || state.user.phone) return;
+    if (!state.user.onboarded || (state.user.phone && state.user.name)) return;
     if (document.querySelector(".sheet-backdrop")) return;          // 역할 질문이 떠 있으면 다음에
     const last = store.get("phoneAskedAt", 0);
     if (Date.now() - last < 24 * 3600e3) return;
     store.set("phoneAskedAt", Date.now());
     openSheetHTML(`
-      <h3>휴대폰 번호를 남겨주세요</h3>
-      <p class="sheet-sub">본인 확인과 하우스 패스 안내에 써요. 다른 이용자에게는 보이지 않아요.</p>
+      <h3>이름과 휴대폰 번호를 남겨주세요</h3>
+      <p class="sheet-sub">본인 확인과 하우스 패스 회원 확인에 써요. 다른 이용자에게는 보이지 않아요.</p>
+      <input type="text" class="input" id="ask-name" placeholder="이름 (실명)" maxlength="20" autocomplete="name" value="${esc(state.user.name || "")}">
       <input type="tel" class="input" id="ask-phone" placeholder="010-0000-0000" maxlength="13" inputmode="numeric" autocomplete="tel">
       <p class="ref-msg bad" id="ask-phone-msg" hidden>휴대폰 번호 형식이 맞지 않아요. (010-0000-0000)</p>
       <button class="agree-row" id="ask-mkt">
@@ -11704,13 +11754,15 @@
       <button class="big-btn" id="ask-phone-later" style="background:none;color:var(--text-muted)">나중에</button>`, (root) => {
       let mkt = false;
       const btn = root.querySelector("#ask-phone-save");
-      const sync = () => { const ok = phoneValid(root.querySelector("#ask-phone").value); btn.disabled = !ok; btn.classList.toggle("ready", ok); };
+      const sync = () => { const ok = phoneValid(root.querySelector("#ask-phone").value) && nameValid(root.querySelector("#ask-name").value); btn.disabled = !ok; btn.classList.toggle("ready", ok); };
       bindPhoneInput("#ask-phone", "#ask-phone-msg", sync);
+      root.querySelector("#ask-name").addEventListener("input", sync);
+      if (state.user.phone) { root.querySelector("#ask-phone").value = phonePretty(state.user.phone); sync(); }
       root.querySelector("#ask-mkt").addEventListener("click", (e) => { mkt = !mkt; e.currentTarget.classList.toggle("on", mkt); });
       btn.addEventListener("click", () => {
-        savePhone(root.querySelector("#ask-phone").value, mkt);
+        savePhone(root.querySelector("#ask-phone").value, mkt, root.querySelector("#ask-name").value);
         root.remove();
-        toast("휴대폰 번호를 저장했어요.");
+        toast("이름과 휴대폰 번호를 저장했어요.");
       });
       root.querySelector("#ask-phone-later").addEventListener("click", () => root.remove());
     });

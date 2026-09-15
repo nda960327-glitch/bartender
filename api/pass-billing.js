@@ -79,6 +79,10 @@ async function issue(me, body) {
     starts_at: start, ends_at: end, paid_via: "toss", auto_renew: !!body.autoRenew && plan.kind !== "oneday",
     approved_at: new Date().toISOString(),
   };
+  // 회원 이름·번호 (pass-member.sql 이 있는 서버만). 숫자만 남기고, 없으면 빼서 보냅니다.
+  const mName = String(body.memberName || "").trim().slice(0, 20);
+  const mPhone = String(body.memberPhone || "").replace(/\D/g, "");
+  if (mPhone) { fields.member_name = mName; fields.member_phone = mPhone; }
   const pending = (await db("passes?user_id=eq." + me.id + "&bar_key=eq." + q(plan.bar_key) + "&status=eq.requested&select=id"))[0];
   const pass = pending
     ? (await db("passes?id=eq." + pending.id, { method: "PATCH", body: JSON.stringify(fields) }))[0]

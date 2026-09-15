@@ -2004,10 +2004,17 @@
         };
       } catch (e) { return { ok: false, error: (e && e.message) || "불러오지 못했어요." }; }
     },
-    async passRequest(planId) {
+    async passRequest(planId, member) {
       if (!ready()) return { ok: false, error: "로그인이 필요해요." };
       try {
-        var res = await sb.from("passes").insert({ plan_id: planId, user_id: S.uid }).select("*").single();
+        var row = { plan_id: planId, user_id: S.uid };
+        // 회원 이름·번호 (pass-member.sql 을 넣은 서버). 칸이 없으면 그것만 빼고 다시 시도해요.
+        if (member && member.phone) { row.member_name = member.name || ""; row.member_phone = member.phone; }
+        var res = await sb.from("passes").insert(row).select("*").single();
+        if (res.error && /member_(name|phone)/.test(res.error.message || "")) {
+          delete row.member_name; delete row.member_phone;
+          res = await sb.from("passes").insert(row).select("*").single();
+        }
         if (res.error) return { ok: false, error: rpcMsg(res.error) };
         return { ok: true, pass: res.data };
       } catch (e) { return { ok: false, error: (e && e.message) || "신청하지 못했어요." }; }
@@ -2031,7 +2038,12 @@
     passInfo(id)                    { return callRpc("pass_info", { p_pass: id }); },
     passQr(id)                      { return callRpc("pass_qr", { p_pass: id }); },
     passScan(token, action, side)   { return callRpc("pass_scan", { p_token: token, p_action: action, p_side: !!side }); },
-    passJoinTeam(code)              { return callRpc("pass_join_team", { p_code: code }); },
+    async passJoinTeam(code, member) {
+      // 새 서버는 이름·번호까지 받고, pass-member.sql 을 아직 안 넣은 서버는 예전 함수로.
+      var r = await callRpc("pass_join_team", { p_code: code, p_name: (member && member.name) || "", p_phone: (member && member.phone) || "" });
+      if (!r.ok && /pass_join_team|p_name|schema cache/.test(r.error || "")) r = await callRpc("pass_join_team", { p_code: code });
+      return r;
+    },
     passCancel(id)                  { return callRpc("pass_cancel_mine", { p_pass: id }); },
     passDashboard(barKey)           { return callRpc("pass_dashboard", { p_bar: barKey }); },
     passCardLabel(barKey)           { return callRpc("pass_card_label", { p_bar: barKey }); },
