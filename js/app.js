@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.56.2";
+  const APP_BUILD = "2.56.3";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -1688,7 +1688,7 @@
     state.user.marketingOk = !!marketingOk;
     state.user.marketingAt = marketingOk ? (state.user.marketingAt || Date.now()) : 0;
     saveUser();
-    Sync.savePrivate({ phone: state.user.phone, marketingOk: state.user.marketingOk, marketingAt: state.user.marketingAt });
+    Sync.savePrivate({ phone: state.user.phone, name: state.user.name, marketingOk: state.user.marketingOk, marketingAt: state.user.marketingAt });
   }
 
   // 역할 고르기 칸 (온보딩·설정 공용)
@@ -1797,7 +1797,7 @@
     startSync();
     noteMyColor();
     Sync.saveProfile(state.user);
-    Sync.savePrivate({ phone: state.user.phone, marketingOk: state.user.marketingOk, marketingAt: state.user.marketingAt });
+    Sync.savePrivate({ phone: state.user.phone, name: state.user.name, marketingOk: state.user.marketingOk, marketingAt: state.user.marketingAt });
     if (first) {
       addPoints(500, "가입 축하");
       addNoti("🎉", `${nick}님, 바텐톡에 오신 걸 환영해요! 가입 축하 500P를 드렸어요.`);
@@ -9176,11 +9176,12 @@
       if (!cands.length) { toast("그 닉네임을 찾을 수 없어요. 상대가 마이페이지에서 쓰는 닉네임 그대로인지 확인해주세요."); return; }
       if (cands.length === 1) { done(await Sync.passAddOwnerId(a.barKey, a.barName, cands[0].id), cands[0].nick); return; }
       const roleName = (col) => { const r = roleOfColor(col); return r ? ROLES[r].short : "색 미정"; };
-      const labels = cands.map((c, i) => `${i + 1}. ${c.nick} · ${roleName(c.color)} · 가입 ${fmtDay(String(c.joined))} · 글 ${c.posts}${c.bars ? " · 운영 중 " + c.bars + "곳" : ""}`);
+      const who = (c) => [c.name_masked, c.phone_masked].filter(Boolean).join(" ");
+      const labels = cands.map((c, i) => `${i + 1}. ${c.nick}${who(c) ? " (" + who(c) + ")" : ""} · ${roleName(c.color)} · 가입 ${fmtDay(String(c.joined))} · 글 ${c.posts}${c.bars ? " · 운영 중 " + c.bars + "곳" : ""}`);
       openSheet(`같은 닉네임이 ${cands.length}명이에요 — 누구예요?`, labels, null, async (v) => {
         const c = cands[labels.indexOf(v)];
         if (!c) return;
-        if (!await btConfirm(`${c.nick} (가입 ${fmtDay(String(c.joined))}, ${roleName(c.color)})님을 운영자로 추가할까요?\n\n상대에게 물방울 색과 가입일을 확인하면 정확해요.`, { yes: "추가" })) return;
+        if (!await btConfirm(`${c.nick}${who(c) ? " · " + who(c) : ""} (가입 ${fmtDay(String(c.joined))}, ${roleName(c.color)})님을 운영자로 추가할까요?\n\n이름·번호 뒷자리를 상대에게 확인하면 정확해요.`, { yes: "추가" })) return;
         done(await Sync.passAddOwnerId(a.barKey, a.barName, c.id), c.nick);
       });
     });

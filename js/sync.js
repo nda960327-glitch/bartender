@@ -1180,6 +1180,8 @@
         marketing_ok: !!p.marketingOk,
         marketing_at: p.marketingOk ? new Date(p.marketingAt || Date.now()).toISOString() : null,
       } });
+      // 이름 칸(pass-owner.sql)은 따로 보내요. 칸이 없는 서버면 이 작업만 버려지고 번호는 남아요.
+      if (p.name) enqueue({ table: "profile_private", op: "update", row: { name: String(p.name).slice(0, 20) }, match: { id: S.uid } });
     },
 
     async saveProfile(user) {
