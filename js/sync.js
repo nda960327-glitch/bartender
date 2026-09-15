@@ -2059,6 +2059,30 @@
     passTeamRemove(memberId)        { return callRpc("pass_team_remove", { p_member: memberId }); },
     passDashboard(barKey)           { return callRpc("pass_dashboard", { p_bar: barKey }); },
     passCardLabel(barKey)           { return callRpc("pass_card_label", { p_bar: barKey }); },
+    /* 가게 운영자 명단 (운영자·관리자만 읽혀요) + 닉네임·색 */
+    async passOwners(barKey) {
+      if (!ready()) return { ok: false, error: "offline" };
+      try {
+        var res = await sb.from("bar_owners").select("user_id,bar_name,created_at").eq("bar_key", barKey).order("created_at");
+        if (res.error) return { ok: false, error: notInstalled(res.error) };
+        var ids = (res.data || []).map(function (r) { return r.user_id; });
+        var prof = {};
+        if (ids.length) {
+          var pr = await sb.from("profiles").select("id,nick,color").in("id", ids);
+          (pr.data || []).forEach(function (p) { prof[p.id] = p; });
+        }
+        return { ok: true, owners: (res.data || []).map(function (r) { var p = prof[r.user_id] || {}; return { user_id: r.user_id, nick: p.nick || "?", color: p.color || 0, created_at: r.created_at, me: r.user_id === S.uid }; }) };
+      } catch (e) { return { ok: false, error: (e && e.message) || "불러오지 못했어요." }; }
+    },
+    async passRemoveOwner(barKey, userId) {
+      if (!ready()) return { ok: false, error: "로그인이 필요해요." };
+      try {
+        var res = await sb.from("bar_owners").delete().eq("bar_key", barKey).eq("user_id", userId).select("user_id");
+        if (res.error) return { ok: false, error: rpcMsg(res.error) };
+        if (!(res.data || []).length) return { ok: false, error: "내보낼 수 없어요 (권한이 없거나 이미 없는 운영자예요)." };
+        return { ok: true };
+      } catch (e) { return { ok: false, error: (e && e.message) || "처리하지 못했어요." }; }
+    },
     passAddOwner(barKey, barName, nick, info) { return callRpc("pass_add_owner", { p_bar: barKey, p_bar_name: barName, p_nick: nick || null, p_info: info || null }); },
     /* 연계(패스 운영) 가게 목록 — 바 찾기에는 이 가게들만 보입니다.
        손님에게 열린 가게 + 내가 운영자인 가게(아직 안 열었어도) */

@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.53.1";
+  const APP_BUILD = "2.54.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8999,6 +8999,40 @@
     }));
   }
 
+  /* 운영자 명단 — 여러 명이 같이 관리할 수 있어요. 기존 운영자나 관리자가 닉네임으로 추가합니다. */
+  async function renderPassOwners(a) {
+    const box = $("#pa-owners");
+    if (!box) return;
+    const r = await Sync.passOwners(a.barKey);
+    if (!$("#pa-owners") || state.passAdmin !== a) return;
+    if (!r.ok) { box.innerHTML = `<p class="pass-note" style="padding:8px 0">${esc(r.error)}</p>`; return; }
+    const list = r.owners;
+    box.innerHTML = `
+      ${list.map((o) => `
+        <div class="pm-row">
+          <div class="pm-who"><span class="avatar" style="background:${COLORS[(o.color || 0) % COLORS.length]}"></span><b>${esc(o.nick)}</b>${o.me ? '<small class="pm-nick">나</small>' : ""}<span>${fmtDay(String(o.created_at).slice(0, 10))}부터 운영자</span></div>
+          ${list.length > 1 ? `<button class="chip" data-owner-rm="${o.user_id}" data-nick="${esc(o.nick)}">${o.me ? "나가기" : "내보내기"}</button>` : ""}
+        </div>`).join("")}
+      <button class="host-chat-btn" id="pa-owner-add" style="margin-top:10px">+ 운영자 추가 (닉네임으로)</button>
+      <p class="pass-note">추가된 사람의 마이페이지에 "우리 가게 패스 관리"가 생기고, 입장 확인·승인·상품 설정을 똑같이 할 수 있어요. 상대가 바텐톡에 가입돼 있어야 해요.</p>`;
+    $("#pa-owner-add").addEventListener("click", async () => {
+      const nick = await btPrompt("추가할 운영자의 닉네임을 정확히 적어주세요.\n(상대가 마이페이지에서 쓰는 닉네임)", "");
+      if (!nick || !nick.trim()) return;
+      const rr = await Sync.passAddOwner(a.barKey, a.barName, nick.trim(), null);
+      if (!rr.ok) { passFail(rr); return; }
+      toast(`${(rr.data && rr.data.nick) || nick.trim()}님을 운영자로 추가했어요.`);
+      renderPassOwners(a);
+    });
+    $$("#pa-owners [data-owner-rm]").forEach((b) => b.addEventListener("click", async () => {
+      const me = b.textContent.trim() === "나가기";
+      if (!await btConfirm(me ? "운영자에서 나갈까요? 이 가게 패스 관리 화면이 사라져요." : `${b.dataset.nick}님을 운영자에서 내보낼까요?`, { yes: me ? "나가기" : "내보내기" })) return;
+      const rr = await Sync.passRemoveOwner(a.barKey, b.dataset.ownerRm);
+      if (!rr.ok) { passFail(rr); return; }
+      if (me) { invalidatePasses(); toast("운영자에서 나왔어요."); show("mypage"); return; }
+      toast("내보냈어요."); renderPassOwners(a);
+    }));
+  }
+
   /* 상품 · 설정 */
   function renderPassPlansTab(area, a) {
     const d = a.data, st = d.settings || { enabled: false, stamp_goal: 4, special_drink: "", notice: "" };
@@ -9026,6 +9060,9 @@
         <button class="big-btn accent ready" id="pa-save">설정 저장</button>
       </div>
 
+      <div class="comment-sec-title">운영자</div>
+      <div class="card" id="pa-owners"><p class="pass-note" style="padding:8px 0">불러오는 중…</p></div>
+
       <div class="comment-sec-title">상품 ${d.plans.filter((p) => p.active).length}개</div>
       <div class="card">
         ${d.plans.map((p) => `
@@ -9047,6 +9084,7 @@
       d.settings = r.settings; passCache.byBar = {}; renderPassAdmin();
       toast(on ? "손님에게 열었어요." : "패스 받기를 닫았어요.");
     });
+    renderPassOwners(a);
     $("#pa-save").addEventListener("click", async () => {
       const goal = Math.max(2, Math.min(10, +$("#pa-goal").value || 4));
       const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: !!st.enabled, stamp_goal: goal, special_drink: $("#pa-special").value.trim(), notice: $("#pa-notice").value.trim(), refund_policy: $("#pa-refund").value.trim(), refund_drink_price: Math.max(0, +$("#pa-drink-price").value || 0), refund_penalty_pct: Math.max(0, Math.min(100, +$("#pa-penalty").value || 0)) });
