@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.55.1";
+  const APP_BUILD = "2.56.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -11272,10 +11272,10 @@
       hint: "다녀본 학원, 알아본 학원 아무거나 좋아요.\n수강료와 커리큘럼을 적어주면 다음 사람이 덜 헤맵니다.",
     },
     contest: {
-      title: "🏆 대회정보", one: "대회", name: "대회 이름", org: "주최",
-      start: "대회일", end: "접수 마감", fee: "참가비",
-      empty: "아직 올라온 대회 정보가 없어요.",
-      hint: "출전했던 대회, 준비 중인 대회를 알려주세요.\n접수 마감과 신청 링크가 제일 중요합니다.",
+      title: "🏆 대회·행사", one: "대회·행사", name: "대회·행사 이름", org: "주최",
+      start: "행사일", end: "접수 마감", fee: "참가비·입장료",
+      empty: "회원이 올린 대회·행사가 아직 없어요.",
+      hint: "출전했던 대회, 가봤던 박람회·팝업을 알려주세요.\n접수 마감과 신청 링크가 제일 중요합니다.",
     },
   };
   const listCfg = () => LIST_KIND[state.listKind] || LIST_KIND.academy;
@@ -11287,8 +11287,76 @@
     show("listing");
   }
 
+  /* ---------- 대회·주류 행사 달력 (js/events-data.js) ----------
+   * 운영팀이 확인해 넣은 연간 일정. 회원이 올린 정보는 그 아래 그대로 보여요. */
+  const EV_KIND = { contest: ["🏆", "대회"], expo: ["🍾", "박람회"], popup: ["✨", "팝업·브랜드"] };
+  function evState(e) {
+    const a = exDays(e.start), b = exDays(e.end);
+    if (b < 0) return "past";
+    if (a <= 0) return "now";
+    return "soon";
+  }
+  function evBadge(e) {
+    const st = evState(e);
+    if (st === "past") return "끝남";
+    if (st === "now") return e.start === e.end ? "오늘" : "진행 중";
+    const n = exDays(e.start);
+    if (e.apply && exDays(e.apply.start) <= 0 && exDays(e.apply.end) >= 0) return `접수 중 · D-${n}`;
+    return `D-${n}`;
+  }
+  function eventsHTML() {
+    const D = window.EVENTS_DATA || {};
+    const years = Object.keys(D).sort();
+    if (!years.length) return "";
+    const thisYear = String(new Date().getFullYear());
+    if (!state.evYear || !D[state.evYear]) state.evYear = D[thisYear] ? thisYear : years[years.length - 1];
+    const kind = state.evKind || "all";
+    const list = D[state.evYear].slice().sort((x, y) => x.start.localeCompare(y.start))
+      .filter((e) => kind === "all" || e.kind === kind)
+      .filter((e) => state.listRegion === "전체" || e.region === state.listRegion || e.region === "전국");
+    // 예정·진행 중을 먼저, 끝난 건 뒤로 (같은 묶음 안에서는 날짜순)
+    const order = { now: 0, soon: 1, past: 2 };
+    list.sort((x, y) => order[evState(x)] - order[evState(y)] || (evState(x) === "past" ? y.start.localeCompare(x.start) : x.start.localeCompare(y.start)));
+    return `
+      <div class="ev-head">
+        <div class="chip-wrap">
+          ${years.map((y) => `<button class="chip ${y === state.evYear ? "active" : ""}" data-ev-year="${y}">${y}년</button>`).join("")}
+          <span class="ev-sep"></span>
+          ${[["all", "전체"], ["contest", "🏆 대회"], ["expo", "🍾 박람회"], ["popup", "✨ 팝업"]].map(([k, l]) => `<button class="chip ${kind === k ? "active" : ""}" data-ev-kind="${k}">${l}</button>`).join("")}
+        </div>
+      </div>
+      ${list.length ? list.map((e) => { const st = evState(e); const [ic, kl] = EV_KIND[e.kind] || ["📌", "행사"]; return `
+        <div class="card ev-card ${st}">
+          <div class="list-top">
+            <span class="meet-region">${esc(e.region)}</span>
+            <span class="ev-kind">${ic} ${kl}</span>
+            <span class="meet-state ${st === "past" ? "closed" : ""}">${evBadge(e)}</span>
+          </div>
+          <div class="list-title">${esc(e.title)}</div>
+          <div class="list-meta">${esc(e.org)} · ${exFmtRange([e.start, e.end])}${e.fee ? " · " + esc(e.fee) : ""}</div>
+          ${e.place ? `<div class="list-meta">📍 ${esc(e.place)}</div>` : ""}
+          ${e.apply ? `<div class="list-meta">📝 접수 ${exFmtRange([e.apply.start, e.apply.end])}</div>` : ""}
+          ${e.note ? `<p class="ev-note">${esc(e.note)}</p>` : ""}
+          ${e.link ? `<button class="chip ev-link" data-ev-link="${esc(e.link)}">공식 페이지 ↗</button>` : ""}
+        </div>`; }).join("")
+        : '<div class="card" style="padding:20px;text-align:center"><p class="sheet-note" style="margin:0">이 조건에 맞는 행사가 없어요.</p></div>'}
+      <p class="ev-foot">운영팀이 확인한 일정이에요. 날짜는 주최 측 공지로 바뀔 수 있으니 접수 전에 공식 페이지를 확인하세요. 빠진 대회·행사는 아래 + 버튼으로 올려주세요.</p>
+      <div class="comment-sec-title" style="padding:14px 4px 6px">회원이 올린 정보</div>`;
+  }
+  function bindEvents(root) {
+    root.querySelectorAll("[data-ev-year]").forEach((b) => b.addEventListener("click", () => { state.evYear = b.dataset.evYear; renderListing(); }));
+    root.querySelectorAll("[data-ev-kind]").forEach((b) => b.addEventListener("click", () => { state.evKind = b.dataset.evKind; renderListing(); }));
+    root.querySelectorAll("[data-ev-link]").forEach((b) => b.addEventListener("click", (ev) => { ev.stopPropagation(); window.open(b.dataset.evLink, "_blank", "noopener"); }));
+  }
+
   function renderListing() {
     const cfg = listCfg();
+    // 대회·행사 화면은 운영팀 달력을 먼저 보여줘요 (js/events-data.js — 처음 한 번만 받아요)
+    const curated = state.listKind === "contest";
+    if (curated && !window.EVENTS_DATA && !state.evLoading) {
+      state.evLoading = true;
+      lazyData("js/events-data.js", "EVENTS_DATA").then(() => { state.evLoading = false; if (state.view === "listing") renderListing(); });
+    }
     $("#listing-title").textContent = cfg.title;
     $("#listing-regions").innerHTML = ["전체"].concat(REGIONS.slice(1)).concat(["전국"]).map((r) =>
       `<button class="chip ${r === state.listRegion ? "active" : ""}" data-r="${r}">${r}</button>`).join("");
@@ -11300,7 +11368,8 @@
     const rows = (Array.isArray(all) ? all : []).filter((l) =>
       state.listRegion === "전체" || l.region === state.listRegion);
 
-    $("#listing-area").innerHTML = all === null
+    const evHTML = curated && window.EVENTS_DATA ? eventsHTML() : "";
+    $("#listing-area").innerHTML = evHTML + (all === null
       ? '<div class="empty-state">불러오는 중이에요…</div>'
       : all === "off"
         ? `<div class="card" style="margin-top:12px">
@@ -11314,7 +11383,8 @@
                <div style="font-size:40px;margin-bottom:8px">${cfg.title.slice(0, 2)}</div>
                <h3 style="font-size:17px;margin-bottom:8px">${esc(cfg.empty)}</h3>
                <p class="sheet-note" style="text-align:center;margin:0">${escMsg(cfg.hint)}</p>
-             </div>`;
+             </div>`);
+    if (evHTML) bindEvents($("#listing-area"));
 
     $$("#listing-area .list-item").forEach((el) =>
       el.addEventListener("click", () => openListingDetail(+el.dataset.id)));

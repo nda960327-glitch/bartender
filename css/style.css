@@ -1664,6 +1664,18 @@ select.input { appearance: auto; }
 .gd-link { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--bg-card); color: var(--text); font: inherit; font-size: 13.5px; font-weight: 600; text-align: left; cursor: pointer; }
 .gd-foot { margin: 18px 0 28px; font-size: 12px; line-height: 1.6; color: var(--text-muted); word-break: keep-all; }
 
+/* ---------- 대회·행사 달력 ---------- */
+.ev-head { padding: 12px 0 4px; }
+.ev-head .chip-wrap { margin: 0; }
+.ev-sep { width: 100%; height: 0; }
+.ev-kind { font-size: 11.5px; font-weight: 700; color: var(--text-sub); }
+.ev-card { text-align: left; }
+.ev-card.past { opacity: .6; }
+.ev-card.now { box-shadow: 0 0 0 2px #2eb872 inset; }
+.ev-note { font-size: 12.5px; line-height: 1.55; color: var(--text-sub); margin-top: 6px; word-break: keep-all; }
+.ev-link { margin-top: 10px; font-weight: 700; }
+.ev-foot { font-size: 12px; color: var(--text-muted); line-height: 1.55; margin: 6px 4px 0; word-break: keep-all; }
+
 /* ---------- 시험일정 ---------- */
 .ex-hero { margin: 16px 16px 10px; padding: 20px; border-radius: 20px; color: #fff; background: linear-gradient(135deg, #0f766e, #1b64da); }
 .ex-eyebrow { font-size: 11.5px; letter-spacing: .04em; opacity: .85; margin-bottom: 6px; }
