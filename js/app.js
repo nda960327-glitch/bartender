@@ -75,7 +75,7 @@
   const SPIRIT_CATS = ["위스키", "진", "럼", "보드카", "데킬라", "리큐르", "와인", "전통주", "브랜디", "기타"];
   const COCKTAIL_BASES = ["진", "럼", "위스키", "보드카", "데킬라", "리큐르", "논알콜", "기타"];
   const EMOJIS = ["🥃", "🍸", "🍹", "🍷", "🍾", "🍺", "🍶", "🧉", "🥂", "🍋"];
-  const CAT_LABEL = { free: "자유", owner: "사장님", staff: "바텐더", promo: "홍보", hot: "인기" };
+  const CAT_LABEL = { free: "자유", owner: "사장님", staff: "바텐더", promo: "홍보", hot: "자유" };
   const THUMB_COLORS = ["#4a6cf7", "#12b5a5", "#1f2937", "#7c3aed", "#0ea5e9", "#e11d48"];
   const STORE_CATS = ["전체", "기물", "글라스", "재료/시럽", "서적", "굿즈", "소모품"];
   const PRODUCTS = [
@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.47.4";
+  const APP_BUILD = "2.48.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -848,7 +848,7 @@
     dark: store.get("dark", !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)),
     push: store.get("push", true),
     view: "home",
-    commTab: "free",
+    commTab: "all",
     /* 학원·대회 (한 화면을 종류만 바꿔 씁니다) */
     listKind: "academy",   // academy | contest
     listRegion: "전체",
@@ -5691,22 +5691,31 @@
     addNoti("🍻", `'${meet.title}' 모임을 만들었어요. ${fmtDate(meet.date)}`);
   }
 
-  /* ---------- 커뮤니티 ---------- */
+  /* ---------- 커뮤니티 ----------
+   * 인기글 = 공감×2 + 댓글 수가 5점 이상이거나 공감 3개 이상.
+   * 전체 탭에서는 인기글이 점수순으로 맨 위에 모이고, 어느 탭에서든 🔥 인기 표시가 붙어요. */
+  const hotScore = (p) => (p.likes || 0) * 2 + ((p.comments && p.comments.length) || 0);
+  const isHotPost = (p) => hotScore(p) >= 5 || (p.likes || 0) >= 3;
   function renderPosts() {
     const q = $("#post-search").value.trim();
     const hidden = state.user.hiddenPosts || [];
     let list = state.posts.filter((p) => !hidden.includes(p.id) && !isBlockedPost(p));
     if (state.previewUser) list = list.filter((p) => p.remote);
-    if (state.commTab === "hot") list = list.filter((p) => p.cat === "hot" || p.likes + p.comments.length >= 10);
     // 게시판은 글 쓸 때 고른 것 그대로. 사장님이 바텐더 게시판에 써도 되고, 그 반대도 돼요.
-    // 예전 '인기(hot)' 글은 자유 게시판으로 칩니다.
+    // 예전 '인기(hot)' 글은 자유 게시판으로 칩니다. 전체 탭에는 홍보를 뺀 모든 게시판이 모여요.
+    if (state.commTab === "all") list = list.filter((p) => p.cat !== "promo");
     else if (state.commTab === "free") list = list.filter((p) => p.cat === "free" || p.cat === "hot" || !p.cat);
-    else if (state.commTab !== "all") list = list.filter((p) => p.cat === state.commTab);
+    else list = list.filter((p) => p.cat === state.commTab);
     if (q) list = list.filter((p) => has(p.title, q) || has(p.body, q));
     const isBoost = (x) => x.boostUntil && x.boostUntil > Date.now() ? 1 : 0;
-    list.sort((a, b) => isBoost(b) - isBoost(a) || b.time - a.time);
+    if (state.commTab === "all") {
+      // 전체: 광고 고정 → 인기글(점수순) → 나머지 최신순
+      list.sort((a, b) => isBoost(b) - isBoost(a) || (isHotPost(b) - isHotPost(a)) || (isHotPost(a) ? hotScore(b) - hotScore(a) : 0) || b.time - a.time);
+    } else {
+      list.sort((a, b) => isBoost(b) - isBoost(a) || b.time - a.time);
+    }
 
-    const ph = { all: "커뮤니티 전체 검색", hot: "커뮤니티 인기 검색", free: "자유 게시판 검색", promo: "홍보 게시판 검색", owner: "사장님 게시판 검색", staff: "바텐더 게시판 검색" };
+    const ph = { all: "전체 글 검색", hot: "커뮤니티 인기 검색", free: "자유 게시판 검색", promo: "홍보 게시판 검색", owner: "사장님 게시판 검색", staff: "바텐더 게시판 검색" };
     $("#post-search").placeholder = ph[state.commTab] || "커뮤니티 검색";
 
     const emptyMsg = state.commTab === "owner" ? "사장님 게시판에 아직 글이 없어요.<br>가게 운영 이야기를 첫 글로 남겨보세요."
@@ -5846,6 +5855,7 @@
           <div class="post-head">
             ${avatarHTML(colorOf(p))}
             ${p.boostUntil && p.boostUntil > Date.now() ? '<span class="boost-tag">📌 AD</span>' : ""}
+            ${isHotPost(p) && p.cat !== "promo" ? '<span class="hot-tag">🔥 인기</span>' : ""}
             ${posterName(p) ? `<span class="post-nick${p.official ? " official" : ""}">${posterName(p)}</span>` : ""}${officialTag(p)}
             <span class="post-time">${posterName(p) ? "· " : ""}${fmtTime(p.time)}</span>
             ${p.mine ? '<span class="my-tag">내 글</span>' : ""}
@@ -5934,7 +5944,7 @@
         <div class="detail-head">
           ${avatarHTML(colorOf(p), "md")}
           <div><div class="detail-nick">${p.official ? `<span class="official">${esc(p.nick)}</span>` : p.cat === "promo" ? `<span class="biz-link" id="biz-link">${esc(p.nick)}</span>` : `<span class="op-name">글쓴이</span>`}${officialTag(p)}${p.cat === "promo" ? ` <span class="biz-tag">📢 ${esc(p.biz || "비즈니스")}</span>` : ""}${p.mine ? ' <span class="my-tag">내 글</span>' : ""}</div><div class="detail-time">${fmtTime(p.time)}${p.edited ? " · 수정됨" : ""} · 조회 ${p.views || 0}</div></div>
-          <span class="cat-tag detail-cat">${CAT_LABEL[p.cat] || "자유"}</span>
+          <span class="cat-tag detail-cat">${isHotPost(p) && p.cat !== "promo" ? "🔥 " : ""}${CAT_LABEL[p.cat] || "자유"}</span>
         </div>
         <div class="detail-title">${esc(p.title)}</div>
         ${p.img ? `<img class="detail-img" src="${p.img}" alt="첨부 이미지">` : ""}
