@@ -75,7 +75,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.42.0";
+  const APP_BUILD = "2.42.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -117,16 +117,8 @@
   const now = Date.now();
   const H = 3600e3, M = 60e3, D = 86400e3;
 
-  const SEED_JOBS = [
-    { id: 1, shop: "문라이트라운지", days: 30, title: "강남 칵테일바 메인 바텐더 급구 경력 우대", pay: "시급 20,000원", region: "서울", area: "서울 강남구", type: "칵테일바" },
-    { id: 2, shop: "바네온", days: 59, title: "★홍대★네온바★주말 바텐더★초보환영★", pay: "시급 15,000원", region: "서울", area: "서울 마포구", type: "펍/호프" },
-    { id: 3, shop: "몰트하우스", days: 235, title: "주급보장!! 위스키바 바텐더 모집 숙련자 우대", pay: "시급 17,000원", region: "경기", area: "경기 수원시", type: "위스키바" },
-    { id: 4, shop: "비노쉐어", days: 203, title: "와인바 소믈리에 겸 바텐더 정규직 채용", pay: "월급 320만원", region: "서울", area: "서울 강남구", type: "와인바" },
-    { id: 5, shop: "수원포차", days: 17, title: "수원역 이자카야 홀 겸 바텐더 야간 모집", pay: "시급 13,000원", region: "경기", area: "경기 수원시", type: "이자카야" },
-    { id: 6, shop: "그랜드바", days: 8, title: "호텔 라운지바 바텐더 신입/경력 공개채용", pay: "월급 290만원", region: "인천", area: "인천 중구", type: "호텔바" },
-    { id: 7, shop: "서면비어", days: 12, title: "부산 서면 크래프트펍 바텐더/서버 모집", pay: "시급 14,000원", region: "부산", area: "부산 부산진구", type: "펍/호프" },
-    { id: 8, shop: "달빛한잔", days: 4, title: "전통주 다이닝바 바텐더 채용 (주말)", pay: "시급 16,000원", region: "서울", area: "서울 종로구", type: "칵테일바" },
-  ];
+  /* 채용정보는 예시 없이 비워둡니다. 실제 등록분만 보여줘요. */
+  const SEED_JOBS = [];
 
   /* 업장(바) 목록.
 
@@ -216,24 +208,9 @@
     { id: 6, cat: "hot", color: 2, nick: "익명", time: now - 5 * H, title: "돈왜버는건지모르겠어요", body: "어차피 집이 못사는것도 아니고 빚이 있는것도 아닌데 차라리 자격증 공부나 할까", likes: 6, comments: Array.from({ length: 12 }, (_, i) => ({ color: (i + 3) % 10, text: ["다들 그런 시기 있어요", "조주기능사 따세요", "화이팅", "저도요.."][i % 4], time: now - (280 - i * 12) * M })) },
     { id: 7, cat: "hot", color: 3, nick: "익명", time: now - 6 * H, title: "손님이 준 팁 최고 기록", body: "다들 팁 얼마까지 받아봤어요? 궁금", likes: 1, comments: Array.from({ length: 45 }, (_, i) => ({ color: (i + 1) % 10, text: ["5만원이요", "저는 아직 ㅠ", "ㅋㅋㅋ", "외국 손님이 후하죠"][i % 4], time: now - (350 - i * 6) * M })), emoji: "💸" },
     { id: 8, cat: "hot", color: 5, nick: "익명", time: now - 11 * H - 30 * M, title: "와 대박", body: "역시 연습했더니 플레어 성공함 영상 봐줘", likes: 6, comments: Array.from({ length: 31 }, (_, i) => ({ color: (i + 5) % 10, text: ["멋있어요!!", "오 대박", "몇 년 차세요?", "부럽다"][i % 4], time: now - (500 - i * 10) * M })), emoji: "🎬" },
-    { id: 9, cat: "promo", color: 4, nick: "강남루프탑바", time: now - 70 * M, title: "루프탑바 신규오픈☆[매일 시음회ㅜ선착순]", body: "오픈기념 시그니처 칵테일 시음회 진행", likes: 0, comments: [], emoji: "🎉" },
-    { id: 10, cat: "promo", color: 0, nick: "조주학원", time: now - 95 * M, title: "[조주기능사]☆실기 단기반☆주말반 모집", body: "합격보장반 소수정예 커리큘럼 상담환영", likes: 0, comments: [], emoji: "🍹" },
-    { id: 11, cat: "promo", color: 9, nick: "바용품샵", time: now - 150 * M, title: "@@셰이커/지거 풀세트 공동구매@@", body: "바텐더 입문 세트 30% 할인 이벤트", likes: 0, comments: [], emoji: "🛒" },
-    { id: 12, cat: "promo", color: 1, nick: "미나언니", time: now - 173 * M, title: "칵테일 클래스 ■원데이 클래스■ 수강생 모집", body: "《기초부터》《소수정예》《밀착케어》", likes: 0, comments: [], emoji: "🥂" },
   ];
 
   /* ---------- 확장 시드 데이터 v2 ---------- */
-  SEED_JOBS.push(
-    { id: 9, shop: "어반테일", days: 21, title: "성수 감성 칵테일바 바텐더 모집 (주5일)", pay: "시급 16,000원", region: "서울", area: "서울 성동구", type: "칵테일바" },
-    { id: 10, shop: "블루문펍", days: 44, title: "해운대 오션뷰 펍 바텐더/서버 대모집", pay: "시급 13,500원", region: "부산", area: "부산 해운대구", type: "펍/호프" },
-    { id: 11, shop: "오크룸", days: 66, title: "대구 위스키바 경력 바텐더 우대 채용", pay: "시급 15,000원", region: "대구", area: "대구 중구", type: "위스키바" },
-    { id: 12, shop: "살루드", days: 9, title: "이태원 스페인바 정규직 바텐더 채용", pay: "월급 300만원", region: "서울", area: "서울 용산구", type: "칵테일바" },
-    { id: 13, shop: "하이볼스탠드", days: 27, title: "판교 하이볼 전문점 야간 바텐더 급구", pay: "시급 14,000원", region: "경기", area: "경기 성남시", type: "이자카야" },
-    { id: 14, shop: "라비니아", days: 88, title: "송도 와인바 소믈리에 지망생 환영", pay: "시급 15,000원", region: "인천", area: "인천 연수구", type: "와인바" },
-    { id: 15, shop: "더몰트", days: 15, title: "둔산동 몰트바 위스키 러버 바텐더 모집", pay: "시급 14,500원", region: "대전", area: "대전 서구", type: "위스키바" },
-    { id: 16, shop: "네온사인", days: 33, title: "동명동 칵테일바 주말 바텐더 모집", pay: "시급 14,000원", region: "광주", area: "광주 동구", type: "칵테일바" }
-  );
-
   SEED_SPIRITS.push(
     // ===== 위스키 (스카치 싱글몰트) =====
     { id: 201, kind: "spirit", emoji: "🥃", name: "글렌리벳 12년", cat: "위스키", abv: 40, price: "5~7만원", note: "부드러운 과일향의 스페이사이드 대표 입문 몰트. 글렌피딕과 함께 첫 싱글몰트로 가장 많이 추천돼요.", by: "익명", time: now - 40 * D, reviews: [
@@ -825,13 +802,6 @@
       { color: 2, text: "얼그레이서울", time: now - 24 * H },
       { color: 8, text: "시트러스 가든", time: now - 23 * H },
     ], emoji: "🍋" },
-    { id: 509, cat: "promo", color: 1, nick: "몰트하우스", time: now - 5 * H, title: "[수원] 위스키 시음회 참가자 모집", body: "이번 주 일요일 셰리 캐스크 특집 시음회. 5종 시음 + 안주 포함, 선착순 10명!", likes: 1, comments: [], emoji: "🥃" },
-    { id: 510, cat: "promo", color: 9, nick: "바텐더마켓", time: now - 8 * H, title: "중고 기물 일괄 판매 (폐업 정리)", body: "보스턴 셰이커, 믹싱글라스, 지거 등 일괄 정리합니다. 상태 상급, 직거래 환영.", likes: 0, comments: [
-      { color: 4, text: "쪽지 드렸어요!", time: now - 7 * H },
-    ], emoji: "🛒" },
-    { id: 511, cat: "promo", color: 0, nick: "칵테일챔피언십", time: now - 30 * H, title: "전국 바텐더 칵테일 대회 접수 시작", body: "예선 온라인 레시피 심사 → 본선 라이브 시연. 우승 상금 300만원. 접수는 이달 말까지!", likes: 4, comments: [
-      { color: 6, text: "작년에 나갔는데 경험 자체가 큰 도움됐어요", time: now - 28 * H },
-    ], emoji: "🏆" },
     { id: 512, cat: "free", color: 7, nick: "익명", time: now - 32 * H, title: "새벽 마감하고 보는 일출", body: "힘든데 이 순간 때문에 버티는 것 같기도. 다들 마감 후 루틴 있어요?", likes: 7, comments: [
       { color: 3, text: "국밥 먹고 자기. 국룰임", time: now - 30 * H },
       { color: 5, text: "저는 무조건 반신욕", time: now - 29 * H },
@@ -1025,7 +995,13 @@
    * 그 기기들은 "정리 끝"으로 기록돼 있어서 고친 코드를 받아도 그대로 비어 있습니다.
    * 번호를 올리면 이 칸이 한 번 더 돌아 예시가 다시 채워집니다.
    * 내 글과 서버 글은 dropOldSeed 가 건드리지 않으니 사라지지 않아요. */
-  const SEED_V = 10;
+  /* 11 = 예시 홍보글(강남루프탑바·조주학원·바용품샵·미나언니·몰트하우스·바텐더마켓·
+   *      칵테일챔피언십·루프탑바 문라이트·믹스랩·바용품상회·포도상점)을 걷어냅니다.
+   *      가짜 업체 홍보가 진짜처럼 보이면 안 되니까요. */
+  const SEED_V = 11;
+  /* 예전 판에서 서버에까지 올라갔을 수 있는 예시 홍보글 번호.
+     서버 사본(remote)은 dropOldSeed 가 건드리지 않으니 여기서 따로 지웁니다. */
+  const PURGED_PROMO_IDS = [9, 10, 11, 12, 509, 510, 511, 1027, 1028, 1029, 1030];
   if (store.get("seedv", 1) < SEED_V) {
     const mergeSeed = (arr, seed) => {
       const ids = new Set(arr.map((x) => x.id));
@@ -1046,6 +1022,7 @@
     };
     dropOldSeed(state.posts);
     dropOldSeed(state.meets);
+    state.posts = state.posts.filter((p) => !PURGED_PROMO_IDS.includes(p.id));
 
     mergeSeed(state.posts, SEED_POSTS);
     mergeSeed(state.spirits, SEED_SPIRITS);
@@ -4582,7 +4559,9 @@
     );
     $("#job-list").innerHTML = list.length
       ? list.map(jobItemHTML).join("")
-      : '<div class="empty-state">검색 결과가 없어요.</div>';
+      : SEED_JOBS.length
+        ? '<div class="empty-state">검색 결과가 없어요.</div>'
+        : '<div class="empty-state">아직 등록된 채용정보가 없어요.<br>가게 채용 공고가 올라오면 여기에 보여요.</div>';
     bindJobHearts($("#job-list"), renderJobs);
   }
   function renderFavJobs() {
@@ -11359,12 +11338,24 @@
       onAuth: (identity) => onAuthChanged(identity),
     });
     if (result === "signed-in" && Sync.ready()) {
+      purgeSeedPromoOnServer();
       noteMyColor();
     Sync.saveProfile(state.user);
       backfillLocal();
       Sync.refresh("backfill");
     }
     return result;
+  }
+
+  /* 예전 판의 "예시 글 서버에 올리기"로 올라간 가짜 홍보글을 서버에서도 지웁니다.
+     삭제는 작성자(author_id)가 나일 때만 먹히니, 남의 글은 건드리지 못해요. */
+  function purgeSeedPromoOnServer() {
+    if (store.get("promoPurgeV", 0) >= 1) return;
+    PURGED_PROMO_IDS.forEach((id) => Sync.deletePost(id));
+    const before = state.posts.length;
+    state.posts = state.posts.filter((p) => !PURGED_PROMO_IDS.includes(p.id));
+    if (state.posts.length !== before) savePosts();
+    store.set("promoPurgeV", 1);
   }
 
   /* ---------- 로그인 화면 ---------- */
