@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.49.0";
+  const APP_BUILD = "2.49.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8115,6 +8115,7 @@
     const bd = openSheetHTML(`
       <h3>해지·환불 요청</h3>
       <p class="sheet-sub">요청하면 가게가 규정에 따라 환불하고 패스를 종료해요. 처리 전까지는 그대로 쓸 수 있어요.</p>
+      ${(() => { const c = passRefundCalc(p); return `<div class="rc-box customer"><div class="rc-head"><b>지금 해지하면 예상 환불액</b></div>${refundRowsHTML(c)}</div>`; })()}
       <div class="refund-text small">${escMsg(refundText(p))}</div>
       <label class="form-label">사유 <span class="label-opt">선택</span></label>
       <textarea class="input" id="cr-reason" rows="2" maxlength="200" placeholder="예) 이사 가요 / 주말만 오게 돼서"></textarea>
@@ -8126,6 +8127,71 @@
       toast(rr.data && rr.data.status === "cancelled" ? "신청을 취소했어요." : "요청을 보냈어요. 가게에서 환불 처리하면 종료돼요.");
       if (state.view === "pass") renderPassView();
     });
+  }
+
+  /* ---------- 환불 계산기 ----------
+   * 규정 3조를 숫자로: 남은 일수 일할 잔여액 − (이용한 잔 × 잔당 가격) − 위약금(결제액의 n%).
+   * 잔당 가격·위약금 비율은 가게 설정(상품·설정)에서 바꿔요. 기본 15,000원 · 10%.
+   * 시작 전이면 전액, 원데이는 입장 전 전액·입장 후 0원. 결과는 안내용이고 최종 금액은 가게가 정해요. */
+  const REFUND_DRINK_DEFAULT = 15000, REFUND_PENALTY_DEFAULT = 10;
+  function passRefundCalc(p, o) {
+    o = o || {};
+    const paid = +p.price || 0;
+    const drinkPrice = o.drinkPrice != null ? +o.drinkPrice : (p.refund_drink_price != null ? +p.refund_drink_price : REFUND_DRINK_DEFAULT);
+    const pct = o.penaltyPct != null ? +o.penaltyPct : (p.refund_penalty_pct != null ? +p.refund_penalty_pct : REFUND_PENALTY_DEFAULT);
+    const drinks = o.drinks != null ? +o.drinks : (p.total_drinks != null ? +p.total_drinks : (+p.month_drinks || 0));
+    const total = Math.max(1, +p.duration_days || 30);
+    const start = p.starts_at ? new Date(p.starts_at + "T00:00:00").getTime() : 0;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const usedDays = start ? Math.max(0, Math.min(total, Math.floor((today.getTime() - start) / 86400e3) + 1)) : 0;
+    const remainDays = Math.max(0, total - usedDays);
+    const out = { paid, drinkPrice, pct, drinks, total, usedDays, remainDays, prorata: 0, deduct: 0, penalty: 0, refund: 0, note: "" };
+    if (!paid) { out.note = "결제한 금액이 없어요."; return out; }
+    if (p.kind === "oneday") {
+      out.refund = (p.entered_today || drinks > 0) ? 0 : paid;
+      out.note = out.refund ? "입장 전 — 전액 환불" : "입장 후 — 환불 없음";
+      return out;
+    }
+    if (usedDays === 0) { out.refund = paid; out.prorata = paid; out.note = "시작 전 — 전액 환불"; return out; }
+    out.prorata = Math.round(paid * remainDays / total);
+    out.deduct = Math.min(out.prorata, drinks * drinkPrice);
+    out.penalty = Math.round(paid * pct / 100);
+    out.refund = Math.max(0, out.prorata - out.deduct - out.penalty);
+    out.note = out.refund ? `남은 ${remainDays}일 일할 − 이용 ${drinks}잔 − 위약금 ${pct}%` : "차감액이 잔여액을 넘어 환불액이 없어요";
+    return out;
+  }
+  // 운영자용 계산 카드. 잔 수·잔당 가격·위약금을 고치면 바로 다시 계산돼요.
+  function refundCalcHTML(p) {
+    const c = passRefundCalc(p);
+    const row = (l, v, cls) => `<div class="rc-row ${cls || ""}"><span>${l}</span><b>${v}</b></div>`;
+    return `
+      <div class="rc-box" id="rc-box">
+        <div class="rc-head"><b>환불 계산기</b><small>결제 ${passWon(c.paid)} · ${c.usedDays}일 사용 / ${c.total}일</small></div>
+        ${p.kind === "oneday" || c.usedDays === 0 ? "" : `
+        <div class="rc-inputs">
+          <label>이용 잔<input type="number" class="input" id="rc-drinks" min="0" max="999" value="${c.drinks}" inputmode="numeric"></label>
+          <label>잔당 가격<input type="number" class="input" id="rc-price" min="0" step="500" value="${c.drinkPrice}" inputmode="numeric"></label>
+          <label>위약금 %<input type="number" class="input" id="rc-pct" min="0" max="100" value="${c.pct}" inputmode="numeric"></label>
+        </div>`}
+        <div id="rc-out">${refundRowsHTML(c)}</div>
+      </div>`;
+  }
+  function refundRowsHTML(c) {
+    const row = (l, v, cls) => `<div class="rc-row ${cls || ""}"><span>${l}</span><b>${v}</b></div>`;
+    return (c.prorata && c.usedDays > 0 ? row(`남은 ${c.remainDays}일 잔여액`, passWon(c.prorata)) + row(`이용 ${c.drinks}잔 × ${passWon(c.drinkPrice)}`, "− " + passWon(c.deduct)) + row(`위약금 ${c.pct}%`, "− " + passWon(c.penalty)) : "")
+      + row("환불해줄 금액", passWon(c.refund), "total") + `<p class="rc-note">${esc(c.note)} · 안내용 추정치예요.</p>`;
+  }
+  function bindRefundCalc(root, p) {
+    const box = root.querySelector("#rc-box");
+    if (!box) return;
+    const re = () => {
+      const g = (id) => { const el = box.querySelector(id); return el ? +el.value : undefined; };
+      const c = passRefundCalc(p, { drinks: g("#rc-drinks"), drinkPrice: g("#rc-price"), penaltyPct: g("#rc-pct") });
+      box.querySelector("#rc-out").innerHTML = refundRowsHTML(c);
+      box.dataset.refund = c.refund;
+    };
+    ["#rc-drinks", "#rc-price", "#rc-pct"].forEach((id) => { const el = box.querySelector(id); if (el) el.addEventListener("input", re); });
+    re();
   }
 
   /* ---------- 마이페이지 줄 ---------- */
@@ -8791,6 +8857,7 @@
       <div class="pass-flag">⬆️ 상품 바꾸기 신청 <span>기존 <b>${esc(old.plan_name)}</b> (${fmtDay(old.ends_at)}까지, ${quote.remain}일 남음 ≈ ${passWon(quote.credit)} 인정) → 새 <b>${esc(p.plan_name)}</b> ${passWon(p.price)}<br>받을 차액 <b>약 ${passWon(quote.diff)}</b> · 승인하면 기존 패스는 오늘 끝나요.</span></div>` : ""}
       ${p.cancel_requested_at ? `
       <div class="pass-flag warn">🛑 해지·환불 요청 <small>${fmtRel(new Date(p.cancel_requested_at).getTime())}</small><span>${p.cancel_reason ? "사유: " + esc(p.cancel_reason) : "사유 없음"}<br>규정대로 환불한 뒤 "환불 처리 후 종료"를 눌러주세요.</span></div>
+      ${refundCalcHTML(p)}
       <button class="big-btn accent ready" id="ms-refund" style="margin-top:12px">환불 처리 후 종료</button>
       <button class="big-btn" id="ms-refund-no" style="margin-top:8px">요청 반려 (계속 사용)</button>` : ""}
       ${p.renew_requested_at ? `<div class="pass-flag">🔁 연장 요청 <small>${fmtRel(new Date(p.renew_requested_at).getTime())}</small><span>다음 달 요금 ${passWon(p.price)}을 받고 아래 연장을 눌러주세요.</span></div>` : ""}
@@ -8802,12 +8869,15 @@
           <button class="chip" data-remove="${m.id}">내보내기</button></div>`).join("")}` : ""}
 
       ${passActive(p) && !p.team_id ? `
+      ${!p.cancel_requested_at ? refundCalcHTML(p) : ""}
       <button class="big-btn ${p.cancel_requested_at ? "" : "accent ready"}" id="ms-extend" style="margin-top:14px">한 달 연장 (가게에서 결제 받음)</button>
       <button class="big-btn" id="ms-end" style="margin-top:8px">오늘로 종료</button>` : ""}
       ${passActive(p) && p.team_id ? `<button class="big-btn" id="ms-kick" style="margin-top:14px">팀에서 내보내기</button>` : ""}
       ${p.status === "requested" ? `<button class="big-btn" id="ms-reject" style="margin-top:14px">신청 거절</button>` : ""}
       <button class="text-btn" id="ms-policy" style="margin-top:8px">환불·해지 규정 보기</button>`);
     const on = (sel, fn) => { const el = bd.querySelector(sel); if (el) el.addEventListener("click", fn); };
+    bindRefundCalc(bd, p);
+    const refundNow = () => { const b = bd.querySelector("#rc-box"); return b && b.dataset.refund != null ? +b.dataset.refund : passRefundCalc(p).refund; };
     on("#ms-policy", () => openRefundPolicy(Object.assign({}, p, { bar_name: a && a.barName })));
     on("#ms-extend", async () => {
       const base = new Date(Math.max(new Date(p.ends_at + "T00:00:00").getTime(), Date.now()));
@@ -8818,14 +8888,15 @@
       bd.remove(); toast(`${fmtDay(iso)}까지 연장했어요.`); passAdminReload();
     });
     on("#ms-end", async () => {
-      if (!await btConfirm("이 패스를 오늘로 종료할까요?", { yes: "종료" })) return;
+      const est = refundNow();
+      if (!await btConfirm(`이 패스를 오늘로 종료할까요?${est ? `\n규정대로면 환불액은 약 ${passWon(est)}이에요.` : ""}`, { yes: "종료" })) return;
       const rr = await Sync.passUpdate(id, { status: "expired", closed_reason: "owner" });
       if (!rr.ok) { passFail(rr); return; }
       bd.remove(); toast("종료했어요."); passAdminReload();
     });
     on("#ms-refund", async () => {
-      if (!await btConfirm("규정대로 환불을 마쳤나요? 누르면 패스가 오늘 종료돼요.", { yes: "환불 완료 · 종료" })) return;
-      const rr = await Sync.passUpdate(id, { status: "expired", closed_reason: "refund", cancel_requested_at: null });
+      if (!await btConfirm(`환불액 ${passWon(refundNow())}을 돌려줬나요? 누르면 패스가 오늘 종료돼요.`, { yes: "환불 완료 · 종료" })) return;
+      const rr = await Sync.passUpdate(id, { status: "expired", closed_reason: "refund:" + refundNow(), cancel_requested_at: null });
       if (!rr.ok) { passFail(rr); return; }
       bd.remove(); toast("환불 처리하고 종료했어요."); passAdminReload();
     });
@@ -8870,6 +8941,11 @@
         <input class="input" id="pa-special" maxlength="60" value="${esc(st.special_drink || "")}" placeholder="예) 9월 한정 · 피치 스매시">
         <label class="form-label">가게 페이지 안내문</label>
         <textarea class="input" id="pa-notice" rows="3" maxlength="300" placeholder="예) 18~19시 입장 시 데일리 1잔 추가. 동반 비회원은 원데이 15,000원.">${esc(st.notice || "")}</textarea>
+        <div class="pe-grid">
+          <label class="form-label">환불 계산 · 잔당 차감 가격<input class="input" id="pa-drink-price" type="number" min="0" step="500" value="${st.refund_drink_price != null ? st.refund_drink_price : REFUND_DRINK_DEFAULT}" inputmode="numeric"></label>
+          <label class="form-label">위약금 (%)<input class="input" id="pa-penalty" type="number" min="0" max="100" value="${st.refund_penalty_pct != null ? st.refund_penalty_pct : REFUND_PENALTY_DEFAULT}" inputmode="numeric"></label>
+        </div>
+        <p class="pass-note">해지 때 이용한 잔은 이 가격으로 빼요. 보통 비회원 단품가(클래식 15,000원)로 잡아요.</p>
         <label class="form-label">환불·해지 규정 <span class="label-opt">비우면 기본 규정</span></label>
         <textarea class="input" id="pa-refund" rows="6" maxlength="2000" placeholder="${esc(PASS_REFUND_DEFAULT)}">${esc(st.refund_policy || "")}</textarea>
         <p class="pass-note">손님이 신청·해지할 때 이 규정을 봐요. 소비자분쟁해결기준(계속거래)에 맞춰 "시작 후 해지 = 남은 기간 일할 환불 − 위약금 10%"를 기본으로 뒀어요.</p>
@@ -8890,14 +8966,14 @@
     $("#pa-enabled").addEventListener("click", async () => {
       const on = !$("#pa-enabled").classList.contains("on");
       if (on && !d.plans.some((p) => p.active)) { toast("상품을 먼저 하나 만들어 주세요."); return; }
-      const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: on, stamp_goal: st.stamp_goal || 4, special_drink: st.special_drink || "", notice: st.notice || "", refund_policy: st.refund_policy || "" });
+      const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: on, stamp_goal: st.stamp_goal || 4, special_drink: st.special_drink || "", notice: st.notice || "", refund_policy: st.refund_policy || "", refund_drink_price: st.refund_drink_price != null ? st.refund_drink_price : REFUND_DRINK_DEFAULT, refund_penalty_pct: st.refund_penalty_pct != null ? st.refund_penalty_pct : REFUND_PENALTY_DEFAULT });
       if (!r.ok) { passFail(r); return; }
       d.settings = r.settings; passCache.byBar = {}; renderPassAdmin();
       toast(on ? "손님에게 열었어요." : "패스 받기를 닫았어요.");
     });
     $("#pa-save").addEventListener("click", async () => {
       const goal = Math.max(2, Math.min(10, +$("#pa-goal").value || 4));
-      const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: !!st.enabled, stamp_goal: goal, special_drink: $("#pa-special").value.trim(), notice: $("#pa-notice").value.trim(), refund_policy: $("#pa-refund").value.trim() });
+      const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: !!st.enabled, stamp_goal: goal, special_drink: $("#pa-special").value.trim(), notice: $("#pa-notice").value.trim(), refund_policy: $("#pa-refund").value.trim(), refund_drink_price: Math.max(0, +$("#pa-drink-price").value || 0), refund_penalty_pct: Math.max(0, Math.min(100, +$("#pa-penalty").value || 0)) });
       if (!r.ok) { passFail(r); return; }
       d.settings = r.settings; passCache.byBar = {}; toast("저장했어요.");
     });

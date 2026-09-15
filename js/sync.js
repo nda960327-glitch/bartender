@@ -2110,9 +2110,12 @@
       if (!ready()) return { ok: false, error: "로그인이 필요해요." };
       try {
         var res = await sb.from("bar_pass_settings").upsert(row, { onConflict: "bar_key" }).select("*").single();
-        // 환불 규정 칸(pass-lifecycle.sql)이 없는 서버면 그 칸만 빼고 다시 저장해요
-        if (res.error && row.refund_policy != null && /refund_policy/.test(res.error.message || "")) {
-          var r2 = Object.assign({}, row); delete r2.refund_policy;
+        // 새 기능의 칸(refund_policy · refund_drink_price 등)이 없는 서버면 그 칸만 빼고 다시 저장해요
+        var r2 = Object.assign({}, row), tries = 0;
+        while (res.error && tries++ < 4) {
+          var m = /'(\w+)' column/.exec(res.error.message || "");
+          if (!m || !(m[1] in r2)) break;
+          delete r2[m[1]];
           res = await sb.from("bar_pass_settings").upsert(r2, { onConflict: "bar_key" }).select("*").single();
         }
         if (res.error) return { ok: false, error: rpcMsg(res.error) };
