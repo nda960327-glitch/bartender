@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.61.1";
+  const APP_BUILD = "2.61.2";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8160,7 +8160,7 @@
     else if (p.duration_days >= 60) bits.push(`${Math.round(p.duration_days / 30)}개월 선불`);
     return bits.join(" · ");
   }
-  // "정가 480,000원어치를 159,000원에 · 67% 아껴요 · 잔당 4,970원" — 정가는 가게 설정의 잔당 가격(기본 15,000)
+  // "정가 480,000원어치 · 321,000원 아껴요 · 잔당 4,970원" — 정가는 가게 설정의 잔당 가격(기본 15,000)
   function passValueLine(p, st) {
     const unit = (st && st.refund_drink_price) || REFUND_DRINK_DEFAULT;
     const cups = p.monthly_cap || (p.kind === "oneday" ? p.drinks_per_day : 0);
@@ -8169,7 +8169,7 @@
     const worth = cups * unit * months;
     if (worth <= p.price) return "";
     const off = Math.round((1 - p.price / worth) * 100);
-    return `정가 ${passWon(worth)}어치를 ${passWon(p.price)}에 · <b>${off}% 아껴요</b> · 잔당 ${passWon(Math.round(p.price / (cups * months) / 10) * 10)}`;
+    return `정가 ${passWon(worth)}어치 · <b>${passWon(worth - p.price)} 아껴요</b> · 잔당 ${passWon(Math.round(p.price / (cups * months) / 10) * 10)}`;
   }
   // 정원 — seats: { plan_id: 현재 인원 }. 정원이 없으면 빈 문자열.
   function passSeatLine(p, seats) {
@@ -9312,7 +9312,7 @@
         ${d.plans.some((p) => { const r = PASS_PRESET_PLANS.find((x) => x.name.replace(/s+/g, "") === String(p.name || "").replace(/s+/g, "")); return r && r.price !== p.price; })
           ? `<button class="host-chat-btn" id="pa-reprice" style="margin-top:8px">💱 운영안 가격으로 맞추기 <small style="font-weight:600;color:var(--text-sub)">(이름이 같은 상품만)</small></button>` : ""}
       </div>
-      <p class="pass-note" style="margin:10px 20px 24px">"무제한"이라는 말은 쓰지 마세요 — 잔수와 상한으로 적습니다. 원가 3,000원 넘는 메뉴는 1잔 풀에 넣지 않는 게 원칙이에요. 카드에는 잔당 가격(환불 설정) 기준으로 "정가 얼마어치를 얼마에, 몇 % 아껴요"가 자동으로 붙어요. 정원은 선택이에요 — 비워 두면 목표 없이 받고, 자리가 모자라면 그때 정원을 넣으면 돼요. 정원이 차면 "정원 마감"으로 보이고 자리가 나면 다시 열려요. 위스키 회원 할인 같은 혜택은 안내문과 상품 설명에 적어 주세요.</p>`;
+      <p class="pass-note" style="margin:10px 20px 24px">"무제한"이라는 말은 쓰지 마세요 — 잔수와 상한으로 적습니다. 원가 3,000원 넘는 메뉴는 1잔 풀에 넣지 않는 게 원칙이에요. 카드에는 잔당 가격(환불 설정) 기준으로 "정가 얼마어치, 얼마 아껴요"가 자동으로 붙어요. 정원은 선택이에요 — 비워 두면 목표 없이 받고, 자리가 모자라면 그때 정원을 넣으면 돼요. 정원이 차면 "정원 마감"으로 보이고 자리가 나면 다시 열려요. 위스키 회원 할인 같은 혜택은 안내문과 상품 설명에 적어 주세요.</p>`;
     $("#pa-enabled").addEventListener("click", async () => {
       const on = !$("#pa-enabled").classList.contains("on");
       if (on && !d.plans.some((p) => p.active)) { toast("상품을 먼저 하나 만들어 주세요."); return; }
