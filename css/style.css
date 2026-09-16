@@ -1484,6 +1484,7 @@ textarea.input { height: auto; }
 .pp-price { font-size: 18px; font-weight: 800; color: var(--accent); }
 .pp-price small { font-size: 12px; font-weight: 600; color: var(--text-sub); margin-left: 2px; }
 .pp-line { font-size: 12px; color: var(--text-sub); line-height: 1.5; }
+.pe-del { display: block; width: 100%; text-align: center; margin-top: 10px; color: #c2410c; font-size: 13px; }
 .pp-value { font-size: 12px; color: var(--text); line-height: 1.5; word-break: keep-all; }
 .pp-value b { color: var(--accent); font-weight: 800; }
 .pp-note { font-size: 12px; color: var(--text); margin-top: 4px; line-height: 1.5; word-break: keep-all; }

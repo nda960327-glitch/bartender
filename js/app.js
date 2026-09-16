@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.62.2";
+  const APP_BUILD = "2.62.3";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -9513,7 +9513,7 @@
       </div>
       <label class="form-label">한 줄 설명</label><input class="input" id="pe-note" maxlength="120" value="${esc(p.note || "")}" placeholder="예) 3번만 와도 본전">
       <button class="big-btn accent ready" id="pe-save" style="margin-top:6px">${plan ? "저장" : "추가"}</button>
-      ${plan ? `<button class="big-btn" id="pe-toggle" style="margin-top:8px">${p.active ? "판매 숨기기" : "다시 판매"}</button>` : ""}`);
+      ${plan ? `<button class="big-btn" id="pe-toggle" style="margin-top:8px">${p.active ? "판매 숨기기" : "다시 판매"}</button><button class="text-btn pe-del" id="pe-del">🗑 이 상품 삭제</button>` : ""}`);
     bd.querySelector("#pe-save").addEventListener("click", async () => {
       const g = (id) => bd.querySelector("#pe-" + id).value;
       const row = {
@@ -9530,6 +9530,16 @@
       const r = await Sync.passSavePlan(row);
       if (!r.ok) { passFail(r); return; }
       bd.remove(); toast("저장했어요."); passAdminReload();
+    });
+    const del = bd.querySelector("#pe-del");
+    if (del) del.addEventListener("click", async () => {
+      // 쓰는 중이거나 신청 중인 회원이 있으면 못 지워요 — 지우면 그 회원 패스가 어느 상품인지 끊겨요. 숨기기를 쓰세요.
+      const using = (a.data.passes || []).filter((x) => x.plan_id === plan.id && (x.status === "requested" || passActive(x))).length;
+      if (using) { toast(`이 상품을 쓰는 회원이 ${using}명 있어요. 회원이 다 끝날 때까지는 "판매 숨기기"로 두세요.`); return; }
+      if (!await btConfirm(`'${p.name}' 상품을 지울까요?\n\n되돌릴 수 없어요. 예전에 이 상품을 썼던 회원의 기록은 그대로 남아요.`, { yes: "삭제" })) return;
+      const r = await Sync.passDeletePlan(plan.id);
+      if (!r.ok) { passFail(r); return; }
+      bd.remove(); toast("상품을 지웠어요."); passAdminReload();
     });
     const tg = bd.querySelector("#pe-toggle");
     if (tg) tg.addEventListener("click", async () => {

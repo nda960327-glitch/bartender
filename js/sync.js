@@ -2174,6 +2174,14 @@
         return { ok: true, plan: res.data };
       } catch (e) { return { ok: false, error: (e && e.message) || "저장하지 못했어요." }; }
     },
+    async passDeletePlan(id) {
+      if (!ready()) return { ok: false, error: "로그인이 필요해요." };
+      try {
+        var res = await sb.from("pass_plans").delete().eq("id", id);
+        if (res.error) return { ok: false, error: rpcMsg(res.error) };
+        return { ok: true };
+      } catch (e) { return { ok: false, error: (e && e.message) || "지우지 못했어요." }; }
+    },
     async passUpdate(id, patch) {
       if (!ready()) return { ok: false, error: "로그인이 필요해요." };
       try {
