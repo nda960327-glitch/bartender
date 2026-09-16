@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.62.0";
+  const APP_BUILD = "2.62.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -9532,7 +9532,7 @@
     const daily = d && Array.isArray(d.daily) ? d.daily : [];
     const max = Math.max(1, ...daily.map((x) => +x.n || 0));
     area.innerHTML = `
-      ${!r.ok ? `<div class="card pass-warn"><b>⚠️ 서버 집계를 못 받았어요</b><p>${esc(r.error === "not-installed" ? "supabase/pass.sql 의 pass_dashboard 함수가 없어요. SQL Editor 에서 pass.sql 을 실행해주세요." : r.error)} 아래 회원·매출 숫자는 회원 목록으로 앱에서 직접 셌어요.</p></div>` : ""}
+      ${!r.ok ? `<div class="card pass-warn"><b>⚠️ 서버 집계를 못 받았어요</b><p>${esc(r.error === "not-installed" ? "supabase/pass.sql 의 pass_dashboard 함수가 없어요. SQL Editor 에서 pass.sql 을 실행해주세요." : /ambiguous/.test(r.error || "") ? "서버 함수가 예전 버전이에요. SQL Editor 에서 supabase/pass-dashboard-fix.sql 을 실행해주세요." : r.error)} 아래 회원·매출 숫자는 회원 목록으로 앱에서 직접 셌어요.</p></div>` : ""}
       <div class="kpi-grid">
         ${kpi("회원 수", live.length, "명", "목표 3개월 40 · 6개월 70 · 12개월 90", pending.length ? `신청 대기 ${pending.length}건` : "&nbsp;")}
         ${kpi("회원 월 방문", d ? num(d.avg_visits, 1) : "–", "회", "4회 밑이면 상품이 아니라 가게를 고쳐야", d ? `이달 입장 ${visits}회` : "QR 스캔 기록으로 계산")}
