@@ -1133,7 +1133,7 @@
     },
 
     // 비밀번호 없이 메일로 받은 링크로 로그인
-    async signInWithEmail(email) {
+    async signInWithEmail(email, captchaToken) {
       if (!sb) return { ok: false, error: "서버에 연결되어 있지 않아요." };
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || "")) {
         return { ok: false, error: "이메일 형식이 올바르지 않아요." };
@@ -1147,9 +1147,14 @@
       try {
         var res = await sb.auth.signInWithOtp({
           email: email,
-          options: { emailRedirectTo: back },
+          options: captchaToken ? { emailRedirectTo: back, captchaToken: captchaToken } : { emailRedirectTo: back },
         });
-        if (res.error) return { ok: false, error: res.error.message };
+        if (res.error) {
+          var m = res.error.message || "";
+          if (/captcha/i.test(m)) return { ok: false, error: "사람 확인이 끝나지 않았어요. 확인 상자를 다시 눌러주세요.", captcha: true };
+          if (/rate limit|too many/i.test(m)) return { ok: false, error: "메일을 너무 자주 요청했어요. 잠시 뒤에 다시 해주세요." };
+          return { ok: false, error: m };
+        }
         return { ok: true };
       } catch (e) {
         return { ok: false, error: (e && e.message) || "메일을 보내지 못했어요." };

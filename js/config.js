@@ -44,6 +44,13 @@ window.BARTALK_CONFIG = {
   // 비워두면 "가게에서 결제 → 운영자 승인" 방식만 보입니다.
   TOSS_CLIENT_KEY: "test_ck_vZnjEJeQVxzwMgXop7pz8PmOoBN0",
 
+  // 이메일 로그인 봇 차단 (Cloudflare Turnstile) — "사이트 키"만 넣어요. 공개돼도 되는 값이에요.
+  //   Cloudflare 대시보드 > Turnstile > 위젯 추가 (도메인 barapp.kr) → Site Key
+  //   ⚠️ Secret Key 는 여기가 아니라 Supabase > Authentication > Attack Protection 에 넣습니다.
+  //   ⚠️ 순서: 이 값을 넣고 배포한 "뒤에" Supabase 에서 캡차를 켜세요. 반대로 하면 이메일 로그인이 막혀요.
+  // 비워두면 캡차 없이 동작합니다. (구글·카카오·네이버 로그인은 캡차와 상관없어요)
+  TURNSTILE_SITE_KEY: "",
+
   // 서버에서 가져올 최대 개수 (첫 로딩 속도와 관련)
   LIMIT_POSTS: 300,
   LIMIT_MEETS: 100,

@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.65.0";
+  const APP_BUILD = "2.65.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -10432,13 +10432,42 @@
       // 성공하면 브라우저가 이동하므로 여기서 할 일이 없어요.
     }));
 
+  // 이메일 로그인 캡차 (Cloudflare Turnstile) — config 에 사이트 키가 있을 때만
+  const captcha = { key: CFG.TURNSTILE_SITE_KEY || "", token: "", id: null, loading: null };
+  function loadTurnstile() {
+    if (window.turnstile) return Promise.resolve(true);
+    if (!captcha.loading) captcha.loading = new Promise((res) => {
+      const s = document.createElement("script");
+      s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      s.async = true; s.onload = () => res(true); s.onerror = () => res(false);
+      document.head.appendChild(s);
+    });
+    return captcha.loading;
+  }
+  async function showCaptcha() {
+    if (!captcha.key) return;
+    const box = $("#login-captcha");
+    box.hidden = false;
+    if (captcha.id !== null) return;
+    if (!await loadTurnstile() || !window.turnstile) { box.textContent = "사람 확인 도구를 불러오지 못했어요. 인터넷을 확인하거나 구글·카카오로 로그인해주세요."; return; }
+    captcha.id = window.turnstile.render(box, {
+      sitekey: captcha.key, language: "ko", theme: document.documentElement.dataset.theme === "dark" ? "dark" : "light",
+      callback: (t) => { captcha.token = t; updateEmailBtn(); },
+      "expired-callback": () => { captcha.token = ""; updateEmailBtn(); },
+      "error-callback": () => { captcha.token = ""; updateEmailBtn(); },
+    });
+  }
+  function resetCaptcha() {
+    captcha.token = "";
+    if (captcha.id !== null && window.turnstile) { try { window.turnstile.reset(captcha.id); } catch {} }
+  }
   $("#login-email-toggle").addEventListener("click", () => {
     const box = $("#login-email-box");
     box.hidden = !box.hidden;
-    if (!box.hidden) $("#login-email").focus();
+    if (!box.hidden) { $("#login-email").focus(); showCaptcha(); }
   });
   const updateEmailBtn = () => {
-    const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($("#login-email").value.trim());
+    const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($("#login-email").value.trim()) && (!captcha.key || !!captcha.token);
     $("#login-email-send").disabled = !ok;
     $("#login-email-send").classList.toggle("ready", ok);
   };
@@ -10450,7 +10479,8 @@
     const email = $("#login-email").value.trim();
     setLoginBusy(true);
     setLoginStatus("메일을 보내는 중이에요…");
-    const res = await Sync.signInWithEmail(email);
+    const res = await Sync.signInWithEmail(email, captcha.token);
+    resetCaptcha();          // 캡차 토큰은 한 번만 쓸 수 있어요
     setLoginBusy(false);
     updateEmailBtn();
     if (res.ok) {
