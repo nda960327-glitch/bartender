@@ -1425,6 +1425,28 @@ textarea.input { height: auto; }
 .pass-home-more { margin: 8px 20px 0; font-size: 12.5px; color: var(--text-sub); }
 .pass-home-owner { display: flex; flex-direction: column; gap: 8px; margin: 10px 16px 0; }
 
+/* 빈자리 알림 · 잔 선물 */
+.offer-banner { margin: 10px 0 2px; padding: 10px 12px; border-radius: 12px; background: #fff4d6; border: 1px solid #f2d48a; font-size: 13px; color: #7a4d00; line-height: 1.5; }
+.offer-banner b { color: #c2410c; font-weight: 800; }
+.pass-home.offer { border-color: #f2d48a; background: #fff8e6; }
+.pass-home.gift { border-color: #f0b64a; background: #fff8e6; }
+.offer-owner { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 10px; border-radius: 14px; background: var(--bg-card); border: 1px dashed var(--line-strong); }
+.offer-owner.on { border-style: solid; border-color: #f2d48a; background: #fff8e6; }
+.offer-owner-l { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.offer-owner-l b { font-size: 13.5px; font-weight: 800; line-height: 1.4; word-break: keep-all; }
+.offer-owner-l span { font-size: 12px; color: var(--text-sub); line-height: 1.4; word-break: keep-all; }
+.chip.accent { background: var(--accent); color: #fff; border-color: var(--accent); }
+.gift-sheet { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.gift-icon { font-size: 44px; text-align: center; }
+.gift-sheet h3 { text-align: center; margin: 0; }
+.gift-code { font-family: ui-monospace, monospace; font-size: 30px; font-weight: 800; letter-spacing: .12em; text-align: center; padding: 14px; border-radius: 14px; background: #fff4d6; border: 2px dashed #f0b64a; color: #7a4d00; }
+.gift-code.done { opacity: .5; text-decoration: line-through; }
+.gift-cta { margin-top: 6px; padding: 12px 14px; border-radius: 14px; background: var(--bg-gray); display: flex; flex-direction: column; gap: 4px; }
+.gift-cta b { font-size: 14px; }
+.gift-cta span { font-size: 12.5px; color: var(--text-sub); }
+.scan-result.gift .sr-ok { background: #fff4d6; color: #7a4d00; }
+.sr-left small { font-weight: 600; color: var(--text-sub); }
+
 /* 구독 매출 현황 */
 .rev-card { background: var(--bg-card); border: 1px solid var(--line-strong); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
 #pass-admin-rev .rev-card { border-radius: 0; border-width: 0 0 1px; padding: 10px 16px; }

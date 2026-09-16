@@ -1997,6 +1997,7 @@
             .in("status", ["requested", "active", "grace"]).order("status").order("id", { ascending: false }).limit(1),
           sb.from("bar_owners").select("bar_key").eq("bar_key", barKey).eq("user_id", S.uid).limit(1),
           sb.rpc("pass_plan_seats", { p_bar: barKey }),   // 상품별 인원 (pass-capacity.sql 없으면 빈 값)
+          sb.rpc("pass_offer_now", { p_bar: barKey }),     // 오늘 빈자리 알림 (pass-offer.sql 없으면 null)
         ]);
         if (r[0].error) return { ok: false, error: notInstalled(r[0].error) };
         return {
@@ -2004,6 +2005,7 @@
           settings: r[0].data,
           plans: r[1].data || [],
           seats: (r[4] && !r[4].error && r[4].data) || {},
+          offer: (r[5] && !r[5].error && r[5].data) || null,
           mine: (r[2].data || [])[0] || null,
           owner: !!(r[3].data || []).length,
         };
@@ -2185,6 +2187,48 @@
         return { ok: true, visits: res.data || [] };
       } catch (e) { return { ok: false, error: (e && e.message) || "불러오지 못했어요." }; }
     },
+    /* ---------- 빈자리 알림 (supabase/pass-offer.sql · api/pass-offer.js) ---------- */
+    async passOfferNow(barKey) {
+      if (!ready()) return { ok: false, error: "offline" };
+      try {
+        var r = await sb.rpc("pass_offer_now", { p_bar: barKey });
+        if (r.error) return { ok: false, error: notInstalled(r.error) };
+        return { ok: true, offer: r.data || null };
+      } catch (e) { return { ok: false, error: (e && e.message) || "불러오지 못했어요." }; }
+    },
+    // 내가 패스를 쓰는 가게들의 오늘 알림 — 홈에 띄워요
+    async passOffersFor(barKeys) {
+      if (!ready() || !barKeys || !barKeys.length) return { ok: true, offers: [] };
+      try {
+        var r = await sb.from("pass_seat_offers").select("*").in("bar_key", barKeys).gt("expires_at", new Date().toISOString()).order("created_at", { ascending: false });
+        if (r.error) return { ok: false, error: notInstalled(r.error) };
+        var seen = {}, out = [];
+        (r.data || []).forEach(function (o) { if (!seen[o.bar_key]) { seen[o.bar_key] = 1; out.push(o); } });
+        return { ok: true, offers: out };
+      } catch (e) { return { ok: false, error: (e && e.message) || "불러오지 못했어요." }; }
+    },
+    async passOfferApi(action, body) {
+      if (!ready()) return { ok: false, error: "로그인이 필요해요." };
+      try {
+        var s = await sb.auth.getSession();
+        var token = s && s.data && s.data.session && s.data.session.access_token;
+        if (!token) return { ok: false, error: "로그인이 필요해요." };
+        var r = await fetch("/api/pass-offer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+          body: JSON.stringify(Object.assign({ action: action }, body || {})),
+        });
+        var j = await r.json().catch(function () { return {}; });
+        if (!r.ok || !j.ok) return { ok: false, error: j.error || ("서버 오류 (" + r.status + ")") };
+        return j;
+      } catch (e) { return { ok: false, error: (e && e.message) || "서버에 연결하지 못했어요." }; }
+    },
+    /* ---------- 잔 선물 (supabase/pass-gift.sql) ---------- */
+    async passGiftCreate(passId, message) { return callRpc("pass_gift_create", { p_pass: passId, p_message: message || "" }, "gift"); },
+    async passGiftInfo(code) { return callRpc("pass_gift_info", { p_code: code }, "gift"); },
+    async passGiftClaim(code) { return callRpc("pass_gift_claim", { p_code: code }, "gift"); },
+    async passGiftRedeem(code) { return callRpc("pass_gift_redeem", { p_code: code }, "gift"); },
+    async passGiftsMine() { return callRpc("pass_gifts_mine", {}, "gifts"); },
     async passDeletePlan(id) {
       if (!ready()) return { ok: false, error: "로그인이 필요해요." };
       try {

@@ -126,7 +126,12 @@ async function confirm(me, body) {
   if (!plan) return { error: "지금 판매 중인 상품이 아니에요." };
   const st = (await db("bar_pass_settings?bar_key=eq." + q(plan.bar_key) + "&select=*"))[0];
   if (!st || !st.enabled) return { error: "이 가게는 아직 패스를 받지 않아요." };
-  const expected = oncePrice(plan, st);
+  let expected = oncePrice(plan, st);
+  if (plan.kind === "oneday") {
+    // 빈자리 알림이 살아 있으면 그 가격 (supabase/pass-offer.sql)
+    const offers = await db("pass_seat_offers?bar_key=eq." + q(plan.bar_key) + "&expires_at=gt." + q(new Date().toISOString()) + "&oneday_price=not.is.null&select=oneday_price&order=created_at.desc&limit=1").catch(() => []);
+    if (offers[0] && offers[0].oneday_price != null) expected = Math.min(expected, +offers[0].oneday_price);
+  }
   if (Number(body.amount) !== expected) return { error: "결제 금액이 상품 가격과 달라요. (1회 결제 " + expected.toLocaleString("ko-KR") + "원)" };
 
   // 같은 주문을 두 번 승인하지 않게 (새로고침 등)
