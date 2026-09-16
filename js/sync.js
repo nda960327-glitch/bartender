@@ -2174,6 +2174,17 @@
         return { ok: true, plan: res.data };
       } catch (e) { return { ok: false, error: (e && e.message) || "저장하지 못했어요." }; }
     },
+    // 지표 내역용 — 이달 + 최근 14일 QR 스캔 기록 (운영자만 읽혀요)
+    async passVisitsRecent(barKey) {
+      if (!ready()) return { ok: false, error: "offline" };
+      try {
+        var now = new Date(), m0 = new Date(now.getFullYear(), now.getMonth(), 1), d14 = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13);
+        var from = (m0 < d14 ? m0 : d14), ymd = from.getFullYear() + "-" + String(from.getMonth() + 1).padStart(2, "0") + "-" + String(from.getDate()).padStart(2, "0");
+        var res = await sb.from("pass_visits").select("*").eq("bar_key", barKey).gte("day", ymd).order("at", { ascending: false }).limit(5000);
+        if (res.error) return { ok: false, error: rpcMsg(res.error) };
+        return { ok: true, visits: res.data || [] };
+      } catch (e) { return { ok: false, error: (e && e.message) || "불러오지 못했어요." }; }
+    },
     async passDeletePlan(id) {
       if (!ready()) return { ok: false, error: "로그인이 필요해요." };
       try {

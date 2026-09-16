@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.63.0";
+  const APP_BUILD = "2.63.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8225,7 +8225,7 @@
     items.sort((x, y2) => new Date(y2.at || 0) - new Date(x.at || 0));
     const paidApp = sum(items.filter((i) => i.kind === "app"), (i) => i.amount);
     const paidManual = sum(items.filter((i) => i.kind === "manual" && !i.voided), (i) => i.amount);
-    const refunds = -sum(items.filter((i) => i.kind === "refund"), (i) => i.amount);
+    const refunds = Math.abs(sum(items.filter((i) => i.kind === "refund"), (i) => i.amount));
     const live = passes.filter((p) => passActive(p) && !p.team_id && p.kind !== "oneday");
     const endsAt = (p) => p.ends_at ? new Date(p.ends_at + "T00:00:00").getTime() : 0;
     const dueNext = (p) => (+p.duration_days || 30) <= 31 || (endsAt(p) >= m1 && endsAt(p) < m2);
@@ -9550,8 +9550,10 @@
   /* 지표 — 매주 볼 숫자 4개 */
   async function renderPassStatsTab(area, a) {
     area.innerHTML = '<div class="empty-state">집계 중…</div>';
-    const r = await Sync.passDashboard(a.barKey);
+    const [r, vr] = await Promise.all([Sync.passDashboard(a.barKey), Sync.passVisitsRecent(a.barKey)]);
     if (state.view !== "pass-admin" || state.passAdmin !== a || a.tab !== "stats") return;
+    const visitRows = vr.ok ? vr.visits : [];
+    a.visitRows = visitRows;
     /* 서버 집계(입장·잔·사이드)는 QR 스캔 기록에서 나와요. 회원·상품·매출은 이미 받아둔 회원 목록으로
        앱이 직접 세서, 서버 함수가 예전 버전이거나 실패해도 숫자가 비지 않게 합니다. */
     const d = r.ok && r.data ? r.data : null;
@@ -9566,27 +9568,28 @@
     const byPlan = {};
     live.forEach((p) => { const k = p.team_id ? "팀원" : p.plan_name; byPlan[k] = byPlan[k] || { n: 0, won: 0 }; byPlan[k].n++; byPlan[k].won += p.team_id ? 0 : (+p.price || 0); });
     const num = (v, digits) => (v == null || isNaN(+v)) ? "–" : (digits ? (+v).toFixed(digits) : Math.round(+v));
-    const kpi = (label, val, unit, goal, hint) => `
-      <div class="kpi">
-        <span class="kpi-l">${label}</span>
+    const rev = passRevenue(a.data || {});
+    const kpi = (label, val, unit, goal, hint, key) => `
+      <button class="kpi ${key ? "tap" : ""}" ${key ? `data-k="${key}"` : ""}>
+        <span class="kpi-l">${label}${key ? '<i class="kpi-more">내역</i>' : ""}</span>
         <b class="kpi-v">${val}<small>${unit}</small></b>
         <span class="kpi-g">${goal}</span>
         <span class="kpi-h">${hint}</span>
-      </div>`;
+      </button>`;
     const visits = d ? +d.visits_month || 0 : 0;
     const daily = d && Array.isArray(d.daily) ? d.daily : [];
     const max = Math.max(1, ...daily.map((x) => +x.n || 0));
     area.innerHTML = `
       ${!r.ok ? `<div class="card pass-warn"><b>⚠️ 서버 집계를 못 받았어요</b><p>${esc(r.error === "not-installed" ? "supabase/pass.sql 의 pass_dashboard 함수가 없어요. SQL Editor 에서 pass.sql 을 실행해주세요." : /ambiguous/.test(r.error || "") ? "서버 함수가 예전 버전이에요. SQL Editor 에서 supabase/pass-dashboard-fix.sql 을 실행해주세요." : r.error)} 아래 회원·매출 숫자는 회원 목록으로 앱에서 직접 셌어요.</p></div>` : ""}
       <div class="kpi-grid">
-        ${kpi("회원 수", live.length, "명", "목표 3개월 40 · 6개월 70 · 12개월 90", pending.length ? `신청 대기 ${pending.length}건` : "&nbsp;")}
-        ${kpi("회원 월 방문", d ? num(d.avg_visits, 1) : "–", "회", "4회 밑이면 상품이 아니라 가게를 고쳐야", d ? `이달 입장 ${visits}회` : "QR 스캔 기록으로 계산")}
-        ${kpi("화~목 밤 손님", d ? num(d.nightly_tt, 1) : "–", "명", "20 → 30 → 35~40", "패스 회원 기준 · 하룻밤 평균")}
-        ${kpi("이달 패스 매출", passWon(d ? +d.revenue_month || revenueLocal : revenueLocal), "", `승인 ${approvedThisMonth.length}건`, "이달 승인된 패스 결제액 합계")}
+        ${kpi("회원 수", live.length, "명", "목표 3개월 50 · 6개월 90 · 12개월 130", pending.length ? `신청 대기 ${pending.length}건` : "&nbsp;", "members")}
+        ${kpi("회원 월 방문", d ? num(d.avg_visits, 1) : "–", "회", "4회 밑이면 상품이 아니라 가게를 고쳐야", d ? `이달 입장 ${visits}회` : "QR 스캔 기록으로 계산", "visits")}
+        ${kpi("화~목 밤 손님", d ? num(d.nightly_tt, 1) : "–", "명", "20 → 30 → 35~40", "패스 회원 기준 · 하룻밤 평균", "tt")}
+        ${kpi("이달 구독 매출", passWon(rev.net), "", `확정 ${passMan(rev.paid)} − 환불 ${passMan(rev.refunds)}`, "위 매출 줄과 같은 숫자 · 건별 내역", "revenue")}
       </div>
       <div class="kpi-grid" style="padding-top:0">
-        ${kpi("월 반복 매출", passWon(Math.round(monthly)), "", "쓰는 중인 패스를 월로 환산", "3개월권은 ÷3 · 원데이 제외")}
-        ${kpi("이달 잔", d ? +d.drinks_month || 0 : "–", "잔", "패스로 나간 잔 수", "QR 스캔 때 \"잔 사용\"으로 집계")}
+        ${kpi("월 반복 매출", passWon(Math.round(monthly)), "", "쓰는 중인 패스를 월로 환산", "3개월권은 ÷3 · 원데이 제외", "mrr")}
+        ${kpi("이달 잔", d ? +d.drinks_month || 0 : "–", "잔", "패스로 나간 잔 수", "QR 스캔 때 \"잔 사용\"으로 집계", "drinks")}
       </div>
 
       <div class="card">
@@ -9600,10 +9603,55 @@
         <div class="pass-sec-head"><h3 class="card-h">최근 14일 입장</h3><span class="pass-note" style="margin:0">${d ? `이달 입장 ${visits}회` : ""}</span></div>
         ${visits || daily.some((x) => +x.n) ? `
         <div class="bars14">
-          ${daily.map((x) => `<div class="b14" title="${x.day} · ${x.n}명"><i style="height:${Math.round(((+x.n || 0) / max) * 100)}%"></i><span>${String(x.day).slice(8)}</span></div>`).join("")}
-        </div>` : `<p class="pass-note" style="padding:8px 0">아직 입장 기록이 없어요. <b>입장 확인</b> 탭에서 손님 QR을 찍으면 방문·잔 지표가 쌓여요. 승인만 해서는 안 잡힙니다.</p>`}
+          ${daily.map((x) => `<button class="b14" data-day="${x.day}" title="${x.day} · ${x.n}명"><i style="height:${Math.round(((+x.n || 0) / max) * 100)}%"></i><span>${String(x.day).slice(8)}</span></button>`).join("")}
+        </div>
+        <p class="pass-note" style="margin:6px 0 0">막대를 누르면 그날 누가 왔는지 보여요.</p>` : `<p class="pass-note" style="padding:8px 0">아직 입장 기록이 없어요. <b>입장 확인</b> 탭에서 손님 QR을 찍으면 방문·잔 지표가 쌓여요. 승인만 해서는 안 잡힙니다.</p>`}
       </div>
-      <p class="pass-note" style="margin:6px 20px 24px">매출은 결과예요. 위 넷이 맞으면 매출은 따라와요. 방문·잔은 QR 스캔 기록으로, 회원·매출은 승인된 패스로 계산해요.</p>`;
+      <p class="pass-note" style="margin:6px 20px 24px">매출은 결과예요. 위 넷이 맞으면 매출은 따라와요. 방문·잔은 QR 스캔 기록으로, 회원·매출은 승인된 패스로 계산해요. 숫자를 누르면 내역이 열려요.</p>`;
+    $$("#pass-admin-area .kpi.tap").forEach((b) => b.addEventListener("click", () => openStatDetail(a, b.dataset.k)));
+    $$("#pass-admin-area .b14").forEach((b) => b.addEventListener("click", () => openStatDetail(a, "day", b.dataset.day)));
+  }
+
+  /* 지표 내역 시트 — 회원·방문·잔은 QR 기록을 사람별·날짜별로 풀어서 보여줘요 */
+  function openStatDetail(a, key, arg) {
+    const d = a.data || {}, passes = d.passes || [], visits = a.visitRows || [];
+    const now = new Date(), mon = now.getMonth() + 1, m0 = new Date(now.getFullYear(), now.getMonth(), 1);
+    const ymd = (t) => { const x = new Date(t); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
+    const hhmm = (t) => { const x = new Date(t); return `${String(x.getHours()).padStart(2, "0")}:${String(x.getMinutes()).padStart(2, "0")}`; };
+    const nickOf = (uid) => { const pr = d.profiles && d.profiles[uid]; if (pr && pr.nick) return pr.nick; const p = passes.find((x) => x.user_id === uid); return (p && (p.member_name || p.plan_name)) || "회원"; };
+    const inMonth = visits.filter((v) => v.day >= ymd(m0));
+    const live = passes.filter(passActive), pending = passes.filter((p) => p.status === "requested");
+    const perUser = {};
+    inMonth.forEach((v) => { const u = perUser[v.user_id] = perUser[v.user_id] || { enter: 0, drinks: 0, days: new Set() }; if (v.action === "enter") { u.enter++; u.days.add(v.day); } u.drinks += +v.drinks || 0; });
+    const row = (l, r, sub) => `<div class="rev-row"><div class="rev-row-l"><b>${l}</b>${sub ? `<span>${sub}</span>` : ""}</div><div class="rev-row-r"><b>${r}</b></div></div>`;
+    const empty = (t) => `<p class="pass-note" style="padding:8px 0">${t}</p>`;
+    let title = "", body = "", sub = "";
+    if (key === "revenue") { openRevenueDetail(a.barKey, d); return; }
+    if (key === "members") {
+      title = `회원 ${live.length}명`; sub = "이용 중인 패스 · 끝나는 날 순";
+      body = live.slice().sort((x, y2) => String(x.ends_at || "").localeCompare(String(y2.ends_at || ""))).map((p) => row(`${esc(nickOf(p.user_id))} · ${esc(p.plan_name)}${p.team_id ? " (팀원)" : ""}`, p.ends_at ? `~${fmtDay(p.ends_at)}` : "", `${p.status === "grace" ? "결제 실패 재시도 중 · " : ""}${p.cancel_requested_at ? "해지 요청 · " : ""}${p.renew_requested_at ? "연장 요청 · " : ""}${p.auto_renew && p.paid_via === "toss" ? "자동결제" : "가게 결제"}`)).join("") || empty("아직 이용 중인 회원이 없어요.");
+      if (pending.length) body += `<div class="comment-sec-title" style="padding:12px 0 4px">신청 대기 ${pending.length}건</div>` + pending.map((p) => row(`${esc(nickOf(p.user_id))} · ${esc(p.plan_name)}`, passWon(p.price), "회원 탭에서 승인")).join("");
+    } else if (key === "visits" || key === "drinks") {
+      const rows = Object.entries(perUser).sort((x, y2) => (key === "drinks" ? y2[1].drinks - x[1].drinks : y2[1].enter - x[1].enter));
+      title = key === "visits" ? `${mon}월 회원별 방문` : `${mon}월 회원별 잔`; sub = key === "visits" ? "입장 QR 기준 · 많이 온 순" : "\"잔 사용\" 기준 · 많이 마신 순";
+      body = rows.map(([uid, u]) => row(esc(nickOf(uid)), key === "visits" ? `${u.enter}회` : `${u.drinks}잔`, key === "visits" ? `${u.drinks}잔 · ${[...u.days].sort().map((x) => x.slice(5)).join(", ")}` : `입장 ${u.enter}회`)).join("") || empty("이달 QR 스캔 기록이 없어요.");
+      const idle = live.filter((p) => !perUser[p.user_id]);
+      if (idle.length) body += `<div class="comment-sec-title" style="padding:12px 0 4px">이달 한 번도 안 온 회원 ${idle.length}명</div>` + idle.map((p) => row(`${esc(nickOf(p.user_id))} · ${esc(p.plan_name)}`, "0회", "\"요즘 안 오시네요\" 한마디가 필요한 분")).join("");
+    } else if (key === "tt") {
+      const byDay = {};
+      inMonth.filter((v) => v.action === "enter").forEach((v) => { const dow = new Date(v.day + "T00:00:00").getDay(); if (dow >= 2 && dow <= 4) byDay[v.day] = (byDay[v.day] || 0) + 1; });
+      title = `${mon}월 화~목 밤 손님`; sub = "날짜별 입장 회원 수";
+      body = Object.entries(byDay).sort().reverse().map(([day, n]) => row(fmtDay(day), `${n}명`)).join("") || empty("이달 화~목 입장 기록이 없어요.");
+    } else if (key === "mrr") {
+      const rows = live.filter((p) => !p.team_id && p.kind !== "oneday");
+      title = "월 반복 매출"; sub = "이용 중인 패스를 월로 환산";
+      body = rows.map((p) => row(`${esc(nickOf(p.user_id))} · ${esc(p.plan_name)}`, passWon(Math.round((+p.price || 0) * 30 / Math.max(1, +p.duration_days || 30))), `${passWon(p.price)}${passPer(p)}${p.cancel_requested_at ? " · 해지 요청" : ""}`)).join("") || empty("이용 중인 패스가 없어요.");
+    } else if (key === "day") {
+      const rows = visits.filter((v) => v.day === arg && v.action === "enter");
+      title = `${fmtDay(arg)} 입장 ${rows.length}명`; sub = "QR 찍은 시각 순";
+      body = rows.slice().sort((x, y2) => String(x.at).localeCompare(String(y2.at))).map((v) => { const dr = visits.filter((w) => w.day === arg && w.user_id === v.user_id && w.action === "drink").reduce((s, w) => s + (+w.drinks || 0), 0); return row(esc(nickOf(v.user_id)), hhmm(v.at), `${dr}잔${v.side ? " · 사이드" : ""}`); }).join("") || empty("이날 입장 기록이 없어요.");
+    }
+    openSheetHTML(`<h3>${title}</h3>${sub ? `<p class="sheet-sub">${sub}</p>` : ""}<div class="rev-list">${body}</div>`);
   }
 
   /* ---------- 레시피 공유 ---------- */
