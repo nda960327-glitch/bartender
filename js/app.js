@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.62.3";
+  const APP_BUILD = "2.63.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8129,19 +8129,19 @@
   //   정가 대비 절약은 카드에 자동으로 붙어요 (passValueLine).
   const PASS_PRESET_PLANS = [
     { name: "라이트", price: 39000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: 6, team_size: 1, duration_days: 30, max_members: null, sort: 1,
-      note: "미끼. 커피 두 잔 값에 퇴근 한 잔 — 월 6잔 39,000원, 잔당 6,500원. 3번만 와도 본전. 위스키 10% 할인." },
+      note: "커피 두 잔 값에 퇴근 한 잔 · 위스키 10% 할인" },
     { name: "스타터", price: 119000, kind: "personal", days: "all", drinks_per_day: 2, monthly_cap: 20, team_size: 1, duration_days: 30, max_members: null, sort: 2,
-      note: "월 20잔에 119,000원. 잔당 5,950원, 8번만 와도 본전. 하루 2잔이라 친구 몫도 돼요. 위스키 10% 할인." },
+      note: "하루 2잔이라 친구 몫도 돼요 · 위스키 10% 할인" },
     { name: "스탠다드", price: 159000, kind: "personal", days: "all", drinks_per_day: 3, monthly_cap: 32, team_size: 1, duration_days: 30, max_members: null, sort: 3,
-      note: "⭐ 가장 인기. 매일 한 잔 + 주말엔 친구 몫까지 월 32잔. 잔당 4,970원. 위스키 10% 할인." },
+      note: "⭐ 가장 인기 · 매일 한 잔 + 주말엔 친구 몫 · 위스키 10% 할인" },
     { name: "프리미엄", price: 219000, kind: "personal", days: "all", drinks_per_day: 3, monthly_cap: 48, team_size: 1, duration_days: 30, max_members: null, sort: 4,
-      note: "시그니처·프리미엄 칵테일(정가 18,000~)까지 월 48잔. 잔당 4,560원. 위스키 15% 할인." },
+      note: "시그니처 칵테일까지 · 위스키 15% 할인" },
     { name: "팀 패스", price: 399000, kind: "team", days: "all", drinks_per_day: 3, monthly_cap: 75, team_size: 5, duration_days: 30, max_members: null, sort: 5,
-      note: "5명 등록 · 팀 합산 월 75잔 · 각자 하루 3잔. 1인 79,800원에 월 15잔, 법인카드 OK." },
+      note: "5명 · 1인 79,800원 · 법인카드 OK" },
     { name: "원데이", price: 19000, kind: "oneday", days: "all", drinks_per_day: 2, monthly_cap: null, team_size: 1, duration_days: 1, max_members: null, sort: 6,
-      note: "비회원 · 당일 2잔 19,000원 (정가 30,000). 회원이 데려온 동료용." },
+      note: "회원이 데려온 동료용 · 당일 2잔" },
     { name: "스탠다드 3개월", price: 429000, kind: "personal", days: "all", drinks_per_day: 3, monthly_cap: 32, team_size: 1, duration_days: 90, max_members: null, sort: 7,
-      note: "스탠다드 3개월 선불 429,000원. 월 143,000원꼴로 48,000원 아껴요." },
+      note: "월 143,000원꼴 · 3개월 한 번에" },
   ];
   const PASS_KIND = { personal: "개인", team: "팀", oneday: "원데이" };
   const passCache = { mine: null, owned: null, at: 0, byBar: {} };
@@ -8169,7 +8169,7 @@
     const worth = cups * unit * months;
     if (worth <= p.price) return "";
     const off = Math.round((1 - p.price / worth) * 100);
-    return `정가 ${passWon(worth)}어치 · <b>${passWon(worth - p.price)} 아껴요</b> · 잔당 ${passWon(Math.round(p.price / (cups * months) / 10) * 10)}`;
+    return `<b>${passWon(worth - p.price)} 아껴요</b> · 잔당 ${passWon(Math.round(p.price / (cups * months) / 10) * 10)}`;
   }
   // 정원 — seats: { plan_id: 현재 인원 }. 정원이 없으면 빈 문자열.
   function passSeatLine(p, seats) {
@@ -8426,10 +8426,8 @@
       <div class="pass-plans">
         ${plans.map((x) => { const q = passUpgradeQuote(p, x); return `
           <button class="pass-plan pressable" data-plan="${x.id}">
-            <span class="pp-name">${esc(x.name)}${x.kind !== "personal" ? ` <i>${PASS_KIND[x.kind]}</i>` : ""}</span>
-            <span class="pp-price">${passWon(x.price)}<small>${passPer(x)}</small></span>
-            ${passValueLine(x, p) ? `<span class="pp-value">${passValueLine(x, p)}</span>` : ""}
-            <span class="pp-line">${esc(passPlanLine(x))}</span>
+            <span class="pp-top"><span class="pp-name">${esc(x.name)}${x.kind !== "personal" ? ` <i>${PASS_KIND[x.kind]}</i>` : ""}</span><span class="pp-price">${passWon(x.price)}<small>${passPer(x)}</small></span></span>
+            <span class="pp-line">${esc(passPlanLine(x))}${passValueLine(x, p) ? ` · ${passValueLine(x, p)}` : ""}</span>
             <span class="pp-note">차액 약 <b>${passWon(q.diff)}</b> (남은 ${q.remain}일 ≈ ${passWon(q.credit)} 인정)</span>
           </button>`; }).join("")}
       </div>
@@ -8619,13 +8617,13 @@
         ${on && !mine && r.plans.length ? `
           <div class="pass-plans">
             ${r.plans.map((p) => `
-              <button class="pass-plan pressable ${passFull(p, r.seats) ? "full" : ""}" data-plan="${p.id}">
-                <span class="pp-name">${esc(p.name)}${p.kind !== "personal" ? ` <i>${PASS_KIND[p.kind]}</i>` : ""}${p.max_members ? ` <em class="pp-seat ${passFull(p, r.seats) ? "full" : ""}">${passSeatLine(p, r.seats)}</em>` : ""}</span>
-                <span class="pp-price">${passWon(p.price)}<small>${passPer(p)}</small></span>
-                ${passValueLine(p, r.settings) ? `<span class="pp-value">${passValueLine(p, r.settings)}</span>` : ""}
-                ${CFG.TOSS_CLIENT_KEY && onceApplies(p) ? `<span class="pp-once">정기 구독 가격 · 언제든 해지 <b>· 한 번만 ${passWon(oncePrice(p, r.settings))}</b></span>` : ""}
-                <span class="pp-line">${esc(passPlanLine(p))}</span>
-                ${p.note ? `<span class="pp-note">${esc(p.note)}</span>` : ""}
+              <button class="pass-plan pressable ${passFull(p, r.seats) ? "full" : ""} ${/⭐/.test(p.note || "") ? "hot" : ""}" data-plan="${p.id}">
+                <span class="pp-top">
+                  <span class="pp-name">${esc(p.name)}${p.kind !== "personal" ? ` <i>${PASS_KIND[p.kind]}</i>` : ""}${p.max_members ? ` <em class="pp-seat ${passFull(p, r.seats) ? "full" : ""}">${passSeatLine(p, r.seats)}</em>` : ""}</span>
+                  <span class="pp-price">${passWon(p.price)}<small>${passPer(p)}</small></span>
+                </span>
+                <span class="pp-line">${esc(passPlanLine(p))}${passValueLine(p, r.settings) ? ` · ${passValueLine(p, r.settings)}` : ""}</span>
+                ${p.note ? `<span class="pp-note">${esc(p.note.replace(/⭐\s*/, ""))}</span>` : ""}
               </button>`).join("")}
           </div>
           <p class="pass-note">${CFG.TOSS_CLIENT_KEY ? `앱에서 결제하면 바로 시작돼요. <b>매달 자동결제</b>가 정가이고 체크카드도 돼요. 언제든 해지할 수 있어요. 한 번만 결제(카드·카카오페이·삼성페이 등)는 ${onceMarkup(r.settings)}% 더 내요.` : "신청하면 가게에서 결제한 뒤 운영자가 승인해요."} 팀 패스 초대를 받았다면 아래에서 코드를 넣어주세요.</p>
