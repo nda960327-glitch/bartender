@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.59.0";
+  const APP_BUILD = "2.60.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8122,21 +8122,23 @@
   const PASS_DAYS = { all: "매일", "tue-thu": "화·수·목" };
   /* 하우스 패스 운영안의 멤버십 상품 그대로. 요일 2 × 잔수 2 + 팀 + 원데이 + 3개월 선불.
    * 1잔 = 데일리·클래식·사워 중 1잔 / 하우스 위스키 30ml / 맥주 1병. "무제한"이란 말은 쓰지 않아요. */
+  // 30석 가게 기준 운영안. 요일 제한 없이(요일별 손님 차이가 없어요) 월 잔수 상한과 정원으로 자리를 지킵니다.
+  // 정원 합계 약 70명 · 상한대로 다 써도 하루 20명대라 기존 손님과 겹쳐도 앉을 자리가 남아요.
   const PASS_PRESET_PLANS = [
-    { name: "라이트", price: 45000, kind: "personal", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 1, duration_days: 30, sort: 1,
-      note: "퇴근하고 한 잔. 화·수·목 하루 1잔, 3번만 와도 본전 (15,000 × 3잔)." },
-    { name: "올데이", price: 69000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: null, team_size: 1, duration_days: 30, sort: 2,
-      note: "금·토에도 오는 분. 매일 하루 1잔." },
-    { name: "트리플", price: 89000, kind: "personal", days: "tue-thu", drinks_per_day: 3, monthly_cap: 24, team_size: 1, duration_days: 30, sort: 3,
-      note: "위스키 손님용. 화·수·목 하루 3잔, 월 24잔까지. 위스키 세트 3.5번 값." },
-    { name: "트리플 올데이", price: 139000, kind: "personal", days: "all", drinks_per_day: 3, monthly_cap: 36, team_size: 1, duration_days: 30, sort: 4,
-      note: "단골 헤비 유저. 매일 하루 3잔, 월 36잔까지." },
-    { name: "팀 패스", price: 179000, kind: "team", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 5, duration_days: 30, sort: 5,
-      note: "5명 등록 · 화·수·목 각자 하루 1잔. 1인 35,800원, 법인카드 OK." },
-    { name: "원데이", price: 15000, kind: "oneday", days: "all", drinks_per_day: 2, monthly_cap: null, team_size: 1, duration_days: 1, sort: 6,
+    { name: "위클리", price: 59000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: 8, team_size: 1, duration_days: 30, max_members: 25, sort: 1,
+      note: "주 2회 퇴근 한 잔. 하루 1잔 · 월 8잔, 4번만 와도 본전 (15,000 × 4잔)." },
+    { name: "스탠다드", price: 89000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: 12, team_size: 1, duration_days: 30, max_members: 20, sort: 2,
+      note: "주 3회. 하루 1잔 · 월 12잔, 잔당 7,400원." },
+    { name: "데일리", price: 129000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: 20, team_size: 1, duration_days: 30, max_members: 8, sort: 3,
+      note: "거의 매일 오는 분. 하루 1잔 · 월 20잔." },
+    { name: "더블", price: 169000, kind: "personal", days: "all", drinks_per_day: 2, monthly_cap: 30, team_size: 1, duration_days: 30, max_members: 5, sort: 4,
+      note: "위스키·단골 헤비 유저. 하루 2잔 · 월 30잔." },
+    { name: "팀 패스", price: 249000, kind: "team", days: "all", drinks_per_day: 1, monthly_cap: 30, team_size: 5, duration_days: 30, max_members: 3, sort: 5,
+      note: "5명 등록 · 각자 하루 1잔 · 팀 합산 월 30잔. 1인 49,800원, 법인카드 OK." },
+    { name: "원데이", price: 18000, kind: "oneday", days: "all", drinks_per_day: 2, monthly_cap: null, team_size: 1, duration_days: 1, max_members: null, sort: 6,
       note: "비회원 · 당일 2잔. 회원이 데려온 동료용." },
-    { name: "라이트 3개월", price: 120000, kind: "personal", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 1, duration_days: 90, sort: 7,
-      note: "라이트 3개월 선불. 월 40,000원꼴로 15,000원 아껴요." },
+    { name: "스탠다드 3개월", price: 249000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: 12, team_size: 1, duration_days: 90, max_members: 5, sort: 7,
+      note: "스탠다드 3개월 선불. 월 83,000원꼴로 18,000원 아껴요." },
   ];
   const PASS_KIND = { personal: "개인", team: "팀", oneday: "원데이" };
   const passCache = { mine: null, owned: null, at: 0, byBar: {} };
@@ -8151,9 +8153,18 @@
     if (p.monthly_cap) bits.push(`월 ${p.monthly_cap}잔까지`);
     if (p.kind === "team") bits.push(`${p.team_size}명`);
     if (p.kind === "oneday" || p.duration_days < 7) bits.push(`${p.duration_days}일`);
+    if (p.days === "all") bits.shift();   // "매일"은 굳이 안 써요
     else if (p.duration_days >= 60) bits.push(`${Math.round(p.duration_days / 30)}개월 선불`);
     return bits.join(" · ");
   }
+  // 정원 — seats: { plan_id: 현재 인원 }. 정원이 없으면 빈 문자열.
+  function passSeatLine(p, seats) {
+    if (!p.max_members) return "";
+    const taken = (seats && seats[String(p.id)]) || 0, left = Math.max(0, p.max_members - taken);
+    const unit = p.kind === "team" ? "팀" : "명";
+    return left === 0 ? "정원 마감" : `정원 ${p.max_members}${unit} · 남은 자리 ${left}`;
+  }
+  const passFull = (p, seats) => !!p.max_members && ((seats && seats[String(p.id)]) || 0) >= p.max_members;
   // "/월" · "/3개월" · 원데이는 없음
   const passPer = (p) => p.kind === "oneday" ? "" : p.duration_days >= 60 ? `/${Math.round(p.duration_days / 30)}개월` : "/월";
   function passFail(r, fallback) {
@@ -8466,8 +8477,8 @@
         ${on && !mine && r.plans.length ? `
           <div class="pass-plans">
             ${r.plans.map((p) => `
-              <button class="pass-plan pressable" data-plan="${p.id}">
-                <span class="pp-name">${esc(p.name)}${p.kind !== "personal" ? ` <i>${PASS_KIND[p.kind]}</i>` : ""}</span>
+              <button class="pass-plan pressable ${passFull(p, r.seats) ? "full" : ""}" data-plan="${p.id}">
+                <span class="pp-name">${esc(p.name)}${p.kind !== "personal" ? ` <i>${PASS_KIND[p.kind]}</i>` : ""}${p.max_members ? ` <em class="pp-seat ${passFull(p, r.seats) ? "full" : ""}">${passSeatLine(p, r.seats)}</em>` : ""}</span>
                 <span class="pp-price">${passWon(p.price)}<small>${passPer(p)}</small></span>
                 ${CFG.TOSS_CLIENT_KEY && onceApplies(p) ? `<span class="pp-once">정기 구독 가격 · 언제든 해지 <b>· 한 번만 ${passWon(oncePrice(p, r.settings))}</b></span>` : ""}
                 <span class="pp-line">${esc(passPlanLine(p))}</span>
@@ -8487,7 +8498,11 @@
     if (upBtn) upBtn.addEventListener("click", () => openUpgradeSheet(Object.assign({ bar_name: b.name, refund_policy: r.settings && r.settings.refund_policy }, mine)));
     const polBtn = $("#bar-pass-policy");
     if (polBtn) polBtn.addEventListener("click", () => openRefundPolicy({ bar_name: b.name, refund_policy: r.settings && r.settings.refund_policy }));
-    $$("#bar-pass .pass-plan").forEach((el) => el.addEventListener("click", () => choosePassPlan(b, key, r.plans.find((p) => p.id === +el.dataset.plan))));
+    $$("#bar-pass .pass-plan").forEach((el) => el.addEventListener("click", () => {
+      const p = r.plans.find((x) => x.id === +el.dataset.plan);
+      if (p && passFull(p, r.seats)) { toast(`${p.name} — 정원이 찼어요. 자리가 나면 다시 열려요.`); return; }
+      choosePassPlan(b, key, p);
+    }));
     const team = $("#bar-pass-team");
     if (team) team.addEventListener("click", joinTeamPass);
   }
@@ -9273,7 +9288,7 @@
       <div class="card">
         ${d.plans.map((p) => `
           <button class="pm-row pressable ${p.active ? "" : "off"}" data-plan="${p.id}">
-            <div class="pm-who"><b>${esc(p.name)}${p.active ? "" : " (숨김)"}</b><span>${passWon(p.price)}${passPer(p)} · ${esc(passPlanLine(p))}</span></div>
+            <div class="pm-who"><b>${esc(p.name)}${p.active ? "" : " (숨김)"}${p.max_members ? ` <em class="pp-seat ${passFull(p, d.seats) ? "full" : ""}">${(d.seats && d.seats[String(p.id)]) || 0}/${p.max_members}${p.kind === "team" ? "팀" : "명"}</em>` : ""}</b><span>${passWon(p.price)}${passPer(p)} · ${esc(passPlanLine(p))}</span></div>
             <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
           </button>`).join("")}
         <button class="host-chat-btn" id="pa-add" style="margin-top:${d.plans.length ? 10 : 0}px">+ 상품 추가</button>
@@ -9281,7 +9296,7 @@
         ${d.plans.some((p) => { const r = PASS_PRESET_PLANS.find((x) => x.name.replace(/s+/g, "") === String(p.name || "").replace(/s+/g, "")); return r && r.price !== p.price; })
           ? `<button class="host-chat-btn" id="pa-reprice" style="margin-top:8px">💱 운영안 가격으로 맞추기 <small style="font-weight:600;color:var(--text-sub)">(이름이 같은 상품만)</small></button>` : ""}
       </div>
-      <p class="pass-note" style="margin:10px 20px 24px">"무제한"이라는 말은 쓰지 마세요 — 잔수와 상한으로 적습니다. 원가 3,000원 넘는 메뉴는 1잔 풀에 넣지 않는 게 원칙이에요.</p>`;
+      <p class="pass-note" style="margin:10px 20px 24px">"무제한"이라는 말은 쓰지 마세요 — 잔수와 상한으로 적습니다. 원가 3,000원 넘는 메뉴는 1잔 풀에 넣지 않는 게 원칙이에요. 정원은 좌석 수의 2배쯤이 안전해요 (30석이면 회원 60~70명). 정원이 차면 "정원 마감"으로 보이고 자리가 나면 다시 열려요.</p>`;
     $("#pa-enabled").addEventListener("click", async () => {
       const on = !$("#pa-enabled").classList.contains("on");
       if (on && !d.plans.some((p) => p.active)) { toast("상품을 먼저 하나 만들어 주세요."); return; }
@@ -9321,10 +9336,10 @@
       const todo = d.plans.map((p) => ({ p, r: PASS_PRESET_PLANS.find((x) => x.name.replace(/s+/g, "") === String(p.name || "").replace(/s+/g, "")) }))
         .filter(({ p, r }) => r && r.price !== p.price);
       if (!todo.length) { toast("가격이 이미 다 맞아요."); return; }
-      if (!await btConfirm(`가격을 바꿀까요?\n\n${todo.map(({ p, r }) => `· ${p.name}: ${passWon(p.price)} → ${passWon(r.price)}`).join("\n")}\n\n이미 쓰는 중인 회원의 패스 가격은 그대로예요. 다음 신청부터 새 가격이 적용돼요.`, { yes: "바꾸기" })) return;
+      if (!await btConfirm(`운영안대로 바꿀까요? (가격·요일·잔수·정원)\n\n${todo.map(({ p, r }) => `· ${p.name}: ${passWon(p.price)} → ${passWon(r.price)}`).join("\n")}\n\n이미 쓰는 중인 회원의 패스는 그대로예요. 다음 신청부터 적용돼요.`, { yes: "바꾸기" })) return;
       let n = 0;
       for (const { p, r } of todo) {
-        const rr = await Sync.passSavePlan({ id: p.id, price: r.price, note: r.note });
+        const rr = await Sync.passSavePlan({ id: p.id, price: r.price, note: r.note, days: r.days, drinks_per_day: r.drinks_per_day, monthly_cap: r.monthly_cap, max_members: r.max_members });
         if (!rr.ok) { passFail(rr); break; }
         n++;
       }
@@ -9334,7 +9349,7 @@
   }
   function openPlanEditor(plan) {
     const a = state.passAdmin;
-    const p = plan || { name: "", price: 45000, kind: "personal", days: "tue-thu", drinks_per_day: 1, monthly_cap: null, team_size: 5, duration_days: 30, note: "", active: true, sort: (a.data.plans.length || 0) + 1 };
+    const p = plan || { name: "", price: 59000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: 8, team_size: 5, duration_days: 30, max_members: null, note: "", active: true, sort: (a.data.plans.length || 0) + 1 };
     const sel = (name, opts, cur) => `<select class="input" id="pe-${name}">${opts.map(([v, l]) => `<option value="${v}" ${String(v) === String(cur) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
     const bd = openSheetHTML(`
       <h3>${plan ? "상품 수정" : "새 상품"}</h3>
@@ -9342,11 +9357,12 @@
       <label class="form-label">가격 (원)</label><input class="input" id="pe-price" type="number" min="0" step="1000" value="${p.price}" inputmode="numeric">
       <div class="pe-grid">
         <div><label class="form-label">종류</label>${sel("kind", [["personal", "개인"], ["team", "팀 (초대 코드)"], ["oneday", "원데이 (비회원)"]], p.kind)}</div>
-        <div><label class="form-label">요일</label>${sel("days", [["tue-thu", "화·수·목"], ["all", "매일"]], p.days)}</div>
+        <div><label class="form-label">요일</label>${sel("days", [["all", "매일"], ["tue-thu", "화·수·목만"]], p.days)}</div>
         <div><label class="form-label">하루 잔수</label><input class="input" id="pe-drinks" type="number" min="1" max="9" value="${p.drinks_per_day}" inputmode="numeric"></div>
         <div><label class="form-label">월 상한 (비우면 없음)</label><input class="input" id="pe-cap" type="number" min="1" max="200" value="${p.monthly_cap || ""}" placeholder="예) 24" inputmode="numeric"></div>
         <div><label class="form-label">팀 인원</label><input class="input" id="pe-team" type="number" min="1" max="20" value="${p.team_size}" inputmode="numeric"></div>
         <div><label class="form-label">기간 (일)</label><input class="input" id="pe-dur" type="number" min="1" max="366" value="${p.duration_days}" inputmode="numeric"></div>
+        <div><label class="form-label">정원 (비우면 없음)</label><input class="input" id="pe-max" type="number" min="1" max="500" value="${p.max_members || ""}" placeholder="예) 25" inputmode="numeric"></div>
       </div>
       <label class="form-label">한 줄 설명</label><input class="input" id="pe-note" maxlength="120" value="${esc(p.note || "")}" placeholder="예) 3번만 와도 본전">
       <button class="big-btn accent ready" id="pe-save" style="margin-top:6px">${plan ? "저장" : "추가"}</button>
@@ -9358,6 +9374,7 @@
         drinks_per_day: Math.max(1, Math.min(9, +g("drinks") || 1)), monthly_cap: g("cap") ? Math.max(1, Math.min(200, +g("cap"))) : null,
         team_size: g("kind") === "team" ? Math.max(2, Math.min(20, +g("team") || 5)) : 1,
         duration_days: g("kind") === "oneday" ? 1 : Math.max(1, Math.min(366, +g("dur") || 30)),
+        max_members: g("max") ? Math.max(1, Math.min(500, +g("max"))) : null,
         note: g("note").trim(), active: p.active !== false, sort: p.sort || 0,
       };
       if (plan) row.id = plan.id;

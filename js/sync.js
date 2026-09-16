@@ -1996,12 +1996,14 @@
           sb.from("passes").select("*").eq("bar_key", barKey).eq("user_id", S.uid)
             .in("status", ["requested", "active", "grace"]).order("status").order("id", { ascending: false }).limit(1),
           sb.from("bar_owners").select("bar_key").eq("bar_key", barKey).eq("user_id", S.uid).limit(1),
+          sb.rpc("pass_plan_seats", { p_bar: barKey }),   // 상품별 인원 (pass-capacity.sql 없으면 빈 값)
         ]);
         if (r[0].error) return { ok: false, error: notInstalled(r[0].error) };
         return {
           ok: true,
           settings: r[0].data,
           plans: r[1].data || [],
+          seats: (r[4] && !r[4].error && r[4].data) || {},
           mine: (r[2].data || [])[0] || null,
           owner: !!(r[3].data || []).length,
         };
@@ -2123,16 +2125,18 @@
             .in("status", ["requested", "active", "grace"]).order("status").order("id", { ascending: false }).limit(500),
           // 회원 이름·번호 칸(pass-member.sql)이 서버에 있는지. 없으면 운영자 화면에 안내를 띄워요.
           sb.from("passes").select("member_phone").eq("bar_key", barKey).limit(1),
+          sb.rpc("pass_plan_seats", { p_bar: barKey }),
         ]);
         if (r[0].error) return { ok: false, error: notInstalled(r[0].error) };
         var memberCols = !r[3].error;
+        var seats = (r[4] && !r[4].error && r[4].data) || {};
         var ids = (r[2].data || []).map(function (p) { return p.user_id; });
         var nicks = {};
         if (ids.length) {
           var pr = await sb.from("profiles").select("id,nick,color").in("id", ids);
           (pr.data || []).forEach(function (x) { nicks[x.id] = x; });
         }
-        return { ok: true, settings: r[0].data, plans: r[1].data || [], passes: r[2].data || [], profiles: nicks, memberCols: memberCols };
+        return { ok: true, settings: r[0].data, plans: r[1].data || [], passes: r[2].data || [], profiles: nicks, memberCols: memberCols, seats: seats };
       } catch (e) { return { ok: false, error: (e && e.message) || "불러오지 못했어요." }; }
     },
     async passSaveSettings(row) {
@@ -2156,9 +2160,10 @@
       try {
         // 고칠 때는 서버가 매기는 칸(id·created_at)을 빼고 보내요. 넣으면 "column id can only be updated to DEFAULT".
         var patch = Object.assign({}, row); delete patch.id; delete patch.created_at;
-        var res = row.id
-          ? await sb.from("pass_plans").update(patch).eq("id", row.id).select("*").single()
-          : await sb.from("pass_plans").insert(patch).select("*").single();
+        var save = function (p) { return row.id ? sb.from("pass_plans").update(p).eq("id", row.id).select("*").single() : sb.from("pass_plans").insert(p).select("*").single(); };
+        var res = await save(patch);
+        // 정원 칸(pass-capacity.sql)이 없는 서버면 그 칸만 빼고 다시 저장해요
+        if (res.error && /max_members/.test(res.error.message || "") && "max_members" in patch) { delete patch.max_members; res = await save(patch); }
         if (res.error) return { ok: false, error: rpcMsg(res.error) };
         return { ok: true, plan: res.data };
       } catch (e) { return { ok: false, error: (e && e.message) || "저장하지 못했어요." }; }
