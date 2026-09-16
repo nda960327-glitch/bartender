@@ -49,7 +49,7 @@ window.BARTALK_CONFIG = {
   //   ⚠️ Secret Key 는 여기가 아니라 Supabase > Authentication > Attack Protection 에 넣습니다.
   //   ⚠️ 순서: 이 값을 넣고 배포한 "뒤에" Supabase 에서 캡차를 켜세요. 반대로 하면 이메일 로그인이 막혀요.
   // 비워두면 캡차 없이 동작합니다. (구글·카카오·네이버 로그인은 캡차와 상관없어요)
-  TURNSTILE_SITE_KEY: "",
+  TURNSTILE_SITE_KEY: "0x4AAAAAAE4sKDe14rlhhyaq",
 
   // 서버에서 가져올 최대 개수 (첫 로딩 속도와 관련)
   LIMIT_POSTS: 300,
