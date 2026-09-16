@@ -2118,6 +2118,7 @@
     async passOwnerData(barKey) {
       if (!ready()) return { ok: false, error: "offline" };
       try {
+        var now = new Date(), m0 = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
         var r = await Promise.all([
           sb.from("bar_pass_settings").select("*").eq("bar_key", barKey).maybeSingle(),
           sb.from("pass_plans").select("*").eq("bar_key", barKey).order("sort").order("id"),
@@ -2126,17 +2127,22 @@
           // 회원 이름·번호 칸(pass-member.sql)이 서버에 있는지. 없으면 운영자 화면에 안내를 띄워요.
           sb.from("passes").select("member_phone").eq("bar_key", barKey).limit(1),
           sb.rpc("pass_plan_seats", { p_bar: barKey }),
+          // 매출 현황용 — 이달에 끝난 패스(환불액은 closed_reason "refund:금액")와 이달 앱 결제
+          sb.from("passes").select("*").eq("bar_key", barKey).in("status", ["cancelled", "expired"]).gte("updated_at", m0).limit(500),
+          sb.from("pass_payments").select("*").eq("bar_key", barKey).eq("status", "paid").gte("paid_at", m0).limit(1000),
         ]);
         if (r[0].error) return { ok: false, error: notInstalled(r[0].error) };
         var memberCols = !r[3].error;
         var seats = (r[4] && !r[4].error && r[4].data) || {};
+        var closed = (r[5] && !r[5].error && r[5].data) || [];
+        var payments = (r[6] && !r[6].error && r[6].data) || [];
         var ids = (r[2].data || []).map(function (p) { return p.user_id; });
         var nicks = {};
         if (ids.length) {
           var pr = await sb.from("profiles").select("id,nick,color").in("id", ids);
           (pr.data || []).forEach(function (x) { nicks[x.id] = x; });
         }
-        return { ok: true, settings: r[0].data, plans: r[1].data || [], passes: r[2].data || [], profiles: nicks, memberCols: memberCols, seats: seats };
+        return { ok: true, settings: r[0].data, plans: r[1].data || [], passes: r[2].data || [], profiles: nicks, memberCols: memberCols, seats: seats, closed: closed, payments: payments };
       } catch (e) { return { ok: false, error: (e && e.message) || "불러오지 못했어요." }; }
     },
     async passSaveSettings(row) {

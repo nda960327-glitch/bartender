@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.61.2";
+  const APP_BUILD = "2.62.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8197,7 +8197,85 @@
     passCache.at = Date.now();
     return passCache;
   }
-  function invalidatePasses() { passCache.at = 0; passCache.byBar = {}; }
+  function invalidatePasses() { passCache.at = 0; passCache.byBar = {}; passCache.ownerData = {}; }
+
+  /* ---------- 구독 매출 현황 (운영자) ----------
+   * 이달 확정 = 앱 결제(pass_payments) + 가게 결제 승인(approved_at 이달) − 환불(closed_reason "refund:금액")
+   * 다음 달 예상 = 자동결제 예정(카드 등록·해지 요청 없음) / 수동 연장 미정 / 해지 예정 으로 나눠서 보여줘요.
+   * 목표는 설정(goal_monthly)에 두고, 서버에 칸이 없으면 이 기기에 저장해요. */
+  const GOAL_DEFAULT = 15000000;
+  function passGoal(barKey, st) {
+    if (st && +st.goal_monthly > 0) return +st.goal_monthly;
+    try { const v = +localStorage.getItem("bt_pass_goal_" + barKey); if (v > 0) return v; } catch {}
+    return GOAL_DEFAULT;
+  }
+  function passRevenue(d) {
+    const now = new Date();
+    const m0 = new Date(now.getFullYear(), now.getMonth(), 1).getTime(), m1 = new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime(), m2 = new Date(now.getFullYear(), now.getMonth() + 2, 1).getTime();
+    const inMonth = (t) => { const x = t ? new Date(t).getTime() : 0; return x >= m0 && x < m1; };
+    const passes = d.passes || [], closed = d.closed || [], payments = d.payments || [];
+    const sum = (arr, f) => arr.reduce((s, p) => s + (f ? f(p) : (+p.price || 0)), 0);
+    const paidApp = sum(payments, (p) => +p.amount || 0);
+    const paidManual = sum(passes.concat(closed).filter((p) => p.paid_via !== "toss" && !p.team_id && inMonth(p.approved_at)));
+    const refunds = sum(closed.filter((p) => /^refund:/.test(p.closed_reason || "") && inMonth(p.updated_at)), (p) => +String(p.closed_reason).slice(7) || 0);
+    const live = passes.filter((p) => passActive(p) && !p.team_id && p.kind !== "oneday");
+    const endsAt = (p) => p.ends_at ? new Date(p.ends_at + "T00:00:00").getTime() : 0;
+    const dueNext = (p) => (+p.duration_days || 30) <= 31 || (endsAt(p) >= m1 && endsAt(p) < m2);
+    const cancelling = live.filter((p) => p.cancel_requested_at);
+    const keep = live.filter((p) => !p.cancel_requested_at && dueNext(p));
+    const auto = keep.filter((p) => p.auto_renew && p.paid_via === "toss");
+    const manual = keep.filter((p) => !(p.auto_renew && p.paid_via === "toss"));
+    return {
+      paid: paidApp + paidManual, paidApp, paidManual, refunds, net: paidApp + paidManual - refunds,
+      mrr: Math.round(sum(live, (p) => (+p.price || 0) * 30 / Math.max(1, +p.duration_days || 30))),
+      nextAuto: sum(auto), nextAutoN: auto.length, nextManual: sum(manual), nextManualN: manual.length,
+      nextManualReq: manual.filter((p) => p.renew_requested_at).length, cancelWon: sum(cancelling), cancelN: cancelling.length,
+      grace: live.filter((p) => p.status === "grace").length, members: passes.filter(passActive).length, pending: passes.filter((p) => p.status === "requested").length,
+      refundN: closed.filter((p) => /^refund:/.test(p.closed_reason || "") && inMonth(p.updated_at)).length,
+    };
+  }
+  const passMan = (n) => n >= 10000 ? `${(n / 10000).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}만` : fmtNum(n);
+  function revenueCardHTML(barKey, d, opts) {
+    opts = opts || {};
+    const v = passRevenue(d), goal = passGoal(barKey, d.settings), pct = goal ? Math.min(100, Math.round(v.net / goal * 100)) : 0;
+    const mon = new Date().getMonth() + 1;
+    const next = v.nextAuto + v.nextManual;
+    return `
+      <div class="rev-card ${opts.compact ? "compact" : ""} ${pct >= 100 ? "done" : ""}" data-bar="${esc(barKey)}">
+        <div class="rev-head">
+          <span class="rev-title">${mon}월 구독 매출</span>
+          <b class="rev-net">${passWon(v.net)}</b>
+          <span class="rev-goal">/ 목표 ${passMan(goal)} · <b>${pct}%</b></span>
+          ${opts.compact ? "" : `<button class="text-btn rev-edit" data-bar="${esc(barKey)}">목표 바꾸기</button>`}
+        </div>
+        <div class="rev-bar"><i style="width:${pct}%"></i></div>
+        <div class="rev-lines">
+          <span>확정 ${passMan(v.paid)}${v.refunds ? ` − 환불 ${passMan(v.refunds)}(${v.refundN}건)` : ""}${v.pending ? ` · 승인 대기 ${v.pending}건` : ""}</span>
+          <span>다음 달 예상 <b>${passMan(next)}</b> — 자동결제 ${passMan(v.nextAuto)}(${v.nextAutoN}명)${v.nextManualN ? ` + 가게 결제 연장 ${passMan(v.nextManual)}(${v.nextManualN}명${v.nextManualReq ? `, 요청 ${v.nextManualReq}` : ""})` : ""}${v.cancelN ? ` − 해지 예정 ${passMan(v.cancelWon)}(${v.cancelN}명)` : ""}${v.grace ? ` · 결제 실패 재시도 ${v.grace}명` : ""}</span>
+          ${opts.compact ? "" : `<span>구독 중 ${v.members}명 · 월 환산 ${passMan(v.mrr)}</span>`}
+        </div>
+      </div>`;
+  }
+  async function editPassGoal(barKey, d) {
+    const cur = passGoal(barKey, d.settings);
+    const s = await btPrompt("이달 구독 매출 목표 (원)", String(cur));
+    if (s === null) return;
+    const n = Math.max(0, Math.round(+String(s).replace(/[^\d]/g, "") || 0));
+    try { localStorage.setItem("bt_pass_goal_" + barKey, String(n)); } catch {}
+    const st = d.settings || {};
+    const r = await Sync.passSaveSettings(Object.assign({ bar_key: barKey, bar_name: st.bar_name || (state.passAdmin && state.passAdmin.barName) || "", enabled: !!st.enabled, stamp_goal: st.stamp_goal || 4, special_drink: st.special_drink || "", notice: st.notice || "", refund_policy: st.refund_policy || "" }, { goal_monthly: n }));
+    if (r.ok) d.settings = Object.assign({}, r.settings, { goal_monthly: r.settings && r.settings.goal_monthly != null ? r.settings.goal_monthly : n });
+    toast(`목표를 ${passWon(n)}으로 바꿨어요.`);
+    renderPassAdminRevenue();
+  }
+  function renderPassAdminRevenue() {
+    const box = $("#pass-admin-rev"), a = state.passAdmin;
+    if (!box) return;
+    if (!a || !a.data) { box.innerHTML = ""; return; }
+    box.innerHTML = revenueCardHTML(a.barKey, a.data);
+    const ed = box.querySelector(".rev-edit");
+    if (ed) ed.addEventListener("click", () => editPassGoal(a.barKey, a.data));
+  }
 
   /* ---------- 홈 카드 ---------- */
   async function renderHomePass() {
@@ -8243,11 +8321,23 @@
     }
     if (owned.length) {
       html += `<div class="pass-home-owner">${owned.map((b) => `
+        <div class="rev-slot" data-bar="${esc(b.bar_key)}"></div>
         <button class="pass-scan-btn pressable" data-bar="${esc(b.bar_key)}" data-name="${esc(b.bar_name)}">
           <span>📷</span>입장 확인 · ${esc(b.bar_name || "우리 가게")}
         </button>`).join("")}</div>`;
     }
     box.innerHTML = html;
+    // 운영 가게의 이달 구독 매출 — 목표 달성률이 홈에서도 늘 보여요
+    owned.forEach(async (b) => {
+      const cached = passCache.ownerData && passCache.ownerData[b.bar_key];
+      const r = cached && Date.now() - cached.at < 60000 ? cached.r : await Sync.passOwnerData(b.bar_key);
+      if (!r.ok) return;
+      passCache.ownerData = passCache.ownerData || {}; passCache.ownerData[b.bar_key] = { r, at: Date.now() };
+      const slot = $(`#home-pass .rev-slot[data-bar="${CSS.escape(b.bar_key)}"]`);
+      if (!slot) return;
+      slot.innerHTML = revenueCardHTML(b.bar_key, r, { compact: true });
+      slot.querySelector(".rev-card").addEventListener("click", () => openPassAdmin(b.bar_key, b.bar_name, "stats"));
+    });
     $$("#home-pass [data-pass]").forEach((el) => el.addEventListener("click", () => openPass(+el.dataset.pass)));
     const find = $("#home-pass-find");
     if (find) find.addEventListener("click", () => show("bars"));
@@ -8899,6 +8989,7 @@
       const pend = r.passes.filter((p) => p.status === "requested").length;
       $$("#pass-admin-tabs .chip")[1].textContent = pend ? `회원 · 신청 ${pend}` : "회원";
     }
+    renderPassAdminRevenue();
     ({ scan: renderPassScanTab, members: renderPassMembersTab, plans: renderPassPlansTab, stats: renderPassStatsTab })[a.tab](area, a);
   }
   function passAdminReload() { if (state.passAdmin) { state.passAdmin.data = null; invalidatePasses(); renderPassAdmin(); } }
@@ -9175,7 +9266,7 @@
       const base = new Date(Math.max(new Date(p.ends_at + "T00:00:00").getTime(), Date.now()));
       base.setDate(base.getDate() + (p.duration_days || 30));
       const iso = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-${String(base.getDate()).padStart(2, "0")}`;
-      const rr = await Sync.passUpdate(id, { ends_at: iso, status: "active", expiry_notified_at: null, renew_requested_at: null });
+      const rr = await Sync.passUpdate(id, { ends_at: iso, status: "active", expiry_notified_at: null, renew_requested_at: null, approved_at: new Date().toISOString() });   // 연장 결제도 이달 매출로
       if (!rr.ok) { passFail(rr); return; }
       bd.remove(); toast(`${fmtDay(iso)}까지 연장했어요.`); passAdminReload();
     });
@@ -9277,6 +9368,8 @@
           <button class="toggle ${st.enabled ? "on" : ""}" id="pa-enabled" role="switch" aria-checked="${!!st.enabled}"><span class="knob"></span></button>
         </div>
         <p class="pass-note">${st.enabled ? "가게 페이지에 상품이 보이고 신청을 받아요." : "꺼져 있으면 손님에게 안 보여요. 상품을 먼저 만들고 켜세요."}</p>
+        <label class="form-label">월 구독 매출 목표 (원) <span class="label-opt">운영자 화면과 홈에 달성률로 보여요</span></label>
+        <input class="input" id="pa-target" type="number" min="0" step="100000" value="${passGoal(a.barKey, st)}" inputmode="numeric">
         <label class="form-label">도장 목표 (이달 n번째 방문에 보상)</label>
         <input class="input" id="pa-goal" type="number" min="2" max="10" value="${st.stamp_goal || 4}" inputmode="numeric">
         <label class="form-label">보상 — 이달의 한정 칵테일</label>
@@ -9324,9 +9417,10 @@
     renderPassOwners(a);
     $("#pa-save").addEventListener("click", async () => {
       const goal = Math.max(2, Math.min(10, +$("#pa-goal").value || 4));
-      const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: !!st.enabled, stamp_goal: goal, special_drink: $("#pa-special").value.trim(), notice: $("#pa-notice").value.trim(), refund_policy: $("#pa-refund").value.trim(), refund_drink_price: Math.max(0, +$("#pa-drink-price").value || 0), refund_penalty_pct: Math.max(0, Math.min(100, +$("#pa-penalty").value || 0)), once_markup_pct: Math.max(0, Math.min(100, +$("#pa-once").value || 0)) });
+      const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: !!st.enabled, stamp_goal: goal, special_drink: $("#pa-special").value.trim(), notice: $("#pa-notice").value.trim(), refund_policy: $("#pa-refund").value.trim(), refund_drink_price: Math.max(0, +$("#pa-drink-price").value || 0), refund_penalty_pct: Math.max(0, Math.min(100, +$("#pa-penalty").value || 0)), once_markup_pct: Math.max(0, Math.min(100, +$("#pa-once").value || 0)), goal_monthly: Math.max(0, +$("#pa-target").value || 0) });
       if (!r.ok) { passFail(r); return; }
-      d.settings = r.settings; passCache.byBar = {}; toast("저장했어요.");
+      try { localStorage.setItem("bt_pass_goal_" + a.barKey, String(Math.max(0, +$("#pa-target").value || 0))); } catch {}
+      d.settings = Object.assign({}, r.settings, r.settings && r.settings.goal_monthly == null ? { goal_monthly: Math.max(0, +$("#pa-target").value || 0) } : {}); passCache.byBar = {}; toast("저장했어요."); renderPassAdminRevenue();
     });
     $$("#pass-admin-area [data-plan]").forEach((b) => b.addEventListener("click", () => openPlanEditor(d.plans.find((p) => p.id === +b.dataset.plan))));
     $("#pa-add").addEventListener("click", () => openPlanEditor(null));
