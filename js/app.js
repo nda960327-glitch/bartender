@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.62.1";
+  const APP_BUILD = "2.62.2";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8215,9 +8215,17 @@
     const inMonth = (t) => { const x = t ? new Date(t).getTime() : 0; return x >= m0 && x < m1; };
     const passes = d.passes || [], closed = d.closed || [], payments = d.payments || [];
     const sum = (arr, f) => arr.reduce((s, p) => s + (f ? f(p) : (+p.price || 0)), 0);
-    const paidApp = sum(payments, (p) => +p.amount || 0);
-    const paidManual = sum(passes.concat(closed).filter((p) => p.paid_via !== "toss" && !p.team_id && inMonth(p.approved_at)));
-    const refunds = sum(closed.filter((p) => /^refund:/.test(p.closed_reason || "") && inMonth(p.updated_at)), (p) => +String(p.closed_reason).slice(7) || 0);
+    const byId = {}; passes.concat(closed).forEach((p) => { byId[p.id] = p; });
+    const items = [];
+    payments.forEach((p) => items.push({ kind: "app", amount: +p.amount || 0, at: p.paid_at || p.created_at, pass: byId[p.pass_id] || null, id: p.pass_id }));
+    passes.concat(closed).filter((p) => p.paid_via !== "toss" && !p.team_id && inMonth(p.approved_at))
+      .forEach((p) => items.push({ kind: "manual", amount: +p.price || 0, at: p.approved_at, pass: p, id: p.id, voided: p.closed_reason === "void" }));
+    closed.filter((p) => /^refund:/.test(p.closed_reason || "") && inMonth(p.updated_at))
+      .forEach((p) => items.push({ kind: "refund", amount: -(+String(p.closed_reason).slice(7) || 0), at: p.updated_at, pass: p, id: p.id }));
+    items.sort((x, y2) => new Date(y2.at || 0) - new Date(x.at || 0));
+    const paidApp = sum(items.filter((i) => i.kind === "app"), (i) => i.amount);
+    const paidManual = sum(items.filter((i) => i.kind === "manual" && !i.voided), (i) => i.amount);
+    const refunds = -sum(items.filter((i) => i.kind === "refund"), (i) => i.amount);
     const live = passes.filter((p) => passActive(p) && !p.team_id && p.kind !== "oneday");
     const endsAt = (p) => p.ends_at ? new Date(p.ends_at + "T00:00:00").getTime() : 0;
     const dueNext = (p) => (+p.duration_days || 30) <= 31 || (endsAt(p) >= m1 && endsAt(p) < m2);
@@ -8231,7 +8239,9 @@
       nextAuto: sum(auto), nextAutoN: auto.length, nextManual: sum(manual), nextManualN: manual.length,
       nextManualReq: manual.filter((p) => p.renew_requested_at).length, cancelWon: sum(cancelling), cancelN: cancelling.length,
       grace: live.filter((p) => p.status === "grace").length, members: passes.filter(passActive).length, pending: passes.filter((p) => p.status === "requested").length,
-      refundN: closed.filter((p) => /^refund:/.test(p.closed_reason || "") && inMonth(p.updated_at)).length,
+      refundN: items.filter((i) => i.kind === "refund").length, items,
+      appN: items.filter((i) => i.kind === "app").length, manualN: items.filter((i) => i.kind === "manual" && !i.voided).length,
+      closedN: items.filter((i) => i.kind !== "refund" && !i.voided && i.pass && !passActive(i.pass) && i.pass.status !== "requested").length,
     };
   }
   const passMan = (n) => n >= 10000 ? `${(n / 10000).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}만` : fmtNum(n);
@@ -8250,11 +8260,36 @@
         </div>
         <div class="rev-bar"><i style="width:${pct}%"></i></div>
         <div class="rev-lines">
-          <span>확정 ${passMan(v.paid)}${v.refunds ? ` − 환불 ${passMan(v.refunds)}(${v.refundN}건)` : ""}${v.pending ? ` · 승인 대기 ${v.pending}건` : ""}</span>
+          <button class="rev-detail" data-bar="${esc(barKey)}">확정 ${passMan(v.paid)} (앱 ${v.appN}건 · 가게 ${v.manualN}건${v.closedN ? `, 종료된 패스 ${v.closedN}건 포함` : ""})${v.refunds ? ` − 환불 ${passMan(v.refunds)}(${v.refundN}건)` : ""}${v.pending ? ` · 승인 대기 ${v.pending}건` : ""} <u>내역</u></button>
           <span>다음 달 예상 <b>${passMan(next)}</b> — 자동결제 ${passMan(v.nextAuto)}(${v.nextAutoN}명)${v.nextManualN ? ` + 가게 결제 연장 ${passMan(v.nextManual)}(${v.nextManualN}명${v.nextManualReq ? `, 요청 ${v.nextManualReq}` : ""})` : ""}${v.cancelN ? ` − 해지 예정 ${passMan(v.cancelWon)}(${v.cancelN}명)` : ""}${v.grace ? ` · 결제 실패 재시도 ${v.grace}명` : ""}</span>
           ${opts.compact ? "" : `<span>구독 중 ${v.members}명 · 월 환산 ${passMan(v.mrr)}</span>`}
         </div>
       </div>`;
+  }
+  /* 이달 매출 내역 — 어디서 나온 숫자인지 한 건씩. 가게 결제 건은 "매출에서 빼기"(테스트·미결제)가 돼요. */
+  function openRevenueDetail(barKey, d) {
+    const v = passRevenue(d);
+    const who = (p) => p ? (d.profiles && d.profiles[p.user_id] ? d.profiles[p.user_id].nick : (p.member_name || "")) : "";
+    const stat = (p) => !p ? "" : passActive(p) ? "이용 중" : p.status === "requested" ? "승인 대기" : p.closed_reason === "void" ? "매출에서 뺌" : /^refund:/.test(p.closed_reason || "") ? "환불 종료" : p.closed_reason === "upgrade" ? "상품 바꿈" : "종료";
+    const rows = v.items.map((i) => `
+      <div class="rev-row ${i.voided ? "void" : ""}">
+        <div class="rev-row-l"><b>${i.kind === "refund" ? "↩ 환불" : i.kind === "app" ? "💳 앱 결제" : "🏪 가게 결제 승인"} · ${esc(i.pass ? i.pass.plan_name : "")}</b>
+          <span>${i.at ? fmtDate(new Date(i.at).getTime()) : ""}${who(i.pass) ? " · " + esc(who(i.pass)) : ""} · ${stat(i.pass)}</span></div>
+        <div class="rev-row-r"><b>${i.amount < 0 ? "−" : ""}${passWon(Math.abs(i.amount))}</b>
+          ${i.kind === "manual" && i.pass && !passActive(i.pass) && i.pass.status !== "requested" && !/^refund:/.test(i.pass.closed_reason || "") ? `<button class="text-btn rev-void" data-id="${i.id}" data-undo="${i.voided ? 1 : 0}">${i.voided ? "다시 넣기" : "매출에서 빼기"}</button>` : ""}</div>
+      </div>`).join("");
+    const bd = openSheetHTML(`
+      <h3>${new Date().getMonth() + 1}월 구독 매출 내역</h3>
+      <p class="sheet-sub">확정 ${passWon(v.paid)} − 환불 ${passWon(v.refunds)} = <b>${passWon(v.net)}</b><br>앱 결제는 결제 시각, 가게 결제는 승인 시각 기준이라 지금 종료된 패스도 이달에 승인했으면 잡혀요. 테스트나 돈을 안 받은 건은 "매출에서 빼기"를 누르세요.</p>
+      <div class="rev-list">${rows || '<p class="pass-note" style="padding:8px 0">이달 결제·승인 내역이 없어요.</p>'}</div>`);
+    bd.querySelectorAll(".rev-void").forEach((b) => b.addEventListener("click", async () => {
+      const id = +b.dataset.id, undo = b.dataset.undo === "1";
+      const rr = await Sync.passUpdate(id, { closed_reason: undo ? "owner" : "void" });
+      if (!rr.ok) { passFail(rr); return; }
+      const p = (d.closed || []).find((x) => x.id === id) || (d.passes || []).find((x) => x.id === id);
+      if (p) p.closed_reason = undo ? "owner" : "void";
+      bd.remove(); toast(undo ? "매출에 다시 넣었어요." : "매출에서 뺐어요."); renderPassAdminRevenue(); openRevenueDetail(barKey, d);
+    }));
   }
   async function editPassGoal(barKey, d) {
     const cur = passGoal(barKey, d.settings);
@@ -8275,6 +8310,8 @@
     box.innerHTML = revenueCardHTML(a.barKey, a.data);
     const ed = box.querySelector(".rev-edit");
     if (ed) ed.addEventListener("click", () => editPassGoal(a.barKey, a.data));
+    const dt = box.querySelector(".rev-detail");
+    if (dt) dt.addEventListener("click", () => openRevenueDetail(a.barKey, a.data));
   }
 
   /* ---------- 홈 카드 ---------- */
@@ -9185,7 +9222,7 @@
           <button class="pm-row pressable" data-open="${p.id}">
             <div class="pm-who">${who(p)}<span>${esc(p.plan_name)}${p.team_id ? "" : p.kind === "team" ? ` · 초대 ${esc(p.invite_code || "")}` : ""} · ${fmtDay(p.starts_at)}~${fmtDay(p.ends_at)}${p.status === "grace" ? " · 결제 확인 중" : ""}${p.paid_via === "toss" ? " · 💳" : ""}${p.team_id ? " · 팀원" : ""}</span>${p.cancel_requested_at ? '<em class="pm-flag warn">🛑 해지 요청</em>' : ""}${p.renew_requested_at ? '<em class="pm-flag">🔁 연장 요청</em>' : ""}</div>
             <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
-          </button>`).join("") : '<p class="pass-note" style="padding:8px 0">아직 회원이 없어요. 계산할 때 "월 45,000원이면 매일 되는데요"부터 시작해요.</p>'}
+          </button>`).join("") : '<p class="pass-note" style="padding:8px 0">아직 회원이 없어요. 계산할 때 "월 39,000원이면 퇴근길 한 잔이 되는데요"부터 시작해요.</p>'}
       </div>
       <button class="host-chat-btn" id="pm-reload" style="margin:12px 16px;width:calc(100% - 32px)">새로고침</button>
       <div style="height:16px"></div>`;
@@ -9383,7 +9420,7 @@
         <p class="pass-note">해지 때 이용한 잔은 이 가격으로 빼요. 보통 비회원 단품가(클래식 15,000원)로 잡아요.</p>
         <label class="form-label">"이번 한 번만" 결제 할증 (%) <span class="label-opt">정기 구독을 기본으로 만들어요</span></label>
         <input class="input" id="pa-once" type="number" min="0" max="100" value="${st.once_markup_pct != null ? st.once_markup_pct : ONCE_MARKUP_DEFAULT}" inputmode="numeric">
-        <p class="pass-note">카드 자동결제(정기)는 정가, 한 번만 내는 결제는 이만큼 더 받아요. 라이트 45,000원이면 한 번만 결제는 ${passWon(Math.round(45000 * (1 + (st.once_markup_pct != null ? +st.once_markup_pct : ONCE_MARKUP_DEFAULT) / 100) / 100) * 100)}. 0이면 같은 가격.</p>
+        <p class="pass-note">카드 자동결제(정기)는 정가, 한 번만 내는 결제는 이만큼 더 받아요. 라이트 39,000원이면 한 번만 결제는 ${passWon(Math.round(39000 * (1 + (st.once_markup_pct != null ? +st.once_markup_pct : ONCE_MARKUP_DEFAULT) / 100) / 100) * 100)}. 0이면 같은 가격.</p>
         <label class="form-label">환불·해지 규정 <span class="label-opt">비우면 기본 규정</span></label>
         <textarea class="input" id="pa-refund" rows="6" maxlength="2000" placeholder="${esc(PASS_REFUND_DEFAULT)}">${esc(st.refund_policy || "")}</textarea>
         <p class="pass-note">손님이 신청·해지할 때 이 규정을 봐요. 소비자분쟁해결기준(계속거래)에 맞춰 "시작 후 해지 = 남은 기간 일할 환불 − 위약금 10%"를 기본으로 뒀어요.</p>
