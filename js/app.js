@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.60.0";
+  const APP_BUILD = "2.60.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8122,22 +8122,27 @@
   const PASS_DAYS = { all: "매일", "tue-thu": "화·수·목" };
   /* 하우스 패스 운영안의 멤버십 상품 그대로. 요일 2 × 잔수 2 + 팀 + 원데이 + 3개월 선불.
    * 1잔 = 데일리·클래식·사워 중 1잔 / 하우스 위스키 30ml / 맥주 1병. "무제한"이란 말은 쓰지 않아요. */
-  // 30석 가게 기준 운영안. 요일 제한 없이(요일별 손님 차이가 없어요) 월 잔수 상한과 정원으로 자리를 지킵니다.
-  // 정원 합계 약 70명 · 상한대로 다 써도 하루 20명대라 기존 손님과 겹쳐도 앉을 자리가 남아요.
+  // 30석 가게 · 구독만으로 운영하는 설계 (구독 매출 월 2,000만 원 목표 — docs/하우스패스_구독전용_운영안.html)
+  // 요일 제한 없이 월 잔수 상한과 정원으로 자리를 지킵니다. 보틀킵은 1병 = 45ml × 15잔이라 잔수로 그대로 셉니다.
+  // 자주 오는 잔 패스는 정원을 좌석 수 근처로, 한 달에 3~4번 오는 보틀킵은 자주 안 오니 정원을 넉넉히 둬도 하루 방문이 35명 안쪽이에요.
   const PASS_PRESET_PLANS = [
-    { name: "위클리", price: 59000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: 8, team_size: 1, duration_days: 30, max_members: 25, sort: 1,
+    { name: "보틀킵", price: 150000, kind: "personal", days: "all", drinks_per_day: 3, monthly_cap: 15, team_size: 1, duration_days: 30, max_members: 60, sort: 1,
+      note: "하우스 위스키 1병 킵 (45ml × 15잔). 남은 병은 2개월 보관, 이월 없음. 하루 3잔까지." },
+    { name: "프리미엄 보틀", price: 250000, kind: "personal", days: "all", drinks_per_day: 3, monthly_cap: 15, team_size: 1, duration_days: 30, max_members: 15, sort: 2,
+      note: "12년급 위스키 1병 킵 (45ml × 15잔). 남은 병은 2개월 보관, 이월 없음." },
+    { name: "위클리", price: 59000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: 8, team_size: 1, duration_days: 30, max_members: 30, sort: 3,
       note: "주 2회 퇴근 한 잔. 하루 1잔 · 월 8잔, 4번만 와도 본전 (15,000 × 4잔)." },
-    { name: "스탠다드", price: 89000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: 12, team_size: 1, duration_days: 30, max_members: 20, sort: 2,
+    { name: "스탠다드", price: 89000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: 12, team_size: 1, duration_days: 30, max_members: 30, sort: 4,
       note: "주 3회. 하루 1잔 · 월 12잔, 잔당 7,400원." },
-    { name: "데일리", price: 129000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: 20, team_size: 1, duration_days: 30, max_members: 8, sort: 3,
+    { name: "데일리", price: 129000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: 20, team_size: 1, duration_days: 30, max_members: 8, sort: 5,
       note: "거의 매일 오는 분. 하루 1잔 · 월 20잔." },
-    { name: "더블", price: 169000, kind: "personal", days: "all", drinks_per_day: 2, monthly_cap: 30, team_size: 1, duration_days: 30, max_members: 5, sort: 4,
-      note: "위스키·단골 헤비 유저. 하루 2잔 · 월 30잔." },
-    { name: "팀 패스", price: 249000, kind: "team", days: "all", drinks_per_day: 1, monthly_cap: 30, team_size: 5, duration_days: 30, max_members: 3, sort: 5,
+    { name: "더블", price: 169000, kind: "personal", days: "all", drinks_per_day: 2, monthly_cap: 30, team_size: 1, duration_days: 30, max_members: 4, sort: 6,
+      note: "단골 헤비 유저. 하루 2잔 · 월 30잔." },
+    { name: "팀 패스", price: 249000, kind: "team", days: "all", drinks_per_day: 1, monthly_cap: 30, team_size: 5, duration_days: 30, max_members: 6, sort: 7,
       note: "5명 등록 · 각자 하루 1잔 · 팀 합산 월 30잔. 1인 49,800원, 법인카드 OK." },
-    { name: "원데이", price: 18000, kind: "oneday", days: "all", drinks_per_day: 2, monthly_cap: null, team_size: 1, duration_days: 1, max_members: null, sort: 6,
+    { name: "원데이", price: 18000, kind: "oneday", days: "all", drinks_per_day: 2, monthly_cap: null, team_size: 1, duration_days: 1, max_members: null, sort: 8,
       note: "비회원 · 당일 2잔. 회원이 데려온 동료용." },
-    { name: "스탠다드 3개월", price: 249000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: 12, team_size: 1, duration_days: 90, max_members: 5, sort: 7,
+    { name: "스탠다드 3개월", price: 249000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: 12, team_size: 1, duration_days: 90, max_members: 5, sort: 9,
       note: "스탠다드 3개월 선불. 월 83,000원꼴로 18,000원 아껴요." },
   ];
   const PASS_KIND = { personal: "개인", team: "팀", oneday: "원데이" };
@@ -9292,11 +9297,11 @@
             <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
           </button>`).join("")}
         <button class="host-chat-btn" id="pa-add" style="margin-top:${d.plans.length ? 10 : 0}px">+ 상품 추가</button>
-        <button class="host-chat-btn" id="pa-preset" style="margin-top:8px">🏁 운영안 상품 7종 채우기 <small style="font-weight:600;color:var(--text-sub)">(있는 건 건너뜀)</small></button>
+        <button class="host-chat-btn" id="pa-preset" style="margin-top:8px">🏁 운영안 상품 9종 채우기 <small style="font-weight:600;color:var(--text-sub)">(있는 건 건너뜀)</small></button>
         ${d.plans.some((p) => { const r = PASS_PRESET_PLANS.find((x) => x.name.replace(/s+/g, "") === String(p.name || "").replace(/s+/g, "")); return r && r.price !== p.price; })
           ? `<button class="host-chat-btn" id="pa-reprice" style="margin-top:8px">💱 운영안 가격으로 맞추기 <small style="font-weight:600;color:var(--text-sub)">(이름이 같은 상품만)</small></button>` : ""}
       </div>
-      <p class="pass-note" style="margin:10px 20px 24px">"무제한"이라는 말은 쓰지 마세요 — 잔수와 상한으로 적습니다. 원가 3,000원 넘는 메뉴는 1잔 풀에 넣지 않는 게 원칙이에요. 정원은 좌석 수의 2배쯤이 안전해요 (30석이면 회원 60~70명). 정원이 차면 "정원 마감"으로 보이고 자리가 나면 다시 열려요.</p>`;
+      <p class="pass-note" style="margin:10px 20px 24px">"무제한"이라는 말은 쓰지 마세요 — 잔수와 상한으로 적습니다. 원가 3,000원 넘는 메뉴는 1잔 풀에 넣지 않는 게 원칙이에요. 정원은 방문 횟수로 정해요 — 하루 1잔 패스는 좌석 수의 2배쯤, 한 달에 3~4번 오는 보틀킵은 좌석의 3~4배까지. 정원이 차면 "정원 마감"으로 보이고 자리가 나면 다시 열려요.</p>`;
     $("#pa-enabled").addEventListener("click", async () => {
       const on = !$("#pa-enabled").classList.contains("on");
       if (on && !d.plans.some((p) => p.active)) { toast("상품을 먼저 하나 만들어 주세요."); return; }
@@ -9319,7 +9324,7 @@
       const rows = PASS_PRESET_PLANS;
       const have = new Set(d.plans.map((p) => String(p.name || "").replace(/\s+/g, "")));
       const todo = rows.filter((row) => !have.has(row.name.replace(/\s+/g, "")));
-      if (!todo.length) { toast("운영안 상품 7종이 이미 다 있어요."); return; }
+      if (!todo.length) { toast("운영안 상품 9종이 이미 다 있어요."); return; }
       if (!await btConfirm(`하우스 패스 운영안의 상품을 넣을까요?\n\n${todo.map((r) => `· ${r.name} ${passWon(r.price)}`).join("\n")}\n\n(이미 있는 ${rows.length - todo.length}개는 건너뛰고, 나중에 하나씩 고칠 수 있어요)`, { yes: "넣기" })) return;
       let n = 0;
       for (const row of todo) {
