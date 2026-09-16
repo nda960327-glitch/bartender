@@ -2225,10 +2225,25 @@
     },
     /* ---------- 잔 선물 (supabase/pass-gift.sql) ---------- */
     async passGiftCreate(passId, message) { return callRpc("pass_gift_create", { p_pass: passId, p_message: message || "" }, "gift"); },
-    async passGiftInfo(code) { return callRpc("pass_gift_info", { p_code: code }, "gift"); },
-    async passGiftClaim(code) { return callRpc("pass_gift_claim", { p_code: code }, "gift"); },
+    // 없는 코드는 서버가 { error } 로 돌려줘요 (찍어보기 제한이 되돌려지지 않게)
+    async passGiftInfo(code) { var r = await callRpc("pass_gift_info", { p_code: code }); return r.ok && r.data && r.data.error ? { ok: false, error: r.data.error } : r; },
+    async passGiftClaim(code) { var r = await callRpc("pass_gift_claim", { p_code: code }); return r.ok && r.data && r.data.error ? { ok: false, error: r.data.error } : r; },
     async passGiftRedeem(code) { return callRpc("pass_gift_redeem", { p_code: code }, "gift"); },
     async passGiftsMine() { return callRpc("pass_gifts_mine", {}, "gifts"); },
+    /* ---------- 방어선 (supabase/guard.sql) ---------- */
+    passScanManual(passId, action, at) { return callRpc("pass_scan_manual", { p_pass: passId, p_action: action, p_at: at }); },
+    passExtendAll(barKey, days, reason) { return callRpc("pass_extend_all", { p_bar: barKey, p_days: days, p_reason: reason || "" }); },
+    passAuditList(barKey) { return callRpc("pass_audit_list", { p_bar: barKey }); },
+    passAcceptPartnerTerms(barKey) { return callRpc("pass_accept_partner_terms", { p_bar: barKey }); },
+    // 입점 약관 동의 여부 — 칸이 없는 서버(guard.sql 전)는 "unknown"
+    async passOwnerTerms(barKey) {
+      if (!ready()) return { ok: false, error: "offline" };
+      try {
+        var r = await sb.from("bar_owners").select("terms_accepted_at").eq("bar_key", barKey).eq("user_id", S.uid).maybeSingle();
+        if (r.error) return { ok: false, error: notInstalled(r.error) };
+        return { ok: true, accepted: !!(r.data && r.data.terms_accepted_at), owner: !!r.data };
+      } catch (e) { return { ok: false, error: (e && e.message) || "offline" }; }
+    },
     async passDeletePlan(id) {
       if (!ready()) return { ok: false, error: "로그인이 필요해요." };
       try {

@@ -8,11 +8,18 @@
  *  로그인 토큰으로 본인을 확인하고, 그 사람이 정말 그 가게 운영자인지 서버에서 다시 봅니다.
  *  환경변수: SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY · VAPID_* (푸시)
  * ============================================================ */
-const { sendTo, setupVapid, db } = require("./_push");
+const { sendTo, setupVapid } = require("./_push");
 
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY: SERVICE_KEY } = process.env;
 const q = encodeURIComponent;
 const H = () => ({ apikey: SERVICE_KEY, Authorization: "Bearer " + SERVICE_KEY, "Content-Type": "application/json", Prefer: "return=representation" });
+// 저장·수정은 JSON 헤더가 있어야 해요 (없으면 Supabase 가 거절하거나 빈 값을 돌려줘요)
+async function db(path, init) {
+  const r = await fetch(SUPABASE_URL + "/rest/v1/" + path, Object.assign({ headers: H() }, init || {}));
+  if (!r.ok) throw new Error("db " + r.status + " " + (await r.text()).slice(0, 200));
+  const t = await r.text();
+  return t ? JSON.parse(t) : [];
+}
 
 async function whoIs(token) {
   const r = await fetch(SUPABASE_URL + "/auth/v1/user", { headers: { apikey: SERVICE_KEY, Authorization: "Bearer " + token } });
@@ -45,6 +52,15 @@ async function offer(me, body) {
   const st = (await db("bar_pass_settings?bar_key=eq." + q(barKey) + "&select=bar_name,enabled"))[0];
   const barName = (st && st.bar_name) || body.bar_name || "우리 가게";
   const expires = new Date(Date.now() + hours * 3600 * 1000).toISOString();
+
+  // 남발 방지 — 회원 폰에 알림이 너무 자주 가면 앱 알림을 꺼버려요
+  const kstMidnight = new Date(Date.now() + 9 * 3600e3); kstMidnight.setUTCHours(0, 0, 0, 0);
+  const since = new Date(kstMidnight.getTime() - 9 * 3600e3).toISOString();
+  const todays = await db("pass_seat_offers?bar_key=eq." + q(barKey) + "&created_at=gte." + q(since) + "&select=created_at&order=created_at.desc");
+  if (todays.length >= 4) return { error: "빈자리 알림은 하루 4번까지 보낼 수 있어요." };
+  if (todays[0] && Date.now() - new Date(todays[0].created_at).getTime() < 10 * 60e3 && !body.silent) {
+    return { error: "알림은 10분에 한 번만 보낼 수 있어요. 숫자만 바꾸려면 잠시 뒤에 다시 보내주세요." };
+  }
 
   // 오늘 이미 살아 있는 알림은 닫고 새로 (숫자를 고쳐 다시 보내는 경우)
   await fetch(SUPABASE_URL + "/rest/v1/pass_seat_offers?bar_key=eq." + q(barKey) + "&expires_at=gt." + q(new Date().toISOString()), {

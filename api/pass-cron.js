@@ -4,6 +4,7 @@
  *  1) 기간이 끝난 패스를 '만료'로 바꿉니다 (자동 갱신이 아닌 것)
  *  2) 3일 뒤 끝나는 패스의 손님에게 알림을 보냅니다
  *  3) 자동 갱신 패스는 토스 빌링키로 다시 결제합니다
+ *  4) 정리 — 72시간 넘은 미결제 신청 취소, 기한 지난 선물 만료, 오래된 요청 기록 삭제
  *     실패하면 D+1 · D+3 · D+5 에 다시 시도하고, 그동안은 '유예' 상태로 계속 쓸 수 있어요.
  *     세 번 다 실패하면 만료 처리 + 알림.
  *
@@ -126,12 +127,20 @@ async function renewDue(today, out) {
   }
 }
 
+/* 4) 정리 — 72시간 넘은 미결제 신청 취소 · 기한 지난 선물 · 오래된 요청 기록 (supabase/guard.sql) */
+async function housekeeping(today, out) {
+  const r = await fetch(SUPABASE_URL + "/rest/v1/rpc/pass_housekeeping", { method: "POST", headers: H(), body: "{}" });
+  if (r.status === 404) { out.housekeeping = "guard.sql 미설치"; return; }
+  if (!r.ok) throw new Error("housekeeping " + r.status + " " + (await r.text()).slice(0, 200));
+  out.housekeeping = await r.json();
+}
+
 module.exports = async (req, res) => {
   if (!SUPABASE_URL || !SERVICE_KEY || !CRON_SECRET) return send(res, 500, { ok: false, error: "server_not_configured" });
   if (!secretMatches(presentedSecret(req), CRON_SECRET)) return send(res, 401, { ok: false, error: "unauthorized" });
   setupVapid();
   const out = { ok: true, today: kstDate(0), expired: 0, notified: 0, renewed: 0, retrying: 0, failed: 0, errors: [] };
-  for (const step of [renewDue, expireEnded, notifyEndingSoon]) {
+  for (const step of [renewDue, expireEnded, notifyEndingSoon, housekeeping]) {
     try { await step(out.today, out); } catch (e) { out.errors.push(step.name + ": " + (e && e.message)); }
   }
   return send(res, 200, out);

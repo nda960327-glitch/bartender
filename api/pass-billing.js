@@ -45,6 +45,17 @@ function addDays(iso, n) {
   return d.toISOString().slice(0, 10);
 }
 const q = encodeURIComponent;
+
+/* 사람마다 10분에 15번까지 (스크립트로 결제 요청을 두드리는 걸 막아요) — supabase/guard.sql 의 rate_events */
+async function tooMany(uid, kind, max, minutes) {
+  try {
+    const since = new Date(Date.now() - minutes * 60e3).toISOString();
+    const rows = await db("rate_events?user_id=eq." + uid + "&kind=eq." + q(kind) + "&at=gte." + q(since) + "&select=id");
+    if (rows.length >= max) return true;
+    await db("rate_events", { method: "POST", body: JSON.stringify({ user_id: uid, kind }) });
+  } catch (e) { /* guard.sql 이 아직 없으면 제한 없이 지나가요 */ }
+  return false;
+}
 // 1회 결제 가격 = 정가 + n% (가게 설정 once_markup_pct, 기본 20). 원데이·3개월권은 정가.
 function oncePrice(plan, st) {
   const applies = plan.kind !== "oneday" && (plan.duration_days || 30) <= 31;
@@ -196,6 +207,7 @@ module.exports = async (req, res) => {
     const body = await readJson(req);
     const fn = { issue, card, renew, remove, confirm }[body.action];
     if (!fn) return out(400, { ok: false, error: "알 수 없는 요청이에요." });
+    if (await tooMany(me.id, "billing", 15, 10)) return out(429, { ok: false, error: "요청이 너무 많아요. 잠시 뒤에 다시 해주세요." });
     const r = await fn(me, body);
     if (r.error) return out(200, { ok: false, error: r.error });
     return out(200, r);
