@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.65.2";
+  const APP_BUILD = "2.65.3";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -10484,10 +10484,44 @@
     setLoginBusy(false);
     updateEmailBtn();
     if (res.ok) {
-      setLoginStatus(`${email} 로 로그인 링크를 보냈어요.\n메일함(스팸함도 확인)에서 링크를 눌러주세요.`, "ok");
+      setLoginStatus(`${email} 로 로그인 메일을 보냈어요. (스팸함도 확인)\n이 기기에서 메일을 열면 링크를 누르고, 휴대폰 등 다른 기기에서 열었다면 메일의 숫자 코드를 아래에 넣어주세요.`, "ok");
+      codeEmail = email;
+      $("#login-code-box").hidden = false;
+      $("#login-code").value = "";
+      updateCodeBtn();
     } else {
       setLoginStatus("메일 발송 실패: " + res.error, "err");
     }
+  });
+
+  // 메일 숫자 코드로 로그인
+  let codeEmail = "";
+  const updateCodeBtn = () => {
+    const ok = $("#login-code").value.replace(/\D/g, "").length >= 6;
+    $("#login-code-go").disabled = !ok;
+    $("#login-code-go").classList.toggle("ready", ok);
+    $("#login-code-go").classList.toggle("accent", ok);
+  };
+  $("#login-code").addEventListener("input", () => {
+    const el = $("#login-code");
+    const digits = el.value.replace(/\D/g, "").slice(0, 10);
+    if (el.value !== digits) el.value = digits;
+    updateCodeBtn();
+  });
+  $("#login-code").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("#login-code-go").disabled) $("#login-code-go").click(); });
+  $("#login-code-go").addEventListener("click", async () => {
+    const email = codeEmail || $("#login-email").value.trim();
+    if (!email) { setLoginStatus("이메일 주소를 먼저 넣고 메일을 받아주세요.", "err"); return; }
+    $("#login-code-go").disabled = true;
+    setLoginStatus("코드를 확인하는 중이에요…");
+    const res = await Sync.verifyEmailCode(email, $("#login-code").value);
+    if (res.ok) { setLoginStatus("로그인됐어요.", "ok"); return; }
+    updateCodeBtn();
+    setLoginStatus(res.error, "err");
+  });
+  // 이메일 주소를 바꾸면 이전 코드 칸은 닫아요
+  $("#login-email").addEventListener("input", () => {
+    if (codeEmail && $("#login-email").value.trim() !== codeEmail) { codeEmail = ""; $("#login-code-box").hidden = true; }
   });
 
   // 술도감

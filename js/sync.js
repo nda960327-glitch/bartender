@@ -1161,6 +1161,25 @@
       }
     },
 
+    // 메일의 숫자 코드로 로그인 — 메일을 다른 기기에서 열었을 때 이 기기를 로그인시켜요
+    async verifyEmailCode(email, code) {
+      if (!sb) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      var token = String(code || "").replace(/\D/g, "");
+      if (token.length < 6) return { ok: false, error: "메일에 적힌 숫자 코드를 모두 넣어주세요." };
+      try {
+        var res = await sb.auth.verifyOtp({ email: email, token: token, type: "email" });
+        if (res.error) {
+          var m = res.error.message || "";
+          if (/expired|invalid/i.test(m)) return { ok: false, error: "코드가 틀렸거나 만료됐어요. 가장 최근에 받은 메일의 코드를 넣어주세요." };
+          if (/rate limit|too many/i.test(m)) return { ok: false, error: "시도가 너무 많아요. 잠시 뒤에 다시 해주세요." };
+          return { ok: false, error: m };
+        }
+        return { ok: true };   // 로그인 상태 변화(onAuthStateChange)가 이어서 앱으로 들어가요
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "로그인하지 못했어요." };
+      }
+    },
+
     async signOut() {
       if (!sb) return;
       try { await sb.auth.signOut(); } catch (e) {}
