@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.65.3";
+  const APP_BUILD = "2.66.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -845,7 +845,9 @@
     adminSecTimer: null,
     noti: store.get("noti", []),
     chats: store.get("chats", []),
-    dark: store.get("dark", !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)),
+    // 화면 테마: "system"(휴대폰 설정 따르기) · "light" · "dark". 예전 다크모드 스위치 값은 그대로 이어받아요.
+    themeMode: store.get("themeMode", (() => { const d = store.get("dark", null); return d === null ? "system" : (d ? "dark" : "light"); })()),
+    dark: document.documentElement.dataset.theme === "dark",
     push: store.get("push", true),
     view: "home",
     commTab: "all",
@@ -1580,8 +1582,27 @@
   }
 
   /* ---------- 테마 ---------- */
+  const darkMQ = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  const THEME_LABEL = { system: "휴대폰 설정", light: "밝게", dark: "어둡게" };
+  const isSamsungBrowser = /SamsungBrowser/i.test(navigator.userAgent || "");
+  function systemDark() {
+    let hint = null;
+    try { hint = sessionStorage.getItem("bartalk_sys"); } catch {}
+    if (hint === "dark" || hint === "light") return hint === "dark";   // 안드로이드 앱이 알려준 값이 가장 정확해요
+    return !!(darkMQ && darkMQ.matches);
+  }
   function applyTheme() {
-    document.documentElement.dataset.theme = state.dark ? "dark" : "light";
+    state.dark = state.themeMode === "dark" || (state.themeMode === "system" && systemDark());
+    const r = document.documentElement;
+    r.dataset.theme = state.dark ? "dark" : "light";
+    // 우리가 직접 어둡게 그리니 브라우저는 손대지 말라고 못박아요 (크롬 자동 다크 방지, 입력칸·스크롤바 색도 맞춰져요)
+    r.style.colorScheme = state.dark ? "only dark" : "only light";
+    const ms = $("#meta-color-scheme");
+    if (ms) ms.content = state.dark ? "only dark" : "only light";
+    const bar = state.dark ? "#17181c" : "#ffffff";
+    ["#meta-theme-light", "#meta-theme-dark"].forEach((sel) => { const m = $(sel); if (m) m.content = bar; });
+    const lab = $("#theme-mode-label");
+    if (lab) lab.textContent = THEME_LABEL[state.themeMode] || "휴대폰 설정";
     const ic = $("#mode-icon");
     ic.innerHTML = state.dark
       ? '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/>'
@@ -10942,10 +10963,27 @@
   });
   $("#btn-darkmode").addEventListener("click", () => {
     sfx("toggle");
-    state.dark = !state.dark;
-    store.set("dark", state.dark);
-    applyTheme();
+    const opts = [["system", "📱 휴대폰 설정 따르기", "밤에 휴대폰이 어두워지면 앱도 같이 어두워져요"], ["light", "☀️ 밝게", "항상 밝은 화면"], ["dark", "🌙 어둡게", "항상 어두운 화면"]];
+    const bd = openSheetHTML(`
+      <h3>화면 테마</h3>
+      <div class="theme-opts">${opts.map(([v, t, d]) => `<button class="theme-opt pressable ${state.themeMode === v ? "on" : ""}" data-mode="${v}"><b>${t}</b><span>${d}</span></button>`).join("")}</div>
+      ${isSamsungBrowser ? `<p class="pass-note theme-tip"><b>삼성 인터넷을 쓰고 있어요.</b> 삼성 인터넷의 "다크 모드"는 사이트 색을 강제로 바꿔서 색이 이상하게 보일 수 있어요. 여기서 <b>어둡게</b>를 고르거나, 삼성 인터넷 <b>설정 › 실험실(Labs) › 웹사이트 다크 테마 사용</b>을 켜면 바텐톡이 만든 어두운 화면이 그대로 보여요.</p>` : ""}`);
+    bd.querySelectorAll(".theme-opt").forEach((b) => b.addEventListener("click", () => {
+      state.themeMode = b.dataset.mode;
+      store.set("themeMode", state.themeMode);
+      applyTheme();
+      bd.querySelectorAll(".theme-opt").forEach((x) => x.classList.toggle("on", x === b));
+      toast(`화면 테마: ${THEME_LABEL[state.themeMode]}`);
+    }));
   });
+  // 휴대폰이 밤·낮으로 바뀌면 바로 따라가요 (휴대폰 설정 따르기일 때만)
+  if (darkMQ) {
+    const onSys = () => {
+      try { sessionStorage.removeItem("bartalk_sys"); } catch {}   // 브라우저가 알려주니 앱이 준 옛 값은 버려요
+      if (state.themeMode === "system") applyTheme();
+    };
+    if (darkMQ.addEventListener) darkMQ.addEventListener("change", onSys); else if (darkMQ.addListener) darkMQ.addListener(onSys);
+  }
   $("#toggle-sfx").addEventListener("click", () => {
     if (!window.BTSfx) { toast("효과음을 사용할 수 없어요."); return; }
     window.BTSfx.enabled = !window.BTSfx.enabled;

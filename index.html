@@ -3,10 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#17181c" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" id="meta-theme-light">
+<meta name="theme-color" content="#17181c" media="(prefers-color-scheme: dark)" id="meta-theme-dark">
 <meta name="description" content="바와 술을 좋아하는 사람들의 익명 커뮤니티 - 하우스 패스, 술도감, 칵테일 레시피, 모임, 채용정보">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light dark" id="meta-color-scheme">
+<script>
+/* 화면을 그리기 전에 밝게/어둡게를 정해요 (흰 화면 번쩍임 방지).
+   · 테마: 휴대폰 설정 따르기(기본) · 밝게 · 어둡게 — 마이페이지 > 화면 테마
+   · ?sys=dark|light : 안드로이드 앱이 휴대폰 야간 모드를 알려줘요 (삼성 인터넷은 이걸 웹에 숨겨요)
+   · color-scheme 을 "only …" 로 못박아 브라우저가 색을 멋대로 뒤집지 않게 해요 */
+(function () {
+  try {
+    var r = document.documentElement, u = new URL(location.href), sys = u.searchParams.get("sys");
+    if (sys === "dark" || sys === "light") {
+      sessionStorage.setItem("bartalk_sys", sys);
+      u.searchParams.delete("sys");
+      history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+    }
+    var mode = JSON.parse(localStorage.getItem("bartalk_themeMode") || "null");
+    if (!mode) { var old = localStorage.getItem("bartalk_dark"); mode = old === null ? "system" : (JSON.parse(old) ? "dark" : "light"); }
+    var hint = sessionStorage.getItem("bartalk_sys");
+    var dark = mode === "dark" || (mode === "system" && (hint ? hint === "dark" : !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches)));
+    r.dataset.theme = dark ? "dark" : "light";
+    r.style.colorScheme = dark ? "only dark" : "only light";
+    document.getElementById("meta-color-scheme").content = dark ? "only dark" : "only light";
+  } catch (e) {}
+})();
+</script>
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="format-detection" content="telephone=no">
 <meta name="rating" content="adult">
@@ -711,7 +734,8 @@
         <button class="row-link pressable" id="btn-backup" hidden><span class="row-label">데이터 백업/복원 (운영자)</span><span class="flex-1"></span><svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg></button>
         <input type="file" id="restore-file" accept="application/json,.json" hidden>
         <button class="row-link pressable" id="btn-darkmode">
-          <span class="row-label">다크모드</span><span class="flex-1"></span>
+          <span class="row-label">화면 테마</span><span class="flex-1"></span>
+          <span class="row-badge theme-badge" id="theme-mode-label">휴대폰 설정</span>
           <svg viewBox="0 0 24 24" class="mode-ic" id="mode-icon"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
         </button>
         <div class="row-link no-tap">

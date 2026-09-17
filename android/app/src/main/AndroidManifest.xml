@@ -28,8 +28,9 @@
             android:name="asset_statements"
             android:resource="@string/asset_statements" />
 
+        <!-- 라이브러리 LauncherActivity 를 감싼 우리 클래스: 휴대폰 야간 모드를 웹에 알려줘요 (java/kr/barapp/bartalk) -->
         <activity
-            android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:name=".LauncherActivity"
             android:exported="true"
             android:label="@string/app_name">
 

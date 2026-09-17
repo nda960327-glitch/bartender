@@ -2,7 +2,10 @@
 
 웹앱을 주소창 없이 감싸는 껍데기입니다. **화면은 전부 https://barapp.kr 이 그립니다.**
 그래서 웹을 고쳐 배포하면 앱도 같이 바뀌고, 스토어에 다시 올릴 필요가 없습니다.
-자체 코드는 사실상 없어요 — `AndroidManifest.xml` 과 리소스가 전부입니다.
+자체 코드는 한 파일뿐이에요 — `java/kr/barapp/bartalk/LauncherActivity.java` 가 휴대폰 야간 모드를 웹에 `?sys=dark|light` 로 알려줍니다.
+(삼성 인터넷이 다크 모드를 웹에 숨기고 색을 강제로 뒤집기 때문이에요.) 나머지는 `AndroidManifest.xml` 과 리소스이고, 야간 모드 색은 `res/values-night/colors.xml` 에 있어요.
+
+> 이 파일을 넣은 뒤에는 APK 를 다시 빌드해야 적용됩니다.
 
 ## 열기
 
