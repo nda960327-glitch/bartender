@@ -10,7 +10,7 @@
  * 커뮤니티 앱에서는 치명적이라 네트워크 우선으로 바꿨습니다.
  * 첫 화면이 아주 조금 느려지지만 파일이 작아 체감되지 않습니다.
  */
-const VERSION = "2.66.0";
+const VERSION = "2.66.1";
 const CACHE = "bartalk-v" + VERSION;
 
 // 오프라인에서도 앱이 뜨도록 미리 받아두는 파일
@@ -35,6 +35,8 @@ const SHELL = [
   "./icon.svg",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
+  "./icons/logo-full-256.png",
+  "./icons/logo-full-64.png",
 ];
 
 // 내용이 바뀌지 않는 자산 — 캐시 우선으로 빠르게

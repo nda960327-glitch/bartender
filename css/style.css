@@ -90,12 +90,14 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
    justify-content:center 대신 margin:auto 로 가운데를 맞춰요 — 그래야 위쪽도 스크롤됩니다. */
 .onboard { background: var(--bg); overflow-y: auto; }
 .onboard-inner { padding: 32px 28px; max-width: 400px; width: 100%; margin: auto; }
+/* 로고는 CSS 색이 아니라 꽉 찬 PNG 그림이에요. 삼성 인터넷·크롬의 강제 다크 모드는 CSS·SVG 색은 뒤집지만
+   투명한 곳 없는 컬러 그림은 대개 그대로 둬서, 야간 모드에서도 로고색이 안 변해요. (tools/gen-icons.js) */
 .onboard-logo {
-  width: 88px; height: 88px; margin: 0 auto 16px; border-radius: 26px;
-  background: linear-gradient(135deg, #ff5c35, #ff8ad4);
-  display: flex; align-items: center; justify-content: center; font-size: 46px;
-  box-shadow: var(--shadow);
+  width: 88px; height: 88px; margin: 0 auto 16px; border-radius: 26px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow); color-scheme: only light;
 }
+.onboard-logo .logo-img { width: 100%; height: 100%; display: block; }
 .onboard-title { font-size: 30px; font-weight: 800; text-align: center; letter-spacing: -0.5px; }
 .onboard-sub { text-align: center; color: var(--text-sub); font-size: 15.5px; margin: 6px 0 28px; }
 .ob-colors { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; min-height: 44px; }
@@ -2332,8 +2334,7 @@ select.input { appearance: auto; }
 }
 
 /* ---------- 로고 (세 물방울) ---------- */
-.logo-drops { width: 58%; height: 58%; display: block; }
-.logo-ic { width: 19px; height: 19px; display: inline-block; vertical-align: -3px; }
+.logo-ic { width: 20px; height: 20px; display: inline-block; vertical-align: -3px; border-radius: 6px; color-scheme: only light; }
 
 /* ---------- 시트 닫기 ---------- */
 .sheet { position: relative; }

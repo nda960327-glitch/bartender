@@ -93,9 +93,12 @@ const DROPS = [
 
 /**
  * @param {number} size 출력 픽셀 크기
- * @param {boolean} maskable true 면 전체 블리드 + 콘텐츠를 안전영역으로 축소
+ * @param {boolean|"full"} maskable true 면 전체 블리드 + 콘텐츠를 안전영역으로 축소,
+ *        "full" 이면 모서리 투명 없이 꽉 찬 정사각형 (앱 화면 로고용 — 둥근 모서리는 CSS 로 잘라요)
  */
 function draw(size, maskable) {
+  const full = maskable === "full";
+  if (full) maskable = false;
   const SS = 4;                     // 슈퍼샘플링
   const rgba = Buffer.alloc(size * size * 4);
   const scale = 512 / size;
@@ -111,7 +114,7 @@ function draw(size, maskable) {
           const ux = (px + (sx + 0.5) / SS) * scale;
           const uy = (py + (sy + 0.5) / SS) * scale;
 
-          if (!maskable && !roundRectInside(ux, uy, 512, 512, 120)) continue;
+          if (!maskable && !full && !roundRectInside(ux, uy, 512, 512, 120)) continue;
 
           // 배경: 분홍 대각 그라디언트
           const t = Math.max(0, Math.min(1, (ux + uy) / 1024));
@@ -152,6 +155,9 @@ const targets = [
   ["icon-maskable-192.png", 192, true],
   ["icon-maskable-512.png", 512, true],
   ["apple-touch-icon.png", 180, true],   // iOS 는 직접 마스크를 씌우므로 full-bleed
+  // 앱 화면 안 로고 — 투명한 곳이 없어야 삼성 인터넷·크롬의 강제 다크 모드가 "그림"으로 보고 색을 안 바꿔요
+  ["logo-full-256.png", 256, "full"],
+  ["logo-full-64.png", 64, "full"],
 ];
 
 fs.mkdirSync(OUT, { recursive: true });
