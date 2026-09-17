@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.66.2";
+  const APP_BUILD = "2.66.3";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8308,7 +8308,8 @@
    *  서버 쪽 규칙은 supabase/pass.sql, 결제는 api/pass-billing.js 에 있어요.
    * ============================================================ */
   const QR_LIB = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
-  const JSQR_LIB = "https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js";
+  // cdnjs 에는 jsQR 이 없어요(404). 카메라 QR 인식이 없는 브라우저(아이폰 사파리 등)는 이걸로 읽어요.
+  const JSQR_LIB = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   const TOSS_LIB = "https://js.tosspayments.com/v1/payment";
   const PASS_STATUS = { requested: "승인 대기", active: "사용 중", grace: "결제 확인 중", expired: "기간 끝", cancelled: "취소", rejected: "거절" };
   const PASS_DAYS = { all: "매일", "tue-thu": "화·수·목" };
