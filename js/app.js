@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.66.1";
+  const APP_BUILD = "2.66.2";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -1607,6 +1607,107 @@
     ic.innerHTML = state.dark
       ? '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/>'
       : '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>';
+  }
+
+  /* ---------- 삼성 인터넷 강제 다크 보호 ----------
+   * 삼성 인터넷은 휴대폰 다크 모드일 때 사이트의 CSS 색(버튼 주황, 프로필 물방울 색)을 멋대로 바꿔요.
+   * 사이트가 끌 방법은 없지만, 투명한 곳 없는 "그림"은 대개 그대로 둡니다.
+   * 그래서 삼성 인터넷에서만 그 색들을 같은 색의 작은 그림(미세한 결이 있어 사진처럼 보임)으로 덮어요.
+   *  · 주황 강조 요소: CSS 맨 끝 자동 생성 블록 (tools/gen-sbfix-css.js) + --accent-tile
+   *  · 프로필 물방울 · 색 고르기 동그라미 · 채용 썸네일: 화면에 생길 때마다 여기서 칠해요
+   * 강제로 켜고 끄기(점검용): localStorage bartalk_sbfix = "on" | "off" */
+  const SBFIX = (() => {
+    let force = null;
+    try { force = localStorage.getItem("bartalk_sbfix"); } catch {}
+    if (force === "on") return true;
+    if (force === "off") return false;
+    return /SamsungBrowser/i.test(navigator.userAgent || "");
+  })();
+  const tileCache = new Map();
+  function parseCssColors(str) {
+    const out = [];
+    const re = /(#[0-9a-f]{3,8}\b|rgba?\([^)]*\))\s*(\d+(?:\.\d+)?%)?/gi;
+    let m;
+    while ((m = re.exec(str))) {
+      let c = m[1], rgb;
+      if (c[0] === "#") {
+        let hx = c.slice(1);
+        if (hx.length <= 4) hx = hx.split("").map((x) => x + x).join("");
+        rgb = [0, 2, 4].map((i) => parseInt(hx.slice(i, i + 2), 16));
+      } else {
+        rgb = c.replace(/[^\d.,]/g, "").split(",").slice(0, 3).map(Number);
+      }
+      if (rgb.some((v) => isNaN(v))) continue;
+      out.push({ rgb, pos: m[2] ? parseFloat(m[2]) / 100 : null });
+    }
+    return out;
+  }
+  function colorTile(css) {
+    if (tileCache.has(css)) return tileCache.get(css);
+    const stops = parseCssColors(css);
+    let url = null;
+    if (stops.length) {
+      const N = 24, cv = document.createElement("canvas");
+      cv.width = cv.height = N;
+      const ctx = cv.getContext("2d");
+      const g = ctx.createLinearGradient(0, 0, N, N);
+      const rgb = (c, d) => `rgb(${c.map((v) => Math.max(0, Math.min(255, Math.round(v + d)))).join(",")})`;
+      if (stops.length === 1) {
+        g.addColorStop(0, rgb(stops[0].rgb, 6));
+        g.addColorStop(1, rgb(stops[0].rgb, -6));
+      } else {
+        stops.forEach((s, i) => g.addColorStop(s.pos != null ? Math.min(1, s.pos) : i / (stops.length - 1), rgb(s.rgb, 0)));
+      }
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, N, N);
+      // 미세한 결 — 색이 수백 가지가 되어 브라우저가 "아이콘"이 아니라 "사진"으로 봐요
+      const img = ctx.getImageData(0, 0, N, N), d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const n = (((i * 2654435761) >>> 0) % 7) - 3;
+        d[i] = Math.max(0, Math.min(255, d[i] + n));
+        d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + n));
+        d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + n));
+        d[i + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+      try { url = cv.toDataURL("image/png"); } catch { url = null; }
+    }
+    tileCache.set(css, url);
+    return url;
+  }
+  const TILE_SEL = ".avatar[style], .color-dot[style], .job-thumb[style]";
+  function tileEl(el) {
+    const bi = el.style.backgroundImage || "";
+    const tiled = bi.startsWith("url(");
+    const src = !tiled && /gradient/i.test(bi) ? bi : (tiled ? el.dataset.tileSrc : el.style.backgroundColor);
+    if (!src) return;
+    if (tiled && el.dataset.tileSrc === src) return;
+    const url = colorTile(src);
+    if (!url) return;
+    el.dataset.tileSrc = src;
+    el.style.backgroundImage = `url("${url}")`;
+    el.style.backgroundSize = "cover";
+    el.style.backgroundPosition = "center";
+  }
+  function startSbfix() {
+    if (!SBFIX || !document.body) return;
+    const r = document.documentElement;
+    r.classList.add("sbfix");
+    const accent = getComputedStyle(r).getPropertyValue("--accent").trim() || "#ff5c35";
+    const at = colorTile(accent);
+    if (at) r.style.setProperty("--accent-tile", `url("${at}")`);
+    const scan = (n) => {
+      if (n.nodeType !== 1) return;
+      if (n.matches && n.matches(TILE_SEL)) tileEl(n);
+      if (n.querySelectorAll) n.querySelectorAll(TILE_SEL).forEach(tileEl);
+    };
+    scan(document.body);
+    new MutationObserver((recs) => {
+      for (const rec of recs) {
+        if (rec.type === "childList") rec.addedNodes.forEach(scan);
+        else if (rec.target.matches && rec.target.matches(TILE_SEL)) tileEl(rec.target);
+      }
+    }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["style"] });
   }
 
   /* ---------- 화면 전환 ---------- */
@@ -13535,6 +13636,7 @@
 
   /* ---------- 초기화 ---------- */
   applyTheme();
+  startSbfix();
   updateBadge();
   // 오늘의 질문 — 화면이 자리 잡은 뒤에. 온보딩 중이면 다음 접속에 물어요.
   setTimeout(() => {

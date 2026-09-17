@@ -2796,3 +2796,38 @@ select.input { appearance: auto; }
 /* 운영자가 남의 댓글을 지울 때만 붙습니다. 내 것 지우는 버튼과 색을
    달리해서, 실수로 남의 글을 지우지 않게 눈에 걸리도록 했어요. */
 .cmt-del.admin { color: var(--accent); font-weight: 700; }
+
+/* ==== 자동 생성: 삼성 인터넷 강제 다크 보호 (tools/gen-sbfix-css.js) ==== */
+html.sbfix .b14 i,
+html.sbfix .bar-loc-btn.on,
+html.sbfix .bar-locfail-btns button:first-child,
+html.sbfix .bar-write-box .cmt-send,
+html.sbfix .bell-badge,
+html.sbfix .big-btn.accent.ready,
+html.sbfix .big-btn.danger.ready,
+html.sbfix .boost-tag,
+html.sbfix .cbt-nav.go,
+html.sbfix .cbt-progress i,
+html.sbfix .chat-unread,
+html.sbfix .chip.accent,
+html.sbfix .dp-step-no,
+html.sbfix .fab,
+html.sbfix .gd-pen-row input:checked + .gd-pen-box,
+html.sbfix .join-btn,
+html.sbfix .mkd-chat-btn,
+html.sbfix .nudge-on,
+html.sbfix .op-tag,
+html.sbfix .pc-tag,
+html.sbfix .pc-ttl i,
+html.sbfix .rank-bar span,
+html.sbfix .rev-bar i,
+html.sbfix .sr-limit,
+html.sbfix .study-bar i,
+html.sbfix .submit-btn.ready,
+html.sbfix .tab-dot,
+html.sbfix .toggle.on {
+  background-image: var(--accent-tile);
+  background-size: cover;
+  background-position: center;
+}
+/* ==== 자동 생성 끝 ==== */
