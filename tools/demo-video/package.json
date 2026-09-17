@@ -1,0 +1,17 @@
+{
+  "name": "bartalk-demo-video",
+  "private": true,
+  "type": "module",
+  "description": "바텐톡 시연 영상 만들기 (녹화 → MP4). 앱 배포와 무관한 도구예요.",
+  "scripts": {
+    "check": "node record.mjs --check && node sheet.mjs",
+    "record": "node record.mjs",
+    "encode": "node encode.mjs",
+    "verify": "node verify.mjs",
+    "all": "node record.mjs && node encode.mjs && node verify.mjs"
+  },
+  "dependencies": {
+    "mp4-muxer": "^5.2.2",
+    "puppeteer-core": "^24.0.0"
+  }
+}

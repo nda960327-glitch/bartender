@@ -2729,6 +2729,7 @@ select.input { appearance: auto; }
   padding: 15px 16px; border: none; cursor: pointer; text-align: left;
   color: var(--text);
 }
+.bar-info { padding: 16px 20px; }   /* 가게 페이지 "정보" 칸 — 여백이 없어 글자가 화면 끝에 붙었어요 */
 .bar-addr-ic { flex: none; font-size: 18px; }
 .bar-addr-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .bar-addr-text { font-size: 14.5px; line-height: 1.5; word-break: keep-all; }

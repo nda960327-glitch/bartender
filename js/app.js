@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.66.3";
+  const APP_BUILD = "2.66.4";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -12126,7 +12126,7 @@
       </button>` : ""}
 
       ${(b.hours || b.note || b.by) ? `
-      <div class="card">
+      <div class="card bar-info">
         <h3 class="card-h">정보</h3>
         ${row("영업시간", b.hours)}
         ${b.note ? `<div class="card-row col"><span class="card-k">소개</span><p class="card-multi">${escMsg(b.note)}</p></div>` : ""}
