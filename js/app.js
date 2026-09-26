@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.66.4";
+  const APP_BUILD = "2.67.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -10645,6 +10645,34 @@
   // 이메일 주소를 바꾸면 이전 코드 칸은 닫아요
   $("#login-email").addEventListener("input", () => {
     if (codeEmail && $("#login-email").value.trim() !== codeEmail) { codeEmail = ""; $("#login-code-box").hidden = true; }
+  });
+
+  // 비밀번호 로그인 — 비밀번호를 둔 계정(스토어·결제사 심사용)만. 일반 이용자는 위의 메일 코드로 들어와요.
+  //   심사용 계정 만들기: node tools/make-review-account.mjs
+  const updatePwBtn = () => {
+    const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($("#login-email").value.trim()) && $("#login-pw").value.length >= 6 && (!captcha.key || !!captcha.token);
+    $("#login-pw-go").disabled = !ok;
+    $("#login-pw-go").classList.toggle("ready", ok);
+    $("#login-pw-go").classList.toggle("accent", ok);
+  };
+  $("#login-pw-toggle").addEventListener("click", () => {
+    const box = $("#login-pw-box");
+    box.hidden = !box.hidden;
+    if (!box.hidden) { $("#login-pw").focus(); showCaptcha(); }
+  });
+  $("#login-pw").addEventListener("input", updatePwBtn);
+  $("#login-email").addEventListener("input", updatePwBtn);
+  $("#login-pw").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("#login-pw-go").disabled) $("#login-pw-go").click(); });
+  $("#login-pw-go").addEventListener("click", async () => {
+    $("#login-pw-go").disabled = true;
+    setLoginBusy(true);
+    setLoginStatus("로그인하는 중이에요…");
+    const res = await Sync.signInWithPassword($("#login-email").value.trim(), $("#login-pw").value, captcha.token);
+    resetCaptcha();          // 캡차 토큰은 한 번만 쓸 수 있어요
+    setLoginBusy(false);
+    updatePwBtn();
+    if (res.ok) { setLoginStatus("로그인됐어요.", "ok"); return; }
+    setLoginStatus(res.error, "err");
   });
 
   // 술도감

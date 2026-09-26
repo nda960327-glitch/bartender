@@ -14,7 +14,9 @@
   document.getElementById("doc").innerHTML = d.html;
 
   var OTHERS = [
+    ["pass", "하우스 패스 상품 안내", "pass.html"],
     ["terms", "이용약관", "terms.html"],
+    ["refund", "환불·해지 규정", "refund.html"],
     ["partner", "입점 가게 운영 약관", "partner-terms.html"],
     ["privacy", "개인정보처리방침", "privacy.html"],
     ["deletion", "계정 및 데이터 삭제", "account-deletion.html"],

@@ -99,7 +99,11 @@
         <input type="email" class="input" id="login-email" placeholder="이메일 주소" autocomplete="email" inputmode="email">
         <div id="login-captcha" class="login-captcha" hidden></div>
         <button class="big-btn accent" id="login-email-send" disabled>인증 메일 받기</button>
-        <p class="onboard-hint">비밀번호 없이, 메일로 받은 링크를 누르면 로그인돼요.</p>
+        <p class="onboard-hint">비밀번호 없이, 메일로 받은 링크를 누르면 로그인돼요. <button class="link-btn" id="login-pw-toggle">비밀번호가 있는 계정</button></p>
+        <div id="login-pw-box" class="login-code-row login-pw-row" hidden>
+          <input type="password" class="input" id="login-pw" placeholder="비밀번호" autocomplete="current-password">
+          <button class="big-btn" id="login-pw-go" disabled>로그인</button>
+        </div>
         <div id="login-code-box" class="login-code-box" hidden>
           <label class="form-label" for="login-code">메일을 다른 기기(휴대폰)에서 봤다면 — 메일의 숫자 코드를 여기에</label>
           <div class="login-code-row">

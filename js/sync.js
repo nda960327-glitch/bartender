@@ -1180,6 +1180,29 @@
       }
     },
 
+    // 비밀번호 로그인 — 비밀번호를 둔 계정(스토어·결제사 심사용 계정 등)만 써요. 일반 이용자는 메일 코드로 들어와요.
+    async signInWithPassword(email, password, captchaToken) {
+      if (!sb) return { ok: false, error: "서버에 연결되어 있지 않아요." };
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || "")) return { ok: false, error: "이메일 형식이 올바르지 않아요." };
+      if (!password || password.length < 6) return { ok: false, error: "비밀번호를 넣어주세요." };
+      try {
+        var res = await sb.auth.signInWithPassword({
+          email: email, password: password,
+          options: captchaToken ? { captchaToken: captchaToken } : undefined,
+        });
+        if (res.error) {
+          var m = res.error.message || "";
+          if (/captcha/i.test(m)) return { ok: false, error: "사람 확인이 끝나지 않았어요. 확인 상자를 다시 눌러주세요.", captcha: true };
+          if (/invalid login|invalid credentials/i.test(m)) return { ok: false, error: "이메일 또는 비밀번호가 맞지 않아요." };
+          if (/rate limit|too many/i.test(m)) return { ok: false, error: "시도가 너무 많아요. 잠시 뒤에 다시 해주세요." };
+          return { ok: false, error: m };
+        }
+        return { ok: true };   // onAuthStateChange 가 이어서 앱으로 들어가요
+      } catch (e) {
+        return { ok: false, error: (e && e.message) || "로그인하지 못했어요." };
+      }
+    },
+
     async signOut() {
       if (!sb) return;
       try { await sb.auth.signOut(); } catch (e) {}
