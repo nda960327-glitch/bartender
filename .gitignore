@@ -37,3 +37,7 @@ tools/demo-video/out/
 # 스토어 자료 — 그림과 글은 커밋하고, 합성 전 원본과 라이브러리만 빼요
 tools/store-assets/node_modules/
 store/.raw/
+
+# 결제경로 PPT 결과물 — 심사 계정 비밀번호와 화면 캡처가 들어가요. 도구(tools/payment-path)만 커밋해요.
+store/결제경로/
+tools/payment-path/node_modules/

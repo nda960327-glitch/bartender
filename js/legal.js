@@ -23,7 +23,7 @@
   var BIZ_HTML = (B.name && B.regNo)
     ? '<h2 class="section-title mt">사업자 정보</h2><p>상호 ' + B.name + (B.ceo ? ' · 대표 ' + B.ceo : '') + '<br>사업자등록번호 ' + B.regNo +
       (B.ecommNo ? '<br>통신판매업 신고 ' + B.ecommNo : '') + (B.address ? '<br>주소 ' + B.address : '') +
-      '<br>고객센터 ' + (B.phone ? B.phone + ' · ' : '') + SUPPORT_EMAIL + (B.hours ? ' (' + B.hours + ')' : '') + '</p>'
+      '<br>고객센터 ' + (B.phone ? B.phone + ' · ' : '') + SUPPORT_EMAIL + (B.hours ? ' · ' + B.hours : '') + '</p>'
     : '';
 
   window.BARTALK_LEGAL = {

@@ -1,0 +1,15 @@
+{
+  "name": "bartalk-payment-path",
+  "private": true,
+  "type": "module",
+  "description": "토스페이먼츠 카드사 심사용 결제경로 PPT 만들기. 앱 배포와 무관한 도구예요.",
+  "scripts": {
+    "shots": "node make.mjs --shots",
+    "pptx": "node make.mjs --pptx",
+    "all": "node make.mjs"
+  },
+  "dependencies": {
+    "pptxgenjs": "^3.12.0",
+    "puppeteer-core": "^24.0.0"
+  }
+}

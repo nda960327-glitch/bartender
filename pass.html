@@ -159,7 +159,7 @@
     if (b.regNo) rows.push("사업자등록번호 " + esc(b.regNo));
     if (b.ecommNo) rows.push("통신판매업 신고 " + esc(b.ecommNo));
     if (b.address) rows.push("사업장 주소 " + esc(b.address));
-    if (b.phone) rows.push("전화 " + esc(b.phone) + (b.hours ? " (" + esc(b.hours) + ")" : ""));
+    if (b.phone) rows.push("전화 " + esc(b.phone) + (b.hours ? " · " + esc(b.hours) : ""));
     if (m.email) rows.push("이메일 " + esc(m.email));
     document.getElementById("biz").innerHTML = "<b>사업자 정보</b>" + rows.join("<br>");
     if (b.name) document.getElementById("seller-name").textContent = b.name;
