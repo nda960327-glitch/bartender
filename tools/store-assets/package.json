@@ -1,0 +1,14 @@
+{
+  "name": "bartalk-store-assets",
+  "private": true,
+  "type": "module",
+  "description": "구글 플레이 · 애플 앱스토어에 올릴 아이콘, 그래픽, 스크린샷 만들기. 앱 배포와 무관한 도구예요.",
+  "scripts": {
+    "shots": "node make.mjs --shots",
+    "images": "node make.mjs --images",
+    "all": "node make.mjs"
+  },
+  "dependencies": {
+    "puppeteer-core": "^24.0.0"
+  }
+}

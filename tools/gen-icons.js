@@ -35,17 +35,22 @@ function chunk(type, data) {
   crc.writeUInt32BE(crc32(td));
   return Buffer.concat([len, td, crc]);
 }
-function encodePNG(w, h, rgba) {
-  const raw = Buffer.alloc((w * 4 + 1) * h);
+/** noAlpha 면 투명도 칸을 뺀 PNG 를 만들어요.
+ *  애플 앱스토어는 아이콘에 투명도 칸이 있으면, 전부 불투명해도 반려합니다. */
+function encodePNG(w, h, rgba, noAlpha) {
+  const ch = noAlpha ? 3 : 4;
+  const raw = Buffer.alloc((w * ch + 1) * h);
   for (let y = 0; y < h; y++) {
-    raw[y * (w * 4 + 1)] = 0;
-    rgba.copy(raw, y * (w * 4 + 1) + 1, y * w * 4, (y + 1) * w * 4);
+    const row = y * (w * ch + 1);
+    raw[row] = 0;
+    if (noAlpha) for (let x = 0; x < w; x++) rgba.copy(raw, row + 1 + x * 3, (y * w + x) * 4, (y * w + x) * 4 + 3);
+    else rgba.copy(raw, row + 1, y * w * 4, (y + 1) * w * 4);
   }
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(w, 0);
   ihdr.writeUInt32BE(h, 4);
   ihdr[8] = 8;   // bit depth
-  ihdr[9] = 6;   // RGBA
+  ihdr[9] = noAlpha ? 2 : 6;   // 2=RGB, 6=RGBA
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     chunk("IHDR", ihdr),
@@ -93,10 +98,11 @@ const DROPS = [
 
 /**
  * @param {number} size 출력 픽셀 크기
+ * @param {boolean} noAlpha 투명도 칸 없이 (애플 아이콘용)
  * @param {boolean|"full"} maskable true 면 전체 블리드 + 콘텐츠를 안전영역으로 축소,
  *        "full" 이면 모서리 투명 없이 꽉 찬 정사각형 (앱 화면 로고용 — 둥근 모서리는 CSS 로 잘라요)
  */
-function draw(size, maskable) {
+function draw(size, maskable, noAlpha) {
   const full = maskable === "full";
   if (full) maskable = false;
   const SS = 4;                     // 슈퍼샘플링
@@ -146,7 +152,7 @@ function draw(size, maskable) {
       rgba[i + 3] = Math.round((cov / total) * 255);
     }
   }
-  return encodePNG(size, size, rgba);
+  return encodePNG(size, size, rgba, noAlpha);
 }
 
 const targets = [
@@ -160,9 +166,14 @@ const targets = [
   ["logo-full-64.png", 64, "full"],
 ];
 
-fs.mkdirSync(OUT, { recursive: true });
-for (const [name, size, maskable] of targets) {
-  const buf = draw(size, maskable);
-  fs.writeFileSync(path.join(OUT, name), buf);
-  console.log(name, size + "x" + size, (buf.length / 1024).toFixed(1) + "KB");
+module.exports = { draw, encodePNG };
+
+// 직접 실행했을 때만 파일을 만들어요 (store-assets 는 draw 만 가져다 씁니다)
+if (require.main === module) {
+  fs.mkdirSync(OUT, { recursive: true });
+  for (const [name, size, maskable] of targets) {
+    const buf = draw(size, maskable);
+    fs.writeFileSync(path.join(OUT, name), buf);
+    console.log(name, size + "x" + size, (buf.length / 1024).toFixed(1) + "KB");
+  }
 }
