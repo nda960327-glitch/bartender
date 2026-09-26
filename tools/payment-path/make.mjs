@@ -14,7 +14,8 @@
  *    npm run pptx 를 다시 돌리면 그 그림으로 바뀌어요.
  *      02-*.png 하단 사업자정보   03-*.png 환불규정   04-*.png 로그인 화면(비밀번호 칸)
  *      05-*.png 상품 안내 페이지   06-*.png 앱 가게 페이지 상품 목록(로그인 후)
- *      07-*.png 결제 확인 창(이용기간·자동결제 동의)   08-*.png 토스 빌링 카드 입력창
+ *      07-*.png 결제 방식 선택 시트   08-*.png 결제 확인 창(이용기간·자동결제 동의)   09-*.png 토스 빌링 카드 입력창
+ *    06~09 는 로그인 뒤 화면이라 휴대폰 앱 캡처(png/jpg)를 그대로 넣어도 돼요.
  *    비밀번호는 프로젝트 루트 _review-account.md 에서 읽어 표지에 넣어요. 결과물 폴더는 커밋되지 않아요.
  */
 import fs from "node:fs";
@@ -117,15 +118,22 @@ const STEPS = [
   { no: 5, tag: "⑤ 상품 선택 / 구매과정 캡처 (1/4)", title: "상품 안내 — 정기결제 상품과 가격·이용기간",
     caption: "라이트 39,000 / 스타터 119,000 / 스탠다드 159,000 / 프리미엄 219,000 / 팀 패스 399,000원 — 30일 단위 자동결제. 상품마다 이용기간(결제일부터 30일)과 자동결제 안내 표기",
     need: "크롬에서 https://barapp.kr/pass.html 의 '1. 상품 구성과 가격' 카드들이 보이게 캡처" },
-  { no: 6, tag: "⑤ 상품 선택 / 구매과정 캡처 (2/4)", title: "앱 가게 페이지 — 상품 선택",
-    caption: "로그인 후 하단 '바' 탭 → '스테인 비밀의정원' → 하우스 패스 상품 목록에서 상품을 선택",
-    need: "로그인한 뒤 가게 '스테인 비밀의정원' 페이지의 하우스 패스 상품 목록이 보이게 캡처" },
-  { no: 7, tag: "⑤ 상품 선택 / 구매과정 캡처 (3/4)", title: "결제 확인 — 이용기간·자동결제 동의",
-    caption: "상품을 누르면 뜨는 확인 창: 상품명·금액·'오늘 결제 후 매달 같은 날 같은 카드로 자동 결제, 언제든 해지' 안내와 환불 규정 요약을 확인하고 동의",
-    need: "상품을 누른 뒤 뜨는 결제 확인 창(자동결제 안내 문구)이 보이게 캡처" },
-  { no: 8, tag: "⑥ 카드 결제경로 캡처", title: "토스페이먼츠 빌링 카드 입력창",
-    caption: "확인을 누르면 토스페이먼츠 정기결제용 카드 입력창(requestBillingAuth)이 열림 → 카드 등록 → 빌링키 발급 → 첫 회 결제. 현재 테스트 클라이언트 키로 연동",
-    need: "결제 확인 창에서 진행을 눌러 토스페이먼츠 '카드 정보를 입력해주세요' 창이 뜬 상태로 캡처 (카드번호는 입력하지 않아도 됨)" },
+  { no: 6, tag: "⑤ 상품 선택 / 구매과정 캡처 (2/5)", title: "앱 가게 페이지 — 상품 목록",
+    caption: "로그인 후 홈 → 바 찾기 → 'STAY IN 비밀의정원' 가게 페이지. 하우스 패스 상품 7종이 가격·잔 수·이용 조건과 함께 표시됨 (앱 화면 캡처, 상단에 기기 시각)",
+    need: "로그인한 뒤 가게 '스테인 비밀의정원' 페이지의 하우스 패스 상품 목록이 보이게 캡처",
+    facts: ["가게 페이지 상단: 상호·주소·지도", "하우스 패스 목록: 라이트 39,000 / 스타터 119,000 / 스탠다드 159,000 / 프리미엄 219,000 / 팀 패스 399,000원(월) · 원데이 19,000원 · 3개월권 429,000원", "카드마다 하루 잔 수·월 한도·정가 대비 절약액 표기", "안내문: '앱에서 결제하면 바로 시작돼요. 매달 자동결제가 정가이고 체크카드도 돼요. 언제든 해지할 수 있어요.'", "상품 카드를 누르면 다음 단계(결제 방식 선택)로 이동"] },
+  { no: 7, tag: "⑤ 상품 선택 / 구매과정 캡처 (3/5)", title: "결제 방식 선택 — 자동결제 / 1회 결제",
+    caption: "상품(스탠다드)을 누르면 결제 방식을 고르는 시트가 열림. 정기결제(빌링)는 '매달 자동결제 159,000원/월', 1회 결제는 20% 높은 190,800원",
+    need: "상품을 누른 뒤 뜨는 결제 방식 선택 시트가 보이게 캡처",
+    facts: ["💳 매달 자동결제 159,000원/월 — 체크카드도 돼요 · 언제든 해지  ← 빌링(정기결제) 경로", "📱 이번 한 번만 190,800원 — 정기보다 20% 비싸요 (간편결제 가능)  ← 1회 결제(일반결제) 경로", "이 문서의 결제경로는 위 '매달 자동결제'를 선택한 경우"] },
+  { no: 8, tag: "⑤ 상품 선택 / 구매과정 캡처 (4/5)", title: "결제 확인 — 이용기간·자동결제 동의",
+    caption: "자동결제를 고르면 결제 전에 확인 창이 뜸. 상품명·금액, 자동결제 주기와 해지 방법, 환불 규정 요약을 읽고 '결제 진행'을 눌러야 카드 등록으로 넘어감",
+    need: "결제 방식 선택 뒤 뜨는 결제 확인 창(자동결제 안내 문구)이 보이게 캡처",
+    facts: ["스탠다드 · 159,000원/월", "'오늘 결제 후 매달 같은 날 같은 카드로 159,000원이 자동 결제돼요. 해지하기 전까지 계속되고, 내 패스에서 언제든 해지할 수 있어요(해지하면 이번 기간까지만 쓰고 끝나요). 체크카드도 등록돼요.'", "'환불·해지 규정: 결제 후 7일 안에 한 번도 안 썼으면 전액 환불, 그 뒤엔 남은 기간 일할 환불.'", "[취소] / [결제 진행]"] },
+  { no: 9, tag: "⑥ 카드 결제경로 캡처 (5/5)", title: "토스페이먼츠 빌링 카드 입력창",
+    caption: "'결제 진행'을 누르면 토스페이먼츠 정기결제용 카드 등록창(requestBillingAuth)이 열림. 카드 등록 → 빌링키 발급 → 첫 회 결제 → 30일마다 갱신. 현재 테스트 클라이언트 키라 '실제 결제가 안되는 테스트입니다' 표시",
+    need: "결제 확인 창에서 진행을 눌러 토스페이먼츠 '등록할 카드를 입력해주세요' 창이 뜬 상태로 캡처 (카드번호는 입력하지 않아도 됨)",
+    facts: ["토스페이먼츠 결제창 · 상점명 '스테인 비밀의정원'", "개인/법인 카드 선택 → 카드번호 → 유효기간 → 약관 동의 → 다음(본인 인증)", "카드 등록이 끝나면 앱으로 돌아와 빌링키로 첫 회 결제가 승인되고 패스가 바로 시작", "이후 결제는 같은 카드로 30일마다 자동, 내 패스 > 자동 갱신 끄기로 언제든 해지"] },
 ];
 
 function buildPptx() {
@@ -190,6 +198,7 @@ function buildPptx() {
     s.addText(st.caption, { x: 0.9, y: 1.3, w: 11.5, h: 0.55, fontFace: FONT, fontSize: 11.5, color: C.sub, align: "center", valign: "top", isTextBox: true, margin: 0 });
 
     const box = { x: 0.6, y: 1.95, w: st.facts ? 8.4 : 12.1, h: 5.2 };
+    const factsTitle = st.no === 2 ? "필수 구성항목 (사업자등록증과 동일)" : "화면 설명";
     const img = pickImage(st.no);
     if (img) {
       const sz = imageSize(img.file);
@@ -209,14 +218,18 @@ function buildPptx() {
     }
     if (st.facts) {
       s.addShape(pres.ShapeType.roundRect, { x: 9.2, y: 1.95, w: 3.5, h: 5.2, fill: { color: "F9FAFB" }, line: { color: C.line, width: 1 }, rectRadius: 0.12 });
-      s.addText("필수 구성항목 (사업자등록증과 동일)", { x: 9.4, y: 2.1, w: 3.1, h: 0.4, fontFace: FONT, fontSize: 12, bold: true, color: C.blue, isTextBox: true, margin: 0 });
-      s.addText(st.facts.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < st.facts.length - 1, paraSpaceAfter: 6 } })), { x: 9.4, y: 2.55, w: 3.15, h: 4.5, fontFace: FONT, fontSize: 11.5, color: C.ink, valign: "top", isTextBox: true });
+      s.addText(factsTitle, { x: 9.4, y: 2.1, w: 3.1, h: 0.4, fontFace: FONT, fontSize: 12, bold: true, color: C.blue, isTextBox: true, margin: 0 });
+      s.addText(st.facts.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < st.facts.length - 1, paraSpaceAfter: 6 } })), { x: 9.4, y: 2.55, w: 3.15, h: 4.5, fontFace: FONT, fontSize: st.facts.join("").length > 260 ? 10 : 11.5, color: C.ink, valign: "top", isTextBox: true });
     }
     s.addText(String(st.no).padStart(2, "0"), { x: 12.5, y: 7.05, w: 0.6, h: 0.3, fontFace: FONT, fontSize: 9, color: C.sub, align: "right", isTextBox: true, margin: 0 });
   }
 
   fs.mkdirSync(OUT, { recursive: true });
-  const file = path.join(OUT, "결제경로_스테인비밀의정원.pptx");
+  let file = path.join(OUT, "결제경로_스테인비밀의정원.pptx");
+  // 파워포인트에서 열려 있으면 덮어쓸 수 없어서 뒤에 번호를 붙여요
+  for (let n = 2; n < 20; n++) {
+    try { const fd = fs.openSync(file, "a"); fs.closeSync(fd); break; } catch (e) { if (e.code !== "EBUSY") break; file = path.join(OUT, "결제경로_스테인비밀의정원_" + n + ".pptx"); }
+  }
   return pres.writeFile({ fileName: file }).then(() => {
     const missing = STEPS.filter((st) => !pickImage(st.no)).map((st) => st.no);
     const prov = STEPS.filter((st) => { const i = pickImage(st.no); return i && i.provisional; }).map((st) => st.no);
