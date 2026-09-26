@@ -15,7 +15,6 @@
  *      02-*.png 하단 사업자정보   03-*.png 환불규정   04-*.png 로그인 화면(비밀번호 칸)
  *      05-*.png 상품 안내 페이지   06-*.png 앱 가게 페이지 상품 목록(로그인 후)
  *      07-*.png 결제 확인 창(이용기간·자동결제 동의)   08-*.png 토스 빌링 카드 입력창
- *      09-*.png 결제 완료·내 패스(자동 갱신 해지 버튼)
  *    비밀번호는 프로젝트 루트 _review-account.md 에서 읽어 표지에 넣어요. 결과물 폴더는 커밋되지 않아요.
  */
 import fs from "node:fs";
@@ -127,9 +126,6 @@ const STEPS = [
   { no: 8, tag: "⑥ 카드 결제경로 캡처", title: "토스페이먼츠 빌링 카드 입력창",
     caption: "확인을 누르면 토스페이먼츠 정기결제용 카드 입력창(requestBillingAuth)이 열림 → 카드 등록 → 빌링키 발급 → 첫 회 결제. 현재 테스트 클라이언트 키로 연동",
     need: "결제 확인 창에서 진행을 눌러 토스페이먼츠 '카드 정보를 입력해주세요' 창이 뜬 상태로 캡처 (카드번호는 입력하지 않아도 됨)" },
-  { no: 9, tag: "⑤ 상품 선택 / 구매과정 캡처 (4/4)", title: "결제 완료 — 내 패스와 자동 갱신 해지",
-    caption: "결제 후 '내 패스' 화면: 이용기간, 남은 잔 수, 등록 카드, '자동 갱신 끄기'와 '환불·해지 규정 보기' 버튼",
-    need: "테스트 결제를 마친 뒤 '내 패스' 화면(자동 갱신 끄기 버튼이 보이는 상태)을 캡처" },
 ];
 
 function buildPptx() {
@@ -169,12 +165,12 @@ function buildPptx() {
     s.background = { color: "FFFFFF" };
     s.addText("결제경로 순서", { x: 0.7, y: 0.5, w: 12, h: 0.7, fontFace: FONT, fontSize: 28, bold: true, color: C.ink, isTextBox: true, margin: 0 });
     s.addText("무형 상품(매장 이용권) · 회원만 구매 가능 · 정기결제(빌링) + 1회 결제 병행", { x: 0.7, y: 1.2, w: 12, h: 0.4, fontFace: FONT, fontSize: 13, color: C.sub, isTextBox: true, margin: 0 });
-    const flow = ["홈페이지 하단\n사업자정보", "환불·해지\n규정", "로그인\n(테스트 계정)", "상품 안내 →\n가게 페이지 상품 선택", "결제 확인\n(이용기간·자동결제 동의)", "토스 빌링\n카드 입력창", "결제 완료\n내 패스 · 해지"];
+    const flow = ["홈페이지 하단\n사업자정보", "환불·해지\n규정", "로그인\n(테스트 계정)", "상품 안내 →\n가게 페이지 상품 선택", "결제 확인\n(이용기간·자동결제 동의)", "토스 빌링\n카드 입력창"];
     flow.forEach((t, i) => {
-      const x = 0.7 + i * 1.72;
-      s.addShape(pres.ShapeType.roundRect, { x, y: 2.3, w: 1.55, h: 1.5, fill: { color: i === 5 ? C.blue : C.pale }, line: { color: i === 5 ? C.blue : C.pale, width: 0 }, rectRadius: 0.12 });
-      s.addText(String(i + 1), { x, y: 2.38, w: 1.55, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: i === 5 ? "FFFFFF" : C.blue, align: "center", isTextBox: true, margin: 0 });
-      s.addText(t, { x: x + 0.05, y: 2.7, w: 1.45, h: 1.0, fontFace: FONT, fontSize: 11.5, bold: true, color: i === 5 ? "FFFFFF" : C.ink, align: "center", valign: "middle", isTextBox: true, margin: 0 });
+      const x = 0.7 + i * 2.0;
+      s.addShape(pres.ShapeType.roundRect, { x, y: 2.3, w: 1.85, h: 1.5, fill: { color: i === 5 ? C.blue : C.pale }, line: { color: i === 5 ? C.blue : C.pale, width: 0 }, rectRadius: 0.12 });
+      s.addText(String(i + 1), { x, y: 2.38, w: 1.85, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: i === 5 ? "FFFFFF" : C.blue, align: "center", isTextBox: true, margin: 0 });
+      s.addText(t, { x: x + 0.05, y: 2.7, w: 1.75, h: 1.0, fontFace: FONT, fontSize: 11.5, bold: true, color: i === 5 ? "FFFFFF" : C.ink, align: "center", valign: "middle", isTextBox: true, margin: 0 });
     });
     const notes = [
       "상품: 하우스 패스(월정액 매장 이용권). 정기결제 상품 5종(39,000~399,000원/30일), 1회 결제 상품 2종(원데이 19,000원/1일, 3개월권 429,000원/90일). 단건 최고가 478,800원(팀 패스 1회 결제).",
