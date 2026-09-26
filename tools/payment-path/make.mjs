@@ -200,7 +200,6 @@ function buildPptx() {
       const r = Math.min(box.w / sz.w, box.h / sz.h);
       const w = sz.w * r, h = sz.h * r;
       s.addImage({ path: img.file, x: box.x + (box.w - w) / 2, y: box.y + (box.h - h) / 2, w, h });
-      s.addShape(pres.ShapeType.rect, { x: box.x + (box.w - w) / 2, y: box.y + (box.h - h) / 2, w, h, fill: { type: "none" }, line: { color: C.line, width: 0.75 } });
       if (img.provisional) {
         s.addText("자리 표시용 미리보기 — 주소창·PC 시계가 보이는 크롬 캡처(" + String(st.no).padStart(2, "0") + "-*.png)로 바꾸세요", { x: box.x, y: box.y + box.h + 0.02, w: box.w, h: 0.3, fontFace: FONT, fontSize: 9.5, color: C.warn, align: "center", isTextBox: true, margin: 0 });
       }
