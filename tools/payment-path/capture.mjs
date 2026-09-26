@@ -29,8 +29,15 @@ let browser, page;
 function shot(name) {
   const out = path.join(OUT, name + ".png");
   const pid = browser.process() ? browser.process().pid : 0;
-  const r = spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(HERE, "screenshot.ps1"), "-ChromePid", String(pid), "-Out", out], { encoding: "utf8" });
+  let r;
+  for (let i = 0; i < 6; i++) {   // 다른 창이 앞에 있으면 잠깐 기다렸다 다시 시도해요
+    r = spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(HERE, "screenshot.ps1"), "-ChromePid", String(pid), "-Out", out], { encoding: "utf8" });
+    if (r.status === 0) break;
+    console.log(r.status === 3 ? "  … 크롬이 맨 앞이 아니에요. 다른 창을 만지지 마세요. 다시 시도" : "  … 캡처 오류, 다시 시도: " + String(r.stderr || r.stdout).split(/\r?\n/)[0].slice(0, 120));
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1500);
+  }
   if (r.status !== 0) throw new Error("캡처 실패: " + (r.stderr || r.stdout));
+  if (!fs.existsSync(out)) throw new Error("캡처 파일이 저장되지 않았어요: " + out);
   console.log("  ✔", name + ".png");
 }
 async function scrollTo(sel, block = "center") {
