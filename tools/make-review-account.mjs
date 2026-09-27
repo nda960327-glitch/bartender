@@ -2,6 +2,7 @@
  *
  *   node tools/make-review-account.mjs                 → review@barapp.kr
  *   node tools/make-review-account.mjs 다른@주소.com     → 그 주소로
+ *   node tools/make-review-account.mjs --pw 원하는비밀번호   → 비밀번호를 정해서 (심사 양식에 이미 적어 냈을 때)
  *
  * · .env.local 의 service_role 키로 Supabase 관리자 API를 불러 계정을 만들어요 (이미 있으면 비밀번호만 새로 정해요).
  * · 비밀번호는 무작위로 만들고 화면에 찍지 않아요. 프로젝트 루트의 _review-account.md 에만 적어요 (.gitignore 의 _* 규칙으로 커밋되지 않아요).
@@ -21,10 +22,15 @@ const env = Object.fromEntries(
 const URL_ = env.SUPABASE_URL, KEY = env.SUPABASE_SERVICE_ROLE_KEY;
 if (!URL_ || !KEY) { console.error(".env.local 에 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 가 필요해요."); process.exit(1); }
 
-const email = (process.argv[2] || "review@barapp.kr").trim().toLowerCase();
-// 읽기 쉬운 무작위 비밀번호 14자 (헷갈리는 0/O/1/l 제외)
+const argv = process.argv.slice(2);
+const pwIdx = argv.indexOf("--pw");
+const fixedPw = pwIdx >= 0 ? argv[pwIdx + 1] : "";
+const rest = argv.filter((a, i) => a !== "--pw" && i !== pwIdx + 1);
+const email = (rest[0] || "review@barapp.kr").trim().toLowerCase();
+if (pwIdx >= 0 && (!fixedPw || fixedPw.length < 8)) { console.error("--pw 뒤에 8자 이상 비밀번호를 적어주세요."); process.exit(1); }
+// 정해주지 않으면 읽기 쉬운 무작위 비밀번호 14자 (헷갈리는 0/O/1/l 제외)
 const ALPH = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-const password = Array.from(crypto.randomBytes(14), (b) => ALPH[b % ALPH.length]).join("");
+const password = fixedPw || Array.from(crypto.randomBytes(14), (b) => ALPH[b % ALPH.length]).join("");
 
 const H = { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json" };
 async function api(method, p, body) {
