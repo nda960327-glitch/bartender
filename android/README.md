@@ -29,14 +29,52 @@ Gradle 과 SDK 는 Studio 가 알아서 받습니다. 처음 열면 몇 분 걸�
 나오는 곳: `android/app/build/outputs/apk/debug/app-debug.apk`
 이건 디버그용이라 폰에 직접 설치해 보는 용도입니다. 스토어에는 못 올려요.
 
-## 스토어에 올릴 때
+## 스토어에 올릴 때 (새 버전)
 
-1. **Build > Generate Signed App Bundle / APK** > *Android App Bundle*
-2. 키스토어를 새로 만듭니다 (Create new…)
-3. **키스토어 파일과 비밀번호를 반드시 백업하세요.** 잃어버리면 같은 앱으로
-   업데이트할 수 없습니다. `.gitignore` 가 `*.jks` 를 막아두었으니 저장소에는
-   안 올라갑니다 — 따로 보관하세요.
-4. 나온 `.aab` 를 Play Console 에 업로드
+2026-09-29 첫 버전(1.2.0, versionCode 1)을 올렸습니다. 서명키는 이미 있으니
+**다음부터는 명령 한 줄**이면 됩니다.
+
+1. `app/build.gradle` 의 `versionCode` 를 **1 올리기** (같은 번호는 플레이가 거부)
+   · 보이는 버전(`versionName`)도 필요하면 같이
+2. 빌드
+
+```
+set JAVA_HOME=C:\Users\USER\.jdks\jdk-21.0.12.1+1
+gradlew.bat :app:bundleRelease
+```
+
+3. 나오는 곳: `app/build/outputs/bundle/release/app-release.aab`
+4. Play Console > 테스트 및 출시 > 내부 테스트 > **새 릴리스 만들기** 에 올리고,
+   폰에서 확인한 뒤 **릴리스 승격 > 프로덕션**
+
+> 웹(barapp.kr)만 고친 거라면 이 과정이 필요 없습니다. 앱은 웹을 띄울 뿐이라
+> 배포하면 바로 반영돼요. 앱 이름·아이콘·안드로이드 코드를 바꿀 때만 새로 올립니다.
+
+### 서명
+
+`app/build.gradle` 이 `android/keystore.properties` 를 읽어 release 를 서명합니다.
+
+| | 위치 |
+|---|---|
+| 키스토어 | `C:\Users\USER\keys\bartalk.jks` (별칭 `bartalk`) |
+| 비밀번호 | `C:\Users\USER\keys\바텐톡-서명키-비밀번호.txt` |
+| 빌드 설정 | `android/keystore.properties` (저장소에 안 올라감) |
+
+`keystore.properties` 안의 경로는 **슬래시(`/`)로** 쓰세요. 역슬래시를 쓰면 자바가
+이스케이프 문자로 먹어서 "Keystore file not found" 가 납니다.
+
+> ⚠️ **키스토어와 비밀번호를 잃어버리면 바텐톡을 영원히 업데이트할 수 없습니다.**
+> USB와 다른 클라우드, 두 군데 이상에 백업해 두세요.
+>
+> 이 키는 **업로드 키**입니다. 실제 설치되는 앱은 구글이 자체 키(앱 서명 키)로
+> 다시 서명해요. 업로드 키를 잃어버리면 Play Console > 앱 서명에서 재설정을
+> 요청할 수 있지만 며칠 걸리고 번거롭습니다.
+
+### JDK
+
+Android Studio 에 딸린 자바는 25 인데 Gradle 8.14.3 은 25 를 못 읽습니다.
+JDK 21 을 `C:\Users\USER\.jdks\jdk-21.0.12.1+1` 에 받아 두었어요.
+Studio 에서 빌드할 때도 Settings > Gradle > **Gradle JDK** 를 이걸로 고르세요.
 
 ## 주소창 없애기 (Digital Asset Links)
 
@@ -61,6 +99,8 @@ keytool -list -v -keystore %USERPROFILE%.androiddebug.keystore -alias androiddeb
 ### 스토어에 올릴 때
 
 Play 는 자체 키로 다시 서명하므로 지문이 또 달라집니다.
+**2026-09-29 에 플레이 앱 서명 지문(`9D:CA:17:…:CE:09`)을 이미 넣었습니다.**
+앱 서명 키는 바뀌지 않으니 다시 할 필요 없어요. 아래는 기록용입니다.
 
 1. Play Console > 앱 > 설정 > **앱 서명** 에서 **SHA-256 인증서 지문** 복사
 2. `assetlinks.json` 의 배열에 **추가** (디버그 지문은 지워도 되고 둬도 됩니다)
