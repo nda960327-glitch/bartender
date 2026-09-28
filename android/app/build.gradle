@@ -2,6 +2,12 @@ plugins {
     id 'com.android.application'
 }
 
+// 서명키 정보는 keystore.properties 에 따로 둡니다 (.gitignore 가 막고 있어요).
+// 그 파일이 없으면 서명 없이 빌드합니다 — 스토어에는 못 올리지만 개발에는 지장 없어요.
+def keystoreProps = new Properties()
+def keystoreFile = rootProject.file('keystore.properties')
+if (keystoreFile.exists()) keystoreFile.withInputStream { keystoreProps.load(it) }
+
 android {
     namespace 'kr.barapp.bartalk'
     compileSdk 36
@@ -14,8 +20,20 @@ android {
         versionName "1.2.0"
     }
 
+    signingConfigs {
+        release {
+            if (keystoreProps['storeFile']) {
+                storeFile file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (keystoreProps['storeFile']) signingConfig signingConfigs.release
             // 코드가 거의 없는 껍데기라 난독화할 것이 없습니다.
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'

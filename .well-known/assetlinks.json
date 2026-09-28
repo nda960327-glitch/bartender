@@ -1,11 +1,14 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "kr.barapp.bartalk",
       "sha256_cert_fingerprints": [
-        "FA:57:7A:D8:CF:4A:A8:39:22:25:4D:5C:B0:6A:40:4E:26:31:9D:67:17:6E:18:F5:33:0F:EE:2D:B0:90:D0:9D"
+        "FA:57:7A:D8:CF:4A:A8:39:22:25:4D:5C:B0:6A:40:4E:26:31:9D:67:17:6E:18:F5:33:0F:EE:2D:B0:90:D0:9D",
+        "9D:CA:17:92:1C:50:21:47:3A:2A:F5:DC:AE:73:B5:C1:9A:CE:89:23:AA:F6:AD:7D:75:C9:77:C8:2F:8A:CE:09"
       ]
     }
   }
