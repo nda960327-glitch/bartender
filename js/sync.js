@@ -30,6 +30,7 @@
     identity: null,    // { id, email, provider, suggestedNick }
     providers: null,   // { google: true, kakao: false, ... } — 서버에서 켜진 로그인 방법
     naverReady: false, // 네이버 로그인 함수가 배포·설정돼 있는지
+    kakaoRoute: false, // 카카오 길잡이 함수(/api/kakao-login)를 쓸 수 있는지
   };
 
   var sb = null;              // supabase client
@@ -950,9 +951,12 @@
   }
 
   // 네이버 로그인이 서버에 설정돼 있는지 확인
-  async function probeNaver() {
+  async function probeNaver() { return probeLogin("/api/naver-login"); }
+  // 카카오는 이메일 항목을 빼고 보내야 해서 우리 함수를 한 번 거쳐요 (api/kakao-login.js 설명 참고)
+  async function probeKakao() { return probeLogin("/api/kakao-login"); }
+  async function probeLogin(path) {
     try {
-      var res = await fetch("/api/naver-login?probe=1");
+      var res = await fetch(path + "?probe=1");
       if (!res.ok) return false;
       var j = await res.json();
       return !!j.configured;
@@ -1031,7 +1035,9 @@
       });
 
       await loadProviders();
-      S.naverReady = await probeNaver();
+      var probes = await Promise.all([probeNaver(), probeKakao()]);
+      S.naverReady = probes[0];
+      S.kakaoRoute = probes[1];
 
       // 네이버에서 돌아온 경우 여기서 세션이 만들어져요.
       await consumeTokenHash();
@@ -1119,14 +1125,22 @@
         return { ok: false, error: "not-enabled", provider: provider };
       }
       try {
+        // 카카오는 바로 보내면 "이메일 동의항목이 없다"(KOE205)는 오류가 나요.
+        // 주소만 받아서 우리 길잡이 함수에 넘기면, 이메일 요청을 빼고 카카오로 보내줍니다.
+        var viaRoute = provider === "kakao" && S.kakaoRoute;
         var res = await sb.auth.signInWithOAuth({
           provider: provider,
           options: {
             redirectTo: redirectUrl(),
             queryParams: provider === "google" ? { prompt: "select_account" } : undefined,
+            skipBrowserRedirect: viaRoute,
           },
         });
         if (res.error) return { ok: false, error: res.error.message };
+        if (viaRoute) {
+          if (!res.data || !res.data.url) return { ok: false, error: "로그인을 시작하지 못했어요." };
+          location.href = "/api/kakao-login?u=" + encodeURIComponent(res.data.url);
+        }
         return { ok: true };   // 이 시점에 브라우저가 이동해요
       } catch (e) {
         return { ok: false, error: (e && e.message) || "로그인을 시작하지 못했어요." };
