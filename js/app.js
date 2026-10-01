@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.67.5";
+  const APP_BUILD = "2.68.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -7610,8 +7610,115 @@
     area.querySelectorAll("[data-u]").forEach((b) => b.addEventListener("click", () => window.open(b.dataset.u, "_blank", "noopener")));
   }
 
+  /* ---------- 조주기능사 필기 CBT ----------
+   * 시험 종류: 회차 그대로 · 랜덤 모의고사 · 과목별 · 오답노트
+   * 풀던 시험은 답을 고를 때마다 기기에 저장해서, 앱이 꺼져도 이어서 풀 수 있어요.
+   *   cbtRun   풀던 시험 (문제 목록·고른 답·남은 시간)
+   *   cbtHist  본 시험 기록 (최근 50개)   cbtBest 회차별 최고 점수   cbtWrong 오답노트 */
+  const CBT_KEEP = 50;
+  const cbtLabel = (r) => r.label || `${r.year}년 ${r.round}회`;
+  const cbtRealRounds = () => window.CBT_DATA.rounds.filter((r) => !r.mock);
+  const cbtPassN = (n) => (n === 60 ? CBT_PASS : Math.ceil(n * 0.6));
+  const cbtMinutes = (n) => (n === 60 ? CBT_MINUTES : n);   // 실제 시험처럼 문항당 1분
+  const cbtPct = (c, n) => (n ? Math.round((c / n) * 100) : 0);
+
+  // 문제 하나를 "회차#번호" 로 가리켜요. 저장·오답노트는 이 이름만 적어 둡니다.
+  function cbtQ(ref) {
+    const [rid, idx] = String(ref).split("#");
+    const r = window.CBT_DATA.rounds.find((x) => x.id === rid);
+    const q = r && r.questions[+idx];
+    if (!q) return null;
+    return Object.assign({ ref, s: cbtSubjectOf(+idx), src: `${cbtLabel(r)} ${+idx + 1}번` }, q);
+  }
+  function cbtPool(subj) {
+    const [, a, b] = CBT_SUBJECTS[subj];
+    const out = [];
+    cbtRealRounds().forEach((r) => { for (let i = a; i < b; i++) if (!r.questions[i].x) out.push(`${r.id}#${i}`); });
+    return out;
+  }
+  function cbtRoundOf(id, label, kind, refs, extra) {
+    const questions = refs.map(cbtQ).filter(Boolean);
+    if (kind === "round") questions.forEach((q) => { delete q.src; });   // 회차 그대로 풀 때는 출처를 안 붙여요
+    return Object.assign({ id, label, kind, questions }, extra || {});
+  }
+  const buildPlainRound = (r) => cbtRoundOf(r.id, cbtLabel(r), "round", r.questions.map((_, i) => `${r.id}#${i}`));
+  /* 랜덤 모의고사 — 모든 회차를 섞되 실제 시험처럼 과목 배분(주류학 30 · 주장관리 20 · 영어 10)을 지켜요. */
+  function buildMockRound() {
+    const refs = [];
+    CBT_SUBJECTS.forEach(([, a, b], s) => refs.push(...shuffle(cbtPool(s)).slice(0, b - a)));
+    return cbtRoundOf("mock-" + Date.now().toString(36), "랜덤 모의고사", "mock", refs);
+  }
+  function buildSubjectRound(s) {
+    const refs = shuffle(cbtPool(s)).slice(0, 20);
+    return cbtRoundOf(`subj${s}-` + Date.now().toString(36), `${s + 1}과목 ${CBT_SUBJECTS[s][0]}`, "subject", refs, { subj: s });
+  }
+  function buildWrongRound() {
+    const refs = shuffle(store.get("cbtWrong", []).filter(cbtQ)).slice(0, 30);
+    return cbtRoundOf("wrong-" + Date.now().toString(36), "오답노트", "wrong", refs);
+  }
+  function rebuildRound(r) {   // "새로 섞기"
+    if (r.kind === "subject") return buildSubjectRound(r.subj);
+    if (r.kind === "wrong") return buildWrongRound();
+    return buildMockRound();
+  }
+
+  /* ----- 저장 · 이어 풀기 ----- */
+  function saveCbtRun() {
+    const ex = state.cbt;
+    if (!ex || ex.done) return;
+    store.set("cbtRun", {
+      id: ex.r.id, label: ex.r.label, kind: ex.r.kind, subj: ex.r.subj,
+      refs: ex.r.questions.map((q) => q.ref), i: ex.i, picks: ex.picks, flags: ex.flags, study: ex.study,
+      left: ex.endsAt ? Math.max(0, ex.endsAt - Date.now()) : null,
+      elapsed: Date.now() - ex.startedAt, savedAt: Date.now(),
+    });
+  }
+  const clearCbtRun = () => { try { localStorage.removeItem("bartalk_cbtRun"); } catch {} };
+  function savedCbtRun() {
+    const run = store.get("cbtRun", null);
+    if (!run || !Array.isArray(run.refs) || !run.refs.length || !run.refs.every(cbtQ)) return null;
+    if (run.left === 0) return null;   // 시간이 다 된 시험은 이어 풀 수 없어요
+    return run;
+  }
+  function resumeCbt(run) {
+    const r = cbtRoundOf(run.id, run.label, run.kind || "mock", run.refs, { subj: run.subj });
+    const now = Date.now();
+    state.cbt = {
+      r, i: Math.min(run.i || 0, r.questions.length - 1),
+      picks: r.questions.map((_, i) => (run.picks && run.picks[i] >= 0 ? run.picks[i] : -1)),
+      flags: (run.flags || []).filter((i) => i < r.questions.length),
+      startedAt: now - (run.elapsed || 0),
+      endsAt: run.left != null ? now + run.left : null,   // 꺼져 있던 동안은 시간이 멈춰 있었어요
+      done: false, study: !!run.study,
+    };
+    renderCbtQ();
+    if (!state.cbt.study) tickCbt();
+  }
+
+  /* ----- 기록 ----- */
+  function cbtNote(ref, ok) {   // 오답노트: 틀리면 넣고, 맞히면 뺍니다
+    const set = new Set(store.get("cbtWrong", []));
+    if (ok) set.delete(ref); else set.add(ref);
+    store.set("cbtWrong", [...set].slice(-400));
+  }
+  function cbtStats() {
+    const hist = store.get("cbtHist", []);
+    const exams = hist.filter((h) => !h.study && h.n === 60);
+    const subj = CBT_SUBJECTS.map(() => [0, 0]);
+    hist.forEach((h) => (h.by || []).forEach(([c, n], s) => { if (subj[s]) { subj[s][0] += c; subj[s][1] += n; } }));
+    return {
+      hist, exams, subj,
+      last: exams.length ? cbtPct(exams[exams.length - 1].c, 60) : null,
+      best: exams.length ? Math.max(...exams.map((h) => cbtPct(h.c, 60))) : null,
+      avg: exams.length ? Math.round(exams.reduce((s, h) => s + cbtPct(h.c, 60), 0) / exams.length) : null,
+      passes: exams.filter((h) => h.c >= CBT_PASS).length,
+    };
+  }
+
+  const CBT_MODES = ["⏱ 실전 모드 — 타이머, 끝나고 채점", "📖 학습 모드 — 한 문제씩 정답·해설 바로 확인"];
+  const cbtAsk = (title, make) => openSheet(title, CBT_MODES, null, (v) => startCbt(make(), v.startsWith("📖")));
+
   async function renderCbt() {
-    // 시험 도중 다른 화면에 다녀와도 이어서 풀 수 있어요. (시간은 계속 흐릅니다)
     if (state.cbt) { state.cbt.done ? renderCbtResult() : renderCbtQ(); return; }
     cbtChrome("필기 기출 CBT", false);
     $("#cbt-area").innerHTML = '<div class="empty-state">기출문제를 불러오는 중…</div>';
@@ -7621,64 +7728,109 @@
       $("#cbt-area").innerHTML = '<div class="empty-state">문제를 불러오지 못했어요.<br>인터넷 연결을 확인해주세요.</div>';
       return;
     }
-    const rounds = window.CBT_DATA.rounds.filter((r) => !r.mock);
+    const rounds = cbtRealRounds();
     const years = [...new Set(rounds.map((r) => r.year))];
     const nAll = rounds.reduce((s, r) => s + r.questions.filter((q) => !q.x).length, 0);
+    const run = savedCbtRun();
+    const st = cbtStats();
+    const best = store.get("cbtBest", {});
+    const wrongN = store.get("cbtWrong", []).filter(cbtQ).length;
+    const weak = st.subj.map(([c, n], s) => ({ s, p: n >= 5 ? cbtPct(c, n) : null })).filter((x) => x.p !== null).sort((a, b) => a.p - b.p)[0];
+
     $("#cbt-area").innerHTML = `
+      ${run ? `
+        <div class="cbt-resume">
+          <div class="cbt-resume-top"><span>풀던 시험이 있어요</span><button class="link-btn" id="cbt-drop">버리기</button></div>
+          <b>${esc(run.label)}${run.study ? " · 학습" : ""}</b>
+          <p>${run.picks.filter((p) => p >= 0).length}/${run.refs.length}문항 풀었어요${run.left != null ? ` · 남은 시간 ${Math.max(1, Math.round(run.left / 60000))}분` : ""}</p>
+          <button class="big-btn accent ready" id="cbt-resume">이어서 풀기</button>
+        </div>` : ""}
       <div class="cbt-intro">
         <h2>조주기능사 필기 기출</h2>
-        <p>회차를 고르면 두 가지 중 선택해요.<br><b>실전</b>: 60문항 · 60분 · 끝나고 채점 · <b>학습</b>: 한 문제씩 정답과 해설 확인.</p>
+        <p><b>실전</b>: 타이머 · 끝나고 채점 · <b>학습</b>: 한 문제씩 정답과 해설 확인.<br>풀다가 앱이 꺼져도 이어서 풀 수 있어요.</p>
       </div>
+      ${st.hist.length ? `
+        <div class="cbt-stats">
+          <div class="cbt-stat-row">
+            <div><span>최근</span><b>${st.last === null ? "–" : st.last + "<small>점</small>"}</b></div>
+            <div><span>최고</span><b>${st.best === null ? "–" : st.best + "<small>점</small>"}</b></div>
+            <div><span>평균</span><b>${st.avg === null ? "–" : st.avg + "<small>점</small>"}</b></div>
+            <div><span>합격</span><b>${st.passes}<small>/${st.exams.length}회</small></b></div>
+          </div>
+          ${st.subj.map(([c, n], s) => `
+            <div class="cbt-acc${weak && weak.s === s && weak.p < 60 ? " weak" : ""}">
+              <span>${CBT_SUBJECTS[s][0]}</span>
+              <i><em style="width:${n ? cbtPct(c, n) : 0}%"></em></i>
+              <b>${n ? cbtPct(c, n) + "%" : "–"}</b>
+            </div>`).join("")}
+          ${weak && weak.p < 60 ? `<p class="cbt-tip">💡 <b>${CBT_SUBJECTS[weak.s][0]}</b> 정답률이 60%에 못 미쳐요. 과목별 시험으로 먼저 채워보세요.</p>` : ""}
+          <p class="cbt-stat-note">점수는 60문항 실전 기준 · 정답률은 지금까지 푼 모든 문제 기준</p>
+        </div>` : ""}
       <button class="cbt-mock pressable" id="cbt-mock">
         <span class="cbt-mock-ic">🎲</span>
         <span class="cbt-mock-body"><b>랜덤 모의고사</b><span>${years[years.length - 1]}~${years[0]}년 ${nAll}문항에서 매번 새로 60문항 · 과목 배분은 실제 시험과 같게</span></span>
         <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
       </button>
+      <div class="comment-sec-title">과목별 시험 <small class="cbt-sec-sub">과목마다 20문항씩 뽑아요</small></div>
+      <div class="cbt-subj-btns">
+        ${CBT_SUBJECTS.map(([name, a, b], s) => `
+          <button class="cbt-subj-btn pressable" data-s="${s}">
+            <span>${s + 1}과목</span><b>${name}</b>
+            <small>시험에 ${b - a}문항${st.subj[s][1] ? ` · 내 정답률 ${cbtPct(st.subj[s][0], st.subj[s][1])}%` : ""}</small>
+          </button>`).join("")}
+      </div>
+      ${wrongN ? `
+        <button class="cbt-wrong-btn pressable" id="cbt-wrongnote">
+          <span>📕</span><span><b>오답노트</b><small>틀렸던 문제 ${wrongN}개 · 맞히면 목록에서 빠져요</small></span>
+          <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+        </button>` : ""}
       ${years.map((y) => `
         <div class="comment-sec-title">${y}년</div>
         <div class="cbt-rounds">
           ${rounds.filter((r) => r.year === y).map((r) => `
-            <button class="cbt-round pressable" data-id="${r.id}"><b>${r.round}회</b><span>60문항</span></button>`).join("")}
+            <button class="cbt-round pressable${best[r.id] >= 60 ? " passed" : ""}" data-id="${r.id}"><b>${r.round}회</b><span>${best[r.id] != null ? `최고 ${best[r.id]}점` : "60문항"}</span></button>`).join("")}
         </div>`).join("")}
       <p class="cbt-source">출처: 문제풀이닷컴 · 기출문제의 저작권은 출제기관(한국산업인력공단)에 있어요. 출제 당시 기준이라 지금의 법규·정답과 다를 수 있어요. 해설은 AI가 작성해 틀린 곳이 있을 수 있어요.</p>`;
-    $$("#cbt-area .cbt-round").forEach((b) => b.addEventListener("click", () => {
+
+    if (run) {
+      $("#cbt-resume").addEventListener("click", () => resumeCbt(run));
+      $("#cbt-drop").addEventListener("click", async () => {
+        if (!await btConfirm("풀던 시험을 버릴까요?\n고른 답이 모두 사라져요.", { yes: "버리기" })) return;
+        clearCbtRun();
+        renderCbt();
+      });
+    }
+    // 풀던 시험이 있는데 새로 시작하면 덮어쓰게 되니 한 번 물어봐요
+    const guard = async (go) => {
+      if (savedCbtRun() && !await btConfirm("풀던 시험이 있어요.\n새로 시작하면 그 시험은 사라져요.", { yes: "새로 시작" })) return;
+      go();
+    };
+    $$("#cbt-area .cbt-round").forEach((b) => b.addEventListener("click", () => guard(() => {
       const r = rounds.find((x) => x.id === b.dataset.id);
-      openSheet(cbtLabel(r), ["⏱ 실전 모드 — 60분 타이머, 끝나고 채점", "📖 학습 모드 — 한 문제씩 정답·해설 바로 확인"], null,
-        (v) => startCbt(r.id, v.startsWith("📖")));
-    }));
-    $("#cbt-mock").addEventListener("click", () => {
-      openSheet("랜덤 모의고사", ["⏱ 실전 모드 — 60분 타이머, 끝나고 채점", "📖 학습 모드 — 한 문제씩 정답·해설 바로 확인"], null,
-        (v) => startCbt(buildMockRound().id, v.startsWith("📖")));
-    });
+      cbtAsk(cbtLabel(r), () => buildPlainRound(r));
+    })));
+    $("#cbt-mock").addEventListener("click", () => guard(() => cbtAsk("랜덤 모의고사", buildMockRound)));
+    $$("#cbt-area .cbt-subj-btn").forEach((b) => b.addEventListener("click", () => guard(() =>
+      cbtAsk(`${+b.dataset.s + 1}과목 ${CBT_SUBJECTS[+b.dataset.s][0]}`, () => buildSubjectRound(+b.dataset.s)))));
+    const wn = $("#cbt-wrongnote");
+    if (wn) wn.addEventListener("click", () => guard(() => cbtAsk("오답노트", buildWrongRound)));
   }
 
-  const cbtLabel = (r) => r.label || `${r.year}년 ${r.round}회`;
-  /* 랜덤 모의고사 — 2014~2016 모든 회차를 섞되, 실제 시험처럼 과목 배분(주류학 30 · 주장관리 20 · 영어 10)을 지켜요.
-     그림이 빠진 문제(x)는 뺍니다. 매번 새로 섞이고, 결과 화면의 "다시 풀기"는 같은 문제로 다시 풀어요. */
-  function buildMockRound() {
-    const rounds = window.CBT_DATA.rounds;
-    const qs = [];
-    CBT_SUBJECTS.forEach(([, a0, b0]) => {
-      const pool = [];
-      rounds.forEach((r) => r.questions.slice(a0, b0).forEach((q, j) => { if (!q.x) pool.push(Object.assign({ src: cbtLabel(r) + " " + (a0 + j + 1) + "번" }, q)); }));
-      qs.push(...shuffle(pool).slice(0, b0 - a0));
-    });
-    const mock = { id: "mock-" + Date.now().toString(36), year: "랜덤", round: "모의고사", label: "랜덤 모의고사", questions: qs, mock: true };
-    window.CBT_DATA.rounds.push(mock);   // startCbt 가 id 로 찾을 수 있게 (다시 풀기용)
-    return mock;
-  }
-
-  function startCbt(id, study) {
-    const r = window.CBT_DATA.rounds.find((x) => x.id === id);
-    if (!r) return;
+  function startCbt(r, study) {
+    if (!r || !r.questions.length) return;
     const now = Date.now();
-    state.cbt = { r, i: 0, picks: r.questions.map(() => -1), startedAt: now, endsAt: study ? null : now + CBT_MINUTES * 60000, done: false, study: !!study };
+    state.cbt = {
+      r, i: 0, picks: r.questions.map(() => -1), flags: [],
+      startedAt: now, endsAt: study ? null : now + cbtMinutes(r.questions.length) * 60000, done: false, study: !!study,
+    };
+    saveCbtRun();
     renderCbtQ();
     if (!study) tickCbt();
   }
 
   function tickCbt() {
     clearInterval(cbtTimer);
+    let n = 0;
     const paint = () => {
       const ex = state.cbt;
       if (!ex || ex.done) { clearInterval(cbtTimer); return; }
@@ -7686,6 +7838,7 @@
       const el = $("#cbt-timer");
       el.textContent = `${String(Math.floor(left / 60000)).padStart(2, "0")}:${String(Math.floor(left / 1000) % 60).padStart(2, "0")}`;
       el.classList.toggle("urgent", left < 5 * 60000);
+      if (++n % 5 === 0) saveCbtRun();   // 남은 시간도 5초마다 적어 둬요
       if (left === 0) {
         submitCbt();
         if (state.view === "cbt") btAlert("시험 시간이 끝나서 자동으로 제출했어요.");
@@ -7705,16 +7858,19 @@
   function renderCbtQ() {
     const ex = state.cbt;
     const q = ex.r.questions[ex.i];
-    const subj = cbtSubjectOf(ex.i);
     const pick = ex.picks[ex.i];
+    const flagged = ex.flags.includes(ex.i);
     const revealed = ex.study && pick >= 0;   // 학습 모드: 고르는 순간 정답·해설 공개
-    cbtChrome(`${cbtLabel(ex.r)}${ex.study ? " · 학습" : ""}`, true);
+    cbtChrome(`${ex.r.label}${ex.study ? " · 학습" : ""}`, true);
     $("#cbt-timer").hidden = ex.study;
     $("#cbt-spacer").hidden = !ex.study;
     $("#cbt-area").innerHTML = `
       <div class="cbt-progress"><i id="cbt-fill"></i></div>
       <div class="cbt-q">
-        <div class="cbt-subject">${subj + 1}과목 · ${CBT_SUBJECTS[subj][0]}${q.src ? ` · <small>${esc(q.src)}</small>` : ""}</div>
+        <div class="cbt-q-top">
+          <div class="cbt-subject">${q.s + 1}과목 · ${CBT_SUBJECTS[q.s][0]}${q.src ? ` · <small>${esc(q.src)}</small>` : ""}</div>
+          <button class="cbt-flag${flagged ? " on" : ""}" id="cbt-flag" aria-pressed="${flagged}">🚩 ${flagged ? "표시함" : "다시 보기"}</button>
+        </div>
         <h3><span class="cbt-no">${ex.i + 1}.</span> ${esc(q.q)}</h3>
         ${q.p ? `<div class="cbt-passage">${esc(q.p)}</div>` : ""}
         ${q.x ? '<div class="cbt-note">원문에 있던 그림이 빠진 문제예요. 보기만 보고 풀어주세요.</div>' : ""}
@@ -7732,25 +7888,61 @@
     $$("#cbt-area .cbt-opt").forEach((b) => b.addEventListener("click", () => {
       if (ex.study && ex.picks[ex.i] >= 0) return;
       ex.picks[ex.i] = +b.dataset.k;
-      if (ex.study) { sfx(+b.dataset.k === q.a ? "success" : "error"); renderCbtQ(); return; }
+      saveCbtRun();
+      if (ex.study) {
+        const ok = +b.dataset.k === q.a;
+        cbtNote(q.ref, ok);
+        sfx(ok ? "success" : "error");
+        renderCbtQ();
+        return;
+      }
       $$("#cbt-area .cbt-opt").forEach((x) => x.classList.toggle("picked", x === b));
       paintCbtStatus();
     }));
+    $("#cbt-flag").addEventListener("click", () => {
+      ex.flags = flagged ? ex.flags.filter((i) => i !== ex.i) : ex.flags.concat(ex.i);
+      saveCbtRun();
+      renderCbtQ();
+    });
     const last = ex.picks.length - 1;
     $("#cbt-bar").innerHTML = `
       <button class="cbt-nav" id="cbt-prev"${ex.i === 0 ? " disabled" : ""}>이전</button>
+      <button class="cbt-nav cbt-grid-btn" id="cbt-grid" aria-label="문항 번호판">▦</button>
       <button class="cbt-submit${ex.study ? " study" : ""}" id="cbt-submit">${ex.study ? "결과 보기" : "답안 제출"} <small id="cbt-count"></small></button>
       <button class="cbt-nav${revealed && ex.i < last ? " go" : ""}" id="cbt-next"${ex.i === last ? " disabled" : ""}>다음</button>`;
-    $("#cbt-prev").addEventListener("click", () => { if (ex.i > 0) { ex.i--; renderCbtQ(); } });
-    $("#cbt-next").addEventListener("click", () => { if (ex.i < last) { ex.i++; renderCbtQ(); } });
+    const go = (i) => { ex.i = i; saveCbtRun(); renderCbtQ(); };
+    $("#cbt-prev").addEventListener("click", () => { if (ex.i > 0) go(ex.i - 1); });
+    $("#cbt-next").addEventListener("click", () => { if (ex.i < last) go(ex.i + 1); });
+    $("#cbt-grid").addEventListener("click", () => openCbtGrid(go));
     $("#cbt-submit").addEventListener("click", confirmSubmitCbt);
     paintCbtStatus();
+  }
+
+  // 문항 번호판 — 어디를 풀었고 어디에 표시했는지 한눈에 보고 바로 건너가요
+  function openCbtGrid(go) {
+    const ex = state.cbt;
+    const blank = ex.picks.filter((p) => p < 0).length;
+    openSheetHTML(`
+      <h3>문항 번호판</h3>
+      <p class="cbt-grid-sum">푼 문제 ${ex.picks.length - blank} · 안 푼 문제 ${blank} · 🚩 ${ex.flags.length}</p>
+      <div class="cbt-grid">
+        ${ex.picks.map((p, i) => {
+          const q = ex.r.questions[i];
+          const cls = [p >= 0 ? "done" : "", ex.flags.includes(i) ? "flag" : "", i === ex.i ? "cur" : "",
+            ex.study && p >= 0 ? (p === q.a ? "ok" : "no") : ""].filter(Boolean).join(" ");
+          return `<button class="${cls}" data-i="${i}">${i + 1}</button>`;
+        }).join("")}
+      </div>
+      <div class="cbt-grid-legend"><span><i class="done"></i>풀었음</span><span><i class="flag"></i>다시 보기</span><span><i></i>안 풀었음</span></div>`,
+    (bd) => bd.querySelectorAll(".cbt-grid button").forEach((b) => b.addEventListener("click", () => { bd.remove(); go(+b.dataset.i); })));
   }
 
   async function confirmSubmitCbt() {
     const ex = state.cbt;
     const blank = ex.picks.filter((p) => p < 0).length;
-    const ok = await btConfirm(blank ? `아직 안 푼 문제가 ${blank}개 있어요.\n그래도 ${ex.study ? "결과를 볼까요" : "제출할까요"}?` : (ex.study ? "결과를 볼까요?" : "답안을 제출할까요?"));
+    const flags = ex.flags.length;
+    const warn = [blank ? `아직 안 푼 문제가 ${blank}개` : "", flags ? `다시 보기로 표시한 문제가 ${flags}개` : ""].filter(Boolean).join(", ");
+    const ok = await btConfirm(warn ? `${warn} 있어요.\n그래도 ${ex.study ? "결과를 볼까요" : "제출할까요"}?` : (ex.study ? "결과를 볼까요?" : "답안을 제출할까요?"));
     if (ok && state.cbt === ex && !ex.done) submitCbt();
   }
 
@@ -7759,16 +7951,39 @@
     ex.done = true;
     ex.usedMs = Math.min(Date.now(), ex.endsAt || Date.now()) - ex.startedAt;
     clearInterval(cbtTimer);
+    clearCbtRun();
+    // 기록 남기기 — 한 문제도 안 풀고 낸 건 기록하지 않아요
+    const qs = ex.r.questions;
+    if (ex.picks.some((p) => p >= 0)) {
+      const by = CBT_SUBJECTS.map(() => [0, 0]);
+      qs.forEach((q, i) => {
+        const ok = ex.picks[i] === q.a;
+        if (ex.study && ex.picks[i] < 0) return;   // 학습 모드에서 안 본 문제는 세지 않아요
+        by[q.s][1]++;
+        if (ok) by[q.s][0]++;
+        if (!ex.study) cbtNote(q.ref, ok);          // 학습 모드는 고를 때 이미 적었어요
+      });
+      const c = qs.filter((q, i) => ex.picks[i] === q.a).length;
+      const hist = store.get("cbtHist", []);
+      hist.push({ t: Date.now(), label: ex.r.label, kind: ex.r.kind, n: qs.length, c, by, study: ex.study });
+      store.set("cbtHist", hist.slice(-CBT_KEEP));
+      if (ex.r.kind === "round" && !ex.study) {
+        const best = store.get("cbtBest", {});
+        best[ex.r.id] = Math.max(best[ex.r.id] || 0, cbtPct(c, qs.length));
+        store.set("cbtBest", best);
+      }
+    }
     if (state.view === "cbt") renderCbtResult();
   }
 
-  // 시험 중 뒤로가기는 한 번 물어보고, 결과 화면에서는 회차 목록으로 돌아갑니다.
+  // 시험 중 뒤로가기: 풀던 건 저장해 두고 나갑니다. 결과 화면에서는 목록으로 돌아가요.
   function cbtBack() {
     const ex = state.cbt;
     if (!ex) return false;
     if (ex.done) { state.cbt = null; renderCbt(); return true; }
-    btConfirm(ex.study ? "학습을 그만둘까요?\n지금까지 푼 기록은 사라져요." : "시험을 그만둘까요?\n지금까지 고른 답은 사라져요.").then((ok) => {
+    btConfirm("시험에서 나갈까요?\n지금까지 푼 건 저장돼서, 나중에 이어서 풀 수 있어요.", { yes: "나가기" }).then((ok) => {
       if (!ok || state.cbt !== ex || ex.done) return;
+      saveCbtRun();
       clearInterval(cbtTimer);
       state.cbt = null;
       renderCbt();
@@ -7781,44 +7996,57 @@
     const qs = ex.r.questions;
     const right = qs.map((q, i) => ex.picks[i] === q.a);
     const correct = right.filter(Boolean).length;
-    const pass = correct >= CBT_PASS;
+    const full = qs.length === 60;
+    const pass = correct >= cbtPassN(qs.length);
     const wrong = qs.map((_, i) => i).filter((i) => !right[i]);
-    cbtChrome(`${cbtLabel(ex.r)} 결과`, false);
+    const bySubj = CBT_SUBJECTS.map(([name], s) => {
+      const idx = qs.map((q, i) => (q.s === s ? i : -1)).filter((i) => i >= 0);
+      return { name, n: idx.length, c: idx.filter((i) => right[i]).length };
+    }).filter((x) => x.n);
+    cbtChrome(`${ex.r.label} 결과`, false);
     $("#cbt-area").innerHTML = `
       <div class="cbt-result ${pass ? "pass" : "fail"}">
-        <div class="cbt-badge">${pass ? "합격" : "불합격"}</div>
-        <div class="cbt-score">${Math.round((correct / qs.length) * 100)}<small>점</small></div>
-        <p>${qs.length}문항 중 ${correct}개 정답 · ${Math.max(1, Math.round(ex.usedMs / 60000))}분 걸렸어요</p>
+        <div class="cbt-badge">${full ? (pass ? "합격" : "불합격") : (pass ? "합격선 이상" : "합격선 미달")}</div>
+        <div class="cbt-score">${cbtPct(correct, qs.length)}<small>점</small></div>
+        <p>${qs.length}문항 중 ${correct}개 정답 · ${Math.max(1, Math.round(ex.usedMs / 60000))}분 걸렸어요${full ? "" : " · 합격선은 60점"}</p>
       </div>
-      <div class="cbt-subjects">
-        ${CBT_SUBJECTS.map(([name, a, b]) => `
-          <div class="cbt-subj"><span>${name}</span><b>${right.slice(a, b).filter(Boolean).length}<small>/${b - a}</small></b></div>`).join("")}
+      <div class="cbt-subjects" style="grid-template-columns:repeat(${bySubj.length},1fr)">
+        ${bySubj.map((x) => `
+          <div class="cbt-subj"><span>${x.name}</span><b>${x.c}<small>/${x.n}</small></b></div>`).join("")}
       </div>
       ${wrong.length ? `
-        <div class="comment-sec-title">틀린 문제 ${wrong.length}개</div>
+        <div class="comment-sec-title">틀린 문제 ${wrong.length}개 <small class="cbt-sec-sub">오답노트에 담았어요</small></div>
         <div class="cbt-wrongs">
           ${wrong.map((i) => {
             const q = qs[i];
             const p = ex.picks[i];
             return `
             <div class="cbt-wrong">
-              <h4>${i + 1}. ${esc(q.q)}</h4>
+              <h4>${i + 1}. ${esc(q.q)}${ex.flags.includes(i) ? " 🚩" : ""}</h4>
               ${q.p ? `<div class="cbt-passage">${esc(q.p)}</div>` : ""}
               <div class="cbt-ans mine">${p >= 0 ? `내 답 ${CBT_MARKS[p]} ${esc(q.o[p])}` : "안 푼 문제"}</div>
               <div class="cbt-ans right">정답 ${CBT_MARKS[q.a]} ${esc(q.o[q.a])}</div>
               ${q.e ? `<p class="cbt-why">${esc(q.e)}</p>` : ""}
             </div>`;
           }).join("")}
-        </div>` : ""}
+        </div>` : '<p class="cbt-perfect">전부 맞혔어요! 🎉</p>'}
       <div class="cbt-result-btns">
-        <button class="big-btn accent ready" id="cbt-retry">${ex.r.mock ? "같은 문제 다시 풀기" : "이 회차 다시 풀기"}${ex.study ? " (학습)" : ""}</button>
-        ${ex.r.mock ? '<button class="big-btn" id="cbt-remock">🎲 새로 섞어서 모의고사</button>' : ""}
-        <button class="big-btn" id="cbt-list">회차 목록</button>
+        ${wrong.length ? `<button class="big-btn accent ready" id="cbt-rewrong">틀린 ${wrong.length}문제만 다시 풀기</button>` : ""}
+        <button class="big-btn${wrong.length ? "" : " accent ready"}" id="cbt-retry">${ex.r.kind === "round" ? "이 회차 다시 풀기" : "같은 문제 다시 풀기"}${ex.study ? " (학습)" : ""}</button>
+        ${["mock", "subject", "wrong"].includes(ex.r.kind) ? '<button class="big-btn" id="cbt-remock">🎲 새로 뽑아서 풀기</button>' : ""}
+        <button class="big-btn" id="cbt-list">시험 목록</button>
       </div>`;
     $("#cbt-area").scrollTop = 0;
-    $("#cbt-retry").addEventListener("click", () => startCbt(ex.r.id, ex.study));
+    const again = (refs, label, kind) => cbtRoundOf(ex.r.id, label, kind, refs, { subj: ex.r.subj });
+    $("#cbt-retry").addEventListener("click", () => startCbt(again(qs.map((q) => q.ref), ex.r.label, ex.r.kind), ex.study));
+    const rw = $("#cbt-rewrong");
+    if (rw) rw.addEventListener("click", () => startCbt(again(wrong.map((i) => qs[i].ref), "틀린 문제 다시 풀기", "retry"), true));
     const remock = $("#cbt-remock");
-    if (remock) remock.addEventListener("click", () => startCbt(buildMockRound().id, ex.study));
+    if (remock) remock.addEventListener("click", () => {
+      const r = rebuildRound(ex.r);
+      if (!r.questions.length) { toast("오답노트가 비었어요. 다 맞혔네요! 🎉"); state.cbt = null; renderCbt(); return; }
+      startCbt(r, ex.study);
+    });
     $("#cbt-list").addEventListener("click", () => { state.cbt = null; renderCbt(); });
   }
 

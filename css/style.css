@@ -2030,6 +2030,72 @@ select.input { appearance: auto; }
 .cbt-ans.right { background: rgba(46,184,114,.12); color: #2eb872; }
 .cbt-result-btns { padding: 20px 20px 32px; }
 .cbt-result-btns .big-btn + .big-btn { margin-top: 10px; }
+.cbt-perfect { padding: 18px 20px 4px; text-align: center; font-size: 15px; font-weight: 700; color: #2eb872; }
+
+/* 이어 풀기 · 성적 · 과목별 · 오답노트 */
+.cbt-resume { margin: 16px 20px 0; padding: 16px; border-radius: 16px; background: var(--accent-soft); border: 1px solid var(--accent); }
+.cbt-resume-top { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; font-weight: 700; color: var(--accent); }
+.cbt-resume > b { display: block; margin-top: 6px; font-size: 17px; font-weight: 800; }
+.cbt-resume p { margin: 3px 0 12px; font-size: 13.5px; color: var(--text-sub); }
+.cbt-stats { margin: 14px 20px 4px; padding: 14px 16px; border-radius: 16px; background: var(--bg-gray); }
+.cbt-stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; text-align: center; }
+.cbt-stat-row span { display: block; font-size: 11.5px; color: var(--text-sub); }
+.cbt-stat-row b { font-size: 19px; font-weight: 800; }
+.cbt-stat-row small { margin-left: 1px; font-size: 11.5px; font-weight: 600; color: var(--text-sub); }
+.cbt-acc { display: grid; grid-template-columns: 92px 1fr 40px; align-items: center; gap: 8px; margin-top: 7px; font-size: 12.5px; }
+.cbt-acc span { color: var(--text-sub); white-space: nowrap; }
+.cbt-acc i { height: 7px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.cbt-acc em { display: block; height: 100%; border-radius: 4px; background: #2eb872; }
+.cbt-acc b { text-align: right; font-weight: 700; }
+.cbt-acc.weak em { background: var(--accent); }
+.cbt-acc.weak b { color: var(--accent); }
+.cbt-tip { margin-top: 12px; font-size: 13px; line-height: 1.55; word-break: keep-all; }
+.cbt-stat-note { margin-top: 8px; font-size: 11.5px; color: var(--text-muted); }
+.cbt-sec-sub { margin-left: 6px; font-size: 12px; font-weight: 500; color: var(--text-muted); }
+.cbt-subj-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 4px 20px 8px; }
+.cbt-subj-btn {
+  display: flex; flex-direction: column; gap: 3px; padding: 13px 10px; border: 1px solid var(--line); border-radius: 14px;
+  background: var(--bg); color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.cbt-subj-btn span { font-size: 11.5px; font-weight: 700; color: var(--accent); }
+.cbt-subj-btn b { font-size: 14.5px; font-weight: 800; word-break: keep-all; }
+.cbt-subj-btn small { font-size: 11px; line-height: 1.4; color: var(--text-sub); word-break: keep-all; }
+.cbt-wrong-btn {
+  display: flex; align-items: center; gap: 12px; width: calc(100% - 40px); margin: 8px 20px 4px; padding: 14px 16px;
+  border: 1px solid var(--line); border-radius: 14px; background: var(--bg); color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.cbt-wrong-btn > span:first-child { font-size: 22px; }
+.cbt-wrong-btn > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.cbt-wrong-btn b { font-size: 15px; font-weight: 800; }
+.cbt-wrong-btn small { font-size: 12.5px; color: var(--text-sub); }
+.cbt-wrong-btn .chev-r { color: var(--text-muted); }
+.cbt-round.passed { border-color: #2eb872; }
+.cbt-round.passed span { color: #2eb872; font-weight: 700; }
+
+/* 시험 화면 — 다시 보기 표시 · 문항 번호판 */
+.cbt-q-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.cbt-flag {
+  flex-shrink: 0; padding: 5px 10px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg);
+  color: var(--text-sub); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.cbt-flag.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.cbt-nav.cbt-grid-btn { width: 48px; font-size: 19px; }
+.cbt-grid-sum { margin: -4px 0 12px; font-size: 13px; color: var(--text-sub); }
+.cbt-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; max-height: 46vh; overflow-y: auto; padding: 2px; }
+.cbt-grid button {
+  position: relative; height: 42px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
+  color: var(--text-sub); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.cbt-grid button.done { background: var(--chip-bg); color: var(--text); border-color: transparent; }
+.cbt-grid button.ok { background: rgba(46,184,114,.16); color: #1f7a4d; }
+.cbt-grid button.no { background: var(--accent-soft); color: var(--accent); }
+.cbt-grid button.flag::after { content: ""; position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.cbt-grid button.cur { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cbt-grid-legend { display: flex; gap: 14px; margin-top: 12px; font-size: 12px; color: var(--text-sub); }
+.cbt-grid-legend span { display: flex; align-items: center; gap: 5px; }
+.cbt-grid-legend i { width: 12px; height: 12px; border-radius: 4px; border: 1px solid var(--line); }
+.cbt-grid-legend i.done { background: var(--chip-bg); border-color: transparent; }
+.cbt-grid-legend i.flag { background: var(--accent); border-color: transparent; border-radius: 50%; }
 
 /* ---------- 실기 암기 카드 ---------- */
 .glass-ic { fill: none; stroke: currentColor; stroke-width: 2.4; }
