@@ -42,6 +42,28 @@ function redirectToApp(res, origin, params) {
   res.end();
 }
 
+/* state = 시각.난수.서명
+ * 예전에는 쿠키에만 적어 두고 대조했는데, 휴대폰에서 네이버 앱으로 로그인하면
+ * 돌아올 때 다른 브라우저가 열려 쿠키가 없고, 그러면 무조건 "만료됐어요"로 튕겼어요.
+ * 서명이 맞고 15분 안이면 우리가 만든 요청이 맞으니 받아줍니다. */
+const STATE_TTL = 15 * 60 * 1000;
+function signState(secret, body) {
+  return crypto.createHmac("sha256", secret).update(body).digest("hex").slice(0, 32);
+}
+function makeState(secret) {
+  const body = Date.now().toString(36) + "." + crypto.randomBytes(8).toString("hex");
+  return body + "." + signState(secret, body);
+}
+function validState(secret, state) {
+  const parts = String(state || "").split(".");
+  if (parts.length !== 3) return false;
+  const body = parts[0] + "." + parts[1];
+  const sig = signState(secret, body);
+  if (sig.length !== parts[2].length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(parts[2]))) return false;
+  const age = Date.now() - parseInt(parts[0], 36);
+  return age >= 0 && age < STATE_TTL;
+}
+
 function readCookie(req, name) {
   const raw = req.headers.cookie || "";
   const hit = raw.split(";").map((s) => s.trim()).find((s) => s.startsWith(name + "="));
@@ -81,8 +103,8 @@ module.exports = async (req, res) => {
 
   /* ---------- 1) 네이버 동의 화면으로 ---------- */
   if (!code && !naverError) {
-    const st = crypto.randomBytes(16).toString("hex");
-    // state 를 쿠키에 담아두고 돌아왔을 때 대조합니다 (CSRF 방지)
+    const st = makeState(NAVER_CLIENT_SECRET);
+    // 같은 브라우저로 돌아오면 쿠키와도 대조합니다 (CSRF 방지)
     res.setHeader("Set-Cookie",
       `${STATE_COOKIE}=${st}; Path=/; Max-Age=600; HttpOnly; Secure; SameSite=Lax`);
     const q = new URLSearchParams({
@@ -107,9 +129,9 @@ module.exports = async (req, res) => {
 
   /* ---------- 2) 돌아온 요청 검증 ---------- */
   const saved = readCookie(req, STATE_COOKIE);
-  if (!saved || !state || saved !== state) {
+  if (!code || !validState(NAVER_CLIENT_SECRET, state) || (saved && saved !== state)) {
     return redirectToApp(res, origin, {
-      auth_error: "로그인 요청이 만료됐어요. 다시 시도해주세요.",
+      auth_error: "로그인 요청이 만료됐어요. 다시 시도해주세요. (N1)",
     });
   }
 
@@ -122,7 +144,7 @@ module.exports = async (req, res) => {
       code, state,
     }));
     const token = await tokenRes.json();
-    if (!token.access_token) throw new Error(token.error_description || "토큰 발급 실패");
+    if (!token.access_token) throw new Error((token.error_description || "토큰 발급 실패") + " (N2)");
 
     // 프로필 조회
     const meRes = await fetch(NAVER_ME, {
@@ -131,13 +153,12 @@ module.exports = async (req, res) => {
     const me = await meRes.json();
     if (me.resultcode !== "00" || !me.response) throw new Error("프로필 조회 실패");
 
-    const email = (me.response.email || "").trim().toLowerCase();
     const naverId = me.response.id;
-    if (!email) {
-      return redirectToApp(res, origin, {
-        auth_error: "네이버 계정의 이메일 제공에 동의해야 로그인할 수 있어요.",
-      });
-    }
+    if (!naverId) throw new Error("프로필 조회 실패");
+    // 이메일 제공에 동의하지 않았거나 네이버 앱 설정에 이메일 항목이 없어도 로그인은 되게 해요.
+    // 그때는 네이버 회원번호로 만든 주소를 계정 이름표로 씁니다 (실제로 메일이 가는 주소는 아니에요).
+    const email = (me.response.email || "").trim().toLowerCase()
+      || `naver-${String(naverId).toLowerCase().replace(/[^a-z0-9_-]/g, "")}@naver.barapp.kr`;
 
     /* ---------- 3) Supabase 계정 찾기 또는 만들기 ---------- */
     const admin = (path, init = {}) => fetch(`${SUPABASE_URL}${path}`, {
@@ -166,7 +187,8 @@ module.exports = async (req, res) => {
       });
       if (!created.ok) {
         const err = await created.text();
-        throw new Error("계정 생성 실패: " + err.slice(0, 120));
+        // 찾기에서 놓쳤을 뿐 이미 있는 계정이면 그대로 로그인으로 넘어갑니다
+        if (!/already|registered|exists/i.test(err)) throw new Error("계정 생성 실패: " + err.slice(0, 120));
       }
     }
 

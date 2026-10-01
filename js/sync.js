@@ -928,6 +928,7 @@
 
   // 네이버 로그인 함수가 돌려준 1회용 토큰으로 세션을 완성해요.
   // (구글·카카오는 supabase-js 가 알아서 처리하므로 이 과정이 없습니다)
+  var tokenHashError = null;   // 아래에서 실패하면 이유를 적어 뒀다가 로그인 화면에 보여줘요
   async function consumeTokenHash() {
     var q;
     try { q = new URLSearchParams(location.search); } catch (e) { return false; }
@@ -938,7 +939,7 @@
       var res = await sb.auth.verifyOtp({ token_hash: th, type: type });
       history.replaceState(null, "", location.pathname);
       if (res.error) {
-        setStatus("signed-out", res.error.message);
+        tokenHashError = "로그인을 마치지 못했어요: " + res.error.message + " (N3)";
         return false;
       }
       var user = res.data && res.data.user;
@@ -946,6 +947,7 @@
       return !!user;
     } catch (e) {
       history.replaceState(null, "", location.pathname);
+      tokenHashError = "로그인을 마치지 못했어요: " + ((e && e.message) || "알 수 없는 오류") + " (N4)";
       return false;
     }
   }
@@ -1047,7 +1049,7 @@
       if (!user) {
         // 로그인 링크를 눌러서 왔는데 세션이 안 생긴 경우입니다.
         // 그냥 두면 로그인 화면만 다시 떠서 "왜 안 되지" 하게 되므로 이유를 알려줘요.
-        setStatus("signed-out", staleLinkMessage());
+        setStatus("signed-out", tokenHashError || staleLinkMessage());
         return "signed-out";
       }
       S.uid = user.id;
