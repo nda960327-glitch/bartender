@@ -1097,6 +1097,7 @@
     get naverReady() { return S.naverReady; },
     // 서버가 목록을 안 주면 막지 않아요 (알 수 없음 = 시도해봄)
     providerReady: function (p) {
+      if ((CFG.LOGIN_OFF || []).indexOf(p) >= 0) return false;   // config 에서 잠시 막아둔 방법
       if (p === "naver") return S.naverReady;
       return !S.providers || S.providers[p] !== false;
     },
