@@ -51,6 +51,13 @@ window.BARTALK_CONFIG = {
   // 비워두면 캡차 없이 동작합니다. (구글·카카오·네이버 로그인은 캡차와 상관없어요)
   TURNSTILE_SITE_KEY: "0x4AAAAAAE4sKDe14rlhhyaq",
 
+  // 입장권 값 — api/pass-billing.js 의 TICKET 과 같아야 해요 (다르면 결제가 "금액이 달라요"로 거절됩니다).
+  //   기본가는 가게 관리 > 상품의 입장권 가격(1인)을 씁니다.
+  //   hookah: 후카 1대 값 (인원과 무관) · soloOff: 1인 + 후카 1대 세트 할인 · hours: 입장 후 이용 시간
+  TICKET: { hookah: 28000, soloOff: 9000, hours: 2, maxParty: 10, maxHookah: 4 },
+  // true 면 손님에게는 입장권(1회 결제)만 팔아요. 매달 결제하는 상품은 목록에서 숨깁니다.
+  TICKET_ONLY: true,
+
   // 잠시 막아둘 로그인 방법. 예: ["kakao"] — 버튼이 "준비 중"으로 바뀌고 눌리지 않아요.
   LOGIN_OFF: [],
 

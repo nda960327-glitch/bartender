@@ -63,6 +63,21 @@ function oncePrice(plan, st) {
   return applies ? Math.round(plan.price * (1 + pct / 100) / 100) * 100 : plan.price;
 }
 
+/* 입장권 (kind = oneday) — 한 사람이 여러 명 몫을 끊고, 후카를 얹을 수 있어요.
+   값은 js/config.js 의 TICKET 과 같아야 합니다 (앱이 보여준 금액 = 서버가 승인하는 금액).
+     기본가 = 상품 가격(1인) · 후카 1대 = 28,000원 (인원과 무관, 2~3명이 같이 써요)
+     1인 + 후카 1대는 세트 할인 9,000원 → 38,000 + 28,000 - 9,000 = 57,000원 */
+const TICKET = { hookah: 28000, soloOff: 9000, maxParty: 10, maxHookah: 4 };
+function ticketOrder(body) {
+  const party = Math.max(1, Math.min(TICKET.maxParty, Math.floor(Number(body.party) || 1)));
+  const hookah = Math.max(0, Math.min(TICKET.maxHookah, Math.floor(Number(body.hookah) || 0)));
+  return { party, hookah };
+}
+function ticketPrice(base, party, hookah) {
+  return base * party + TICKET.hookah * hookah - (party === 1 && hookah === 1 ? TICKET.soloOff : 0);
+}
+const ticketLabel = (name, party, hookah) => name + (party > 1 || hookah ? ` · ${party}명` : "") + (hookah ? ` · 후카 ${hookah}대` : "");
+
 /* 카드 등록 + 첫 결제 + 패스 발급 */
 async function issue(me, body) {
   const { authKey, customerKey, planId } = body;
@@ -106,9 +121,9 @@ async function activatePass(me, plan, st, body, opts) {
   const start = kstToday(0), end = addDays(start, plan.duration_days - 1);
   const paid = opts.price != null ? opts.price : plan.price;
   const fields = {
-    bar_key: plan.bar_key, bar_name: st.bar_name, plan_id: plan.id, plan_name: plan.name, user_id: me.id,
+    bar_key: plan.bar_key, bar_name: st.bar_name, plan_id: plan.id, plan_name: opts.label || plan.name, user_id: me.id,
     status: "active", kind: plan.kind, days: plan.days, drinks_per_day: plan.drinks_per_day, monthly_cap: plan.monthly_cap,
-    team_size: plan.team_size, duration_days: plan.duration_days, price: paid,
+    team_size: opts.party || plan.team_size, duration_days: plan.duration_days, price: paid,
     starts_at: start, ends_at: end, paid_via: "toss", auto_renew: !!opts.autoRenew && plan.kind !== "oneday",
     approved_at: new Date().toISOString(),
   };
@@ -138,10 +153,14 @@ async function confirm(me, body) {
   const st = (await db("bar_pass_settings?bar_key=eq." + q(plan.bar_key) + "&select=*"))[0];
   if (!st || !st.enabled) return { error: "이 가게는 아직 패스를 받지 않아요." };
   let expected = oncePrice(plan, st);
+  let order = null;
   if (plan.kind === "oneday") {
     // 빈자리 알림이 살아 있으면 그 가격 (supabase/pass-offer.sql)
     const offers = await db("pass_seat_offers?bar_key=eq." + q(plan.bar_key) + "&expires_at=gt." + q(new Date().toISOString()) + "&oneday_price=not.is.null&select=oneday_price&order=created_at.desc&limit=1").catch(() => []);
     if (offers[0] && offers[0].oneday_price != null) expected = Math.min(expected, +offers[0].oneday_price);
+    // 인원 · 후카 (입장권)
+    order = ticketOrder(body);
+    expected = ticketPrice(expected, order.party, order.hookah);
   }
   if (Number(body.amount) !== expected) return { error: "결제 금액이 상품 가격과 달라요. (1회 결제 " + expected.toLocaleString("ko-KR") + "원)" };
 
@@ -159,12 +178,15 @@ async function confirm(me, body) {
     await db("pass_payments", { method: "POST", body: JSON.stringify({ user_id: me.id, bar_key: plan.bar_key, order_id: orderId, amount: expected, status: "failed", fail_reason: pay.error }) });
     return { error: "결제 승인 실패: " + pay.error };
   }
-  const pass = await activatePass(me, plan, st, body, { autoRenew: false, price: expected });
+  const pass = await activatePass(me, plan, st, body, {
+    autoRenew: false, price: expected,
+    party: order ? order.party : null, label: order ? ticketLabel(plan.name, order.party, order.hookah) : null,
+  });
   await db("pass_payments", { method: "POST", body: JSON.stringify({
     pass_id: pass.id, user_id: me.id, bar_key: plan.bar_key, order_id: orderId, amount: expected,
     status: "paid", receipt_url: pay.receiptUrl || null, paid_at: new Date().toISOString(),
   }) });
-  await notifyOwners(me, plan, st, pay.method || "앱");
+  await notifyOwners(me, Object.assign({}, plan, { name: pass.plan_name || plan.name, price: expected }), st, pay.method || "앱");
   return { ok: true, pass, receiptUrl: pay.receiptUrl || null, method: pay.method || "" };
 }
 

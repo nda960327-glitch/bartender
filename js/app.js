@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.68.1";
+  const APP_BUILD = "2.69.0";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -8548,23 +8548,18 @@
   //   가게: 라이트(미끼)로 들어오게 하고 스탠다드 이상으로 올려요. 회원당 평균 15만 원이면 회원 100명에 매출 1,500만 원.
   //   정원은 두지 않아요(목표 구독자 수는 운영안 문서에). 위스키는 상품이 아니라 회원 혜택(10% 할인).
   //   정가 대비 절약은 카드에 자동으로 붙어요 (passValueLine).
+  /* 입장권 — 한 번 결제하고 입장해요. 매달 결제하던 멤버십 상품은 내렸습니다.
+     가격은 1인 기준이고, 살 때 인원과 후카를 고릅니다 (값은 js/config.js 의 TICKET). */
+  const TICKET = Object.assign({ hookah: 28000, soloOff: 9000, hours: 2, maxParty: 10, maxHookah: 4 }, CFG.TICKET || {});
+  const TICKET_ONLY = CFG.TICKET_ONLY !== false;
+  const isTicket = (p) => p && p.kind === "oneday";
+  const ticketUnlimited = (p) => (p.drinks_per_day || 0) >= 90;
+  const ticketPrice = (base, party, hookah) => base * party + TICKET.hookah * hookah - (party === 1 && hookah === 1 ? TICKET.soloOff : 0);
   const PASS_PRESET_PLANS = [
-    { name: "라이트", price: 39000, kind: "personal", days: "all", drinks_per_day: 1, monthly_cap: 6, team_size: 1, duration_days: 30, max_members: null, sort: 1,
-      note: "커피 두 잔 값에 퇴근 한 잔 · 위스키 10% 할인" },
-    { name: "스타터", price: 119000, kind: "personal", days: "all", drinks_per_day: 2, monthly_cap: 20, team_size: 1, duration_days: 30, max_members: null, sort: 2,
-      note: "하루 2잔이라 친구 몫도 돼요 · 위스키 10% 할인" },
-    { name: "스탠다드", price: 159000, kind: "personal", days: "all", drinks_per_day: 3, monthly_cap: 32, team_size: 1, duration_days: 30, max_members: null, sort: 3,
-      note: "⭐ 가장 인기 · 매일 한 잔 + 주말엔 친구 몫 · 위스키 10% 할인" },
-    { name: "프리미엄", price: 219000, kind: "personal", days: "all", drinks_per_day: 3, monthly_cap: 48, team_size: 1, duration_days: 30, max_members: null, sort: 4,
-      note: "시그니처 칵테일까지 · 위스키 15% 할인" },
-    { name: "팀 패스", price: 399000, kind: "team", days: "all", drinks_per_day: 3, monthly_cap: 75, team_size: 5, duration_days: 30, max_members: null, sort: 5,
-      note: "5명 · 1인 79,800원 · 법인카드 OK" },
-    { name: "원데이", price: 19000, kind: "oneday", days: "all", drinks_per_day: 2, monthly_cap: null, team_size: 1, duration_days: 1, max_members: null, sort: 6,
-      note: "회원이 데려온 동료용 · 당일 2잔" },
-    { name: "스탠다드 3개월", price: 429000, kind: "personal", days: "all", drinks_per_day: 3, monthly_cap: 32, team_size: 1, duration_days: 90, max_members: null, sort: 7,
-      note: "월 143,000원꼴 · 3개월 한 번에" },
+    { name: "입장권", price: 38000, kind: "oneday", days: "all", drinks_per_day: 99, monthly_cap: null, team_size: 1, duration_days: 2, max_members: null, sort: 1,
+      note: `${TICKET.hours}시간 동안 기본 칵테일 무제한 · 후카 포함 ${(38000 + TICKET.hookah - TICKET.soloOff).toLocaleString("ko-KR")}원 · 후카 1대 추가 ${TICKET.hookah.toLocaleString("ko-KR")}원(2~3인 공유)` },
   ];
-  const PASS_KIND = { personal: "개인", team: "팀", oneday: "원데이" };
+  const PASS_KIND = { personal: "개인", team: "팀", oneday: "입장권" };
   const passCache = { mine: null, owned: null, at: 0, byBar: {} };
   let passQrTimer = null;
   let passScanner = null;
@@ -8573,6 +8568,7 @@
   const passActive = (p) => p && (p.status === "active" || p.status === "grace");
   const passWon = (n) => `${fmtNum(n)}원`;
   function passPlanLine(p) {
+    if (isTicket(p) && ticketUnlimited(p)) return `입장 후 ${TICKET.hours}시간 · 기본 칵테일 무제한 · 1인 기준`;
     const bits = [PASS_DAYS[p.days] || p.days, `하루 ${p.drinks_per_day}잔`];
     if (p.monthly_cap) bits.push(`월 ${p.monthly_cap}잔까지`);
     if (p.kind === "team") bits.push(`${p.team_size}명`);
@@ -8585,7 +8581,7 @@
   function passValueLine(p, st) {
     const unit = (st && st.refund_drink_price) || REFUND_DRINK_DEFAULT;
     const cups = p.monthly_cap || (p.kind === "oneday" ? p.drinks_per_day : 0);
-    if (!cups || !p.price) return "";
+    if (!cups || !p.price || (isTicket(p) && ticketUnlimited(p))) return "";
     const months = p.duration_days >= 60 ? Math.round(p.duration_days / 30) : 1;
     const worth = cups * unit * months;
     if (worth <= p.price) return "";
@@ -8601,7 +8597,7 @@
   }
   const passFull = (p, seats) => !!p.max_members && ((seats && seats[String(p.id)]) || 0) >= p.max_members;
   // "/월" · "/3개월" · 원데이는 없음
-  const passPer = (p) => p.kind === "oneday" ? "" : p.duration_days >= 60 ? `/${Math.round(p.duration_days / 30)}개월` : "/월";
+  const passPer = (p) => p.kind === "oneday" ? "/1인" : p.duration_days >= 60 ? `/${Math.round(p.duration_days / 30)}개월` : "/월";
   function passFail(r, fallback) {
     if (r && r.error === "not-installed") toast("서버에 패스 기능이 아직 설치되지 않았어요. (supabase/pass.sql)");
     else toast((r && r.error) || fallback || "처리하지 못했어요.");
@@ -9045,7 +9041,7 @@
         <button class="pass-home pressable" data-pass="${p.id}">
           <span class="ph-qr">${qrGlyph()}</span>
           <span class="ph-body">
-            <b>${esc(p.bar_name || "하우스 패스")} · ${esc(p.plan_name)}</b>
+            <b>${esc(p.bar_name || "입장권")} · ${esc(p.plan_name)}</b>
             <span>${p.status === "grace" ? "결제 확인 중 · 그대로 쓸 수 있어요" : `${fmtDay(p.ends_at)}까지 · 탭해서 입장 QR 보기`}</span>
           </span>
           <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
@@ -9063,7 +9059,7 @@
       html += `
         <button class="pass-home pass-home-empty pressable" id="home-pass-find">
           <span class="ph-qr">🎫</span>
-          <span class="ph-body"><b>매달 한 번, QR 찍고 입장</b><span>하우스 패스를 파는 바를 바 찾기에서 골라보세요</span></span>
+          <span class="ph-body"><b>입장권 끊고, QR 찍고 입장</b><span>${TICKET.hours}시간 기본 칵테일 무제한 · 일행 몫까지 한 번에</span></span>
           <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
         </button>`;
     }
@@ -9264,7 +9260,7 @@
     const { mine } = await loadMyPasses(true);
     const shown = mine.filter((p) => p.status !== "cancelled" && p.status !== "rejected");
     if (!shown.length) {
-      if (await btConfirm("아직 패스가 없어요.\n바 찾기에서 하우스 패스를 파는 가게를 골라 신청할 수 있어요.", { yes: "바 찾기" })) show("bars");
+      if (await btConfirm("아직 입장권이 없어요.\n바 찾기에서 가게를 골라 입장권을 끊을 수 있어요.", { yes: "바 찾기" })) show("bars");
       return;
     }
     if (shown.length === 1) { openPass(shown[0].id); return; }
@@ -9289,7 +9285,7 @@
     if (!r.ok) {
       // 손님에게는 조용히 감추고, 관리자에게는 왜 안 보이는지 알려줍니다.
       if (isAdmin() && r.error !== "offline") {
-        box.innerHTML = `<div class="card pass-sec"><h3 class="card-h">하우스 패스 🎫</h3><p class="pass-note">${r.error === "not-installed"
+        box.innerHTML = `<div class="card pass-sec"><h3 class="card-h">입장권 🎫</h3><p class="pass-note">${r.error === "not-installed"
           ? "서버에 패스 기능이 아직 설치되지 않았어요. Supabase SQL Editor 에서 <b>supabase/pass.sql</b> 을 실행해 주세요."
           : "패스 정보를 못 읽었어요: " + esc(r.error)}</p></div>`;
       }
@@ -9303,7 +9299,7 @@
       // 관리자에게는 첫 단계를 바로 보여줍니다 — 여기서 운영자를 지정해야 다음이 열려요.
       box.innerHTML = `
         <div class="card pass-sec">
-          <div class="pass-sec-head"><h3 class="card-h">하우스 패스 🎫</h3><span class="pass-note" style="margin:0">관리자만 보여요</span></div>
+          <div class="pass-sec-head"><h3 class="card-h">입장권 🎫</h3><span class="pass-note" style="margin:0">관리자만 보여요</span></div>
           <p class="pass-note">${r.settings ? "운영자가 지정돼 있지만 아직 손님에게 열리지 않았어요." : "이 가게는 아직 연계되지 않았어요."} 운영자를 지정하면 그 사람의 마이페이지에 <b>우리 가게 패스 관리</b>가 생기고, 이 가게가 손님의 바 찾기에 보여요.</p>
           <button class="big-btn accent ready" id="bar-pass-manage" style="margin-top:12px">운영자 지정 (비우면 나)</button>
         </div>`;
@@ -9314,7 +9310,7 @@
     box.innerHTML = `
       <div class="card pass-sec">
         <div class="pass-sec-head">
-          <h3 class="card-h">하우스 패스 🎫</h3>
+          <h3 class="card-h">입장권 🎫</h3>
           ${canManage ? `<button class="text-btn strong" id="bar-pass-manage">${r.owner ? "패스 관리" : "운영자 지정"}</button>` : ""}
         </div>
         ${!on ? '<p class="pass-note">아직 손님에게 열리지 않았어요. 상품을 만들고 "패스 받기"를 켜면 여기 보여요.</p>' : ""}
@@ -9330,18 +9326,18 @@
           ${passActive(mine) && !mine.team_id ? `<div class="pass-links"><button class="text-btn" id="bar-pass-upgrade">⬆️ 상품 바꾸기</button><button class="text-btn" id="bar-pass-policy">환불·해지 규정</button></div>` : ""}` : ""}
         ${on && !mine && r.plans.length ? `
           <div class="pass-plans">
-            ${r.plans.map((p) => `
+            ${(TICKET_ONLY && !r.owner ? r.plans.filter(isTicket) : r.plans).map((p) => `
               <button class="pass-plan pressable ${passFull(p, r.seats) ? "full" : ""} ${/⭐/.test(p.note || "") ? "hot" : ""}" data-plan="${p.id}">
                 <span class="pp-top">
-                  <span class="pp-name">${esc(p.name)}${p.kind !== "personal" ? ` <i>${PASS_KIND[p.kind]}</i>` : ""}${p.max_members ? ` <em class="pp-seat ${passFull(p, r.seats) ? "full" : ""}">${passSeatLine(p, r.seats)}</em>` : ""}</span>
+                  <span class="pp-name">${esc(p.name)}${p.kind !== "personal" && !p.name.includes(PASS_KIND[p.kind]) ? ` <i>${PASS_KIND[p.kind]}</i>` : ""}${p.max_members ? ` <em class="pp-seat ${passFull(p, r.seats) ? "full" : ""}">${passSeatLine(p, r.seats)}</em>` : ""}</span>
                   <span class="pp-price">${onedayPrice(p, r.offer) < p.price ? `<s>${passWon(p.price)}</s> ` : ""}${passWon(onedayPrice(p, r.offer))}<small>${passPer(p)}</small></span>
                 </span>
                 <span class="pp-line">${esc(passPlanLine(p))}${passValueLine(Object.assign({}, p, { price: onedayPrice(p, r.offer) }), r.settings) ? ` · ${passValueLine(Object.assign({}, p, { price: onedayPrice(p, r.offer) }), r.settings)}` : ""}${onedayPrice(p, r.offer) < p.price ? ` · <b>오늘 빈자리 가격</b>` : ""}</span>
                 ${p.note ? `<span class="pp-note">${esc(p.note.replace(/⭐\s*/, ""))}</span>` : ""}
               </button>`).join("")}
           </div>
-          <p class="pass-note">${CFG.TOSS_CLIENT_KEY ? `앱에서 결제하면 바로 시작돼요. <b>매달 자동결제</b>가 정가이고 체크카드도 돼요. 언제든 해지할 수 있어요. 한 번만 결제(카드·카카오페이·삼성페이 등)는 ${onceMarkup(r.settings)}% 더 내요.` : "신청하면 가게에서 결제한 뒤 운영자가 승인해요."} 팀 패스 초대를 받았다면 아래에서 코드를 넣어주세요.</p>
-          <button class="host-chat-btn" id="bar-pass-team" style="margin:6px 0 2px">초대 코드로 팀 패스 참여</button>` : ""}
+          <p class="pass-note">${TICKET_ONLY ? `인원과 후카를 고르고 <b>한 번만 결제</b>해요 (카드·카카오페이·네이버페이·토스페이). 입장 전에는 전액 환불돼요.` : CFG.TOSS_CLIENT_KEY ? `앱에서 결제하면 바로 시작돼요. <b>매달 자동결제</b>가 정가이고 체크카드도 돼요. 언제든 해지할 수 있어요. 한 번만 결제(카드·카카오페이·삼성페이 등)는 ${onceMarkup(r.settings)}% 더 내요.` : "신청하면 가게에서 결제한 뒤 운영자가 승인해요."}${TICKET_ONLY ? "" : " 팀 패스 초대를 받았다면 아래에서 코드를 넣어주세요."}</p>
+          ${TICKET_ONLY ? "" : `<button class="host-chat-btn" id="bar-pass-team" style="margin:6px 0 2px">초대 코드로 팀 패스 참여</button>`}` : ""}
         ${on && !mine && !r.plans.length ? '<p class="pass-note">아직 판매 중인 상품이 없어요.</p>' : ""}
         ${on && r.settings.special_drink ? `<p class="pass-note">이달 ${r.settings.stamp_goal}번째 방문에 <b>${esc(r.settings.special_drink)}</b> 1잔을 드려요.</p>` : ""}
       </div>`;
@@ -9379,7 +9375,7 @@
     const line = `${plan.name} · ${passWon(plan.price)}${passPer(plan)}\n${passPlanLine(plan)}`;
     if (CFG.TOSS_CLIENT_KEY && plan.price > 0) {
       // 앱 결제만 받아요. 자동결제는 카드만, 1회 결제는 간편결제까지. 원데이는 1회 결제만.
-      if (plan.kind === "oneday") { const o = passCache.byBar[key] && passCache.byBar[key].offer; startPassPay(b, key, plan, onedayPrice(plan, o)); return; }
+      if (plan.kind === "oneday") { const o = passCache.byBar[key] && passCache.byBar[key].offer; openTicketSheet(b, key, plan, onedayPrice(plan, o)); return; }
       if (!onceApplies(plan)) { startPassPay(b, key, plan); return; }
       const st = (passCache.byBar[key] && passCache.byBar[key].settings) || null;
       const once = oncePrice(plan, st);
@@ -9659,6 +9655,53 @@
     passQrTimer = setInterval(paint, 60000);
   }
 
+  /* ---------- 입장권 사기: 인원 · 후카 고르기 ----------
+   * 한 사람이 일행 몫까지 한 번에 끊어요. QR 하나로 같이 입장합니다. */
+  function openTicketSheet(b, key, plan, base) {
+    const o = { party: 1, hookah: 0 };
+    const total = () => ticketPrice(base, o.party, o.hookah);
+    const bd = openSheetHTML(`
+      <h3>${esc(b.name)} 입장권</h3>
+      <p class="sheet-sub">${ticketUnlimited(plan) ? `입장 후 ${TICKET.hours}시간 동안 기본 칵테일 무제한` : esc(passPlanLine(plan))}</p>
+      <div class="tk-menu">
+        <div><span>기본</span><b>${passWon(base)}</b><small>1인</small></div>
+        <div><span>후카 포함</span><b>${passWon(ticketPrice(base, 1, 1))}</b><small>1인 + 후카 1대</small></div>
+        <div><span>후카 추가</span><b>${passWon(TICKET.hookah)}</b><small>1대 · 2~3인 공유</small></div>
+      </div>
+      <div class="tk-row">
+        <div><b>인원</b><span>일행 몫까지 한 번에 끊을 수 있어요</span></div>
+        <div class="tk-step"><button data-k="party" data-d="-1" aria-label="인원 줄이기">−</button><b id="tk-party">1</b><button data-k="party" data-d="1" aria-label="인원 늘리기">+</button></div>
+      </div>
+      <div class="tk-row">
+        <div><b>후카</b><span>인원과 무관하게 1대 ${passWon(TICKET.hookah)}</span></div>
+        <div class="tk-step"><button data-k="hookah" data-d="-1" aria-label="후카 줄이기">−</button><b id="tk-hookah">0</b><button data-k="hookah" data-d="1" aria-label="후카 늘리기">+</button></div>
+      </div>
+      <div class="tk-total"><span id="tk-detail"></span><b id="tk-sum"></b></div>
+      <p class="tk-per" id="tk-per"></p>
+      <button class="big-btn accent ready" id="tk-pay"></button>
+      <p class="pass-note">한 번만 결제돼요. 입장 전에는 전액 환불, 입장 후에는 환불이 안 돼요.</p>`);
+    const paint = () => {
+      const t = total();
+      bd.querySelector("#tk-party").textContent = o.party;
+      bd.querySelector("#tk-hookah").textContent = o.hookah;
+      const bits = [`기본 ${passWon(base)} × ${o.party}명`];
+      if (o.hookah) bits.push(`후카 ${passWon(TICKET.hookah)} × ${o.hookah}대`);
+      if (o.party === 1 && o.hookah === 1) bits.push(`세트 할인 −${passWon(TICKET.soloOff)}`);
+      bd.querySelector("#tk-detail").textContent = bits.join(" + ").replace("+ 세트", "· 세트");
+      bd.querySelector("#tk-sum").textContent = passWon(t);
+      bd.querySelector("#tk-per").textContent = o.party > 1 ? `1인당 ${passWon(Math.round(t / o.party / 100) * 100)}꼴` : "";
+      bd.querySelector("#tk-pay").textContent = `${passWon(t)} 결제하기`;
+      bd.querySelectorAll(".tk-step button").forEach((x) => {
+        const v = o[x.dataset.k] + +x.dataset.d;
+        x.disabled = x.dataset.k === "party" ? (v < 1 || v > TICKET.maxParty) : (v < 0 || v > TICKET.maxHookah);
+      });
+    };
+    bd.querySelectorAll(".tk-step button").forEach((x) => x.addEventListener("click", () => { o[x.dataset.k] += +x.dataset.d; paint(); }));
+    bd.querySelector("#tk-pay").addEventListener("click", () => { bd.remove(); startPassPay(b, key, plan, total(), { party: o.party, hookah: o.hookah }); });
+    paint();
+  }
+  const ticketLabel = (name, t) => name + (t && (t.party > 1 || t.hookah) ? ` · ${t.party}명` : "") + (t && t.hookah ? ` · 후카 ${t.hookah}대` : "");
+
   /* ---------- 앱 안 카드 결제 (토스) ---------- */
   async function startPassBilling(b, key, plan) {
     if (!await ensureMemberInfo()) return;
@@ -9688,20 +9731,20 @@
    * 자동결제는 카드(빌링키)만 되지만, 한 번만 내는 결제는 간편결제까지 열려요.
    * 흐름: 결제창 → ?pass_pay=ok 로 돌아옴 → 서버(action=confirm)가 토스에 승인 요청 → 패스 시작 */
   const PASS_PAY_METHODS = [["💳 신용·체크카드", null], ["카카오페이", "카카오페이"], ["네이버페이", "네이버페이"], ["토스페이", "토스페이"], ["삼성페이", "삼성페이"]];
-  async function startPassPay(b, key, plan, payAmount) {
+  async function startPassPay(b, key, plan, payAmount, ticket) {
     if (!await ensureMemberInfo()) return;
     const amount = payAmount || oncePrice(plan, (passCache.byBar[key] && passCache.byBar[key].settings) || null);
     const ok = await lazyData(TOSS_LIB, "TossPayments");
     if (!ok || !window.TossPayments) { toast("결제 모듈을 불러오지 못했어요."); return; }
     const labels = PASS_PAY_METHODS.map((m) => m[0]);
-    openSheet(`${plan.name} · ${passWon(amount)} (1회) — 결제 수단`, labels, null, async (v) => {
+    openSheet(`${ticketLabel(plan.name, ticket)} · ${passWon(amount)}${isTicket(plan) ? "" : " (1회)"} — 결제 수단`, labels, null, async (v) => {
       const easy = (PASS_PAY_METHODS.find((m) => m[0] === v) || [])[1];
       const orderId = `pass-${plan.id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
       const base = location.origin + location.pathname;
       try {
-        store.set("passPayIntent", { barKey: key, barName: b.name, barId: b.id, planId: plan.id, orderId, amount, member: memberInfo(), at: Date.now() });
+        store.set("passPayIntent", { barKey: key, barName: b.name, barId: b.id, planId: plan.id, orderId, amount, member: memberInfo(), at: Date.now(), ticket: ticket || null });
         const req = {
-          amount, orderId, orderName: `${b.name} ${plan.name}${amount !== plan.price ? " (1회)" : ""}`,
+          amount, orderId, orderName: `${b.name} ${ticketLabel(plan.name, ticket)}${!isTicket(plan) && amount !== plan.price ? " (1회)" : ""}`.slice(0, 90),
           customerName: state.user.name || state.user.nick, customerEmail: undefined,
           successUrl: base + "?pass_pay=ok", failUrl: base + "?pass_pay=fail",
         };
@@ -9727,12 +9770,15 @@
     toast("결제를 확인하는 중…");
     const r = await Sync.passBilling("confirm", {
       paymentKey: q.get("paymentKey"), orderId: intent.orderId, amount: intent.amount, planId: intent.planId,
+      party: (intent.ticket || {}).party || 1, hookah: (intent.ticket || {}).hookah || 0,
       memberName: (intent.member || {}).name || state.user.name || "", memberPhone: (intent.member || {}).phone || state.user.phone || "",
     });
     if (!r.ok) { await btAlert("결제가 완료되지 않았어요.\n" + r.error); return; }
     store.set("passPayIntent", null);
     invalidatePasses();
-    await btAlert(`결제 완료! ${intent.barName}의 패스가 바로 시작됐어요. 🎫${r.method ? "\n" + r.method : ""}`);
+    await btAlert(intent.ticket
+      ? `결제 완료! ${intent.barName} 입장권이에요. 🎫\n가게에서 QR을 보여주세요. 입장 확인부터 ${TICKET.hours}시간이에요.${r.method ? "\n" + r.method : ""}`
+      : `결제 완료! ${intent.barName}의 패스가 바로 시작됐어요. 🎫${r.method ? "\n" + r.method : ""}`);
     openPass(r.pass.id);
   }
 
@@ -9914,7 +9960,9 @@
     } else {
       const prof = a.data && a.data.profiles && a.data.profiles[r.data.user_id];
       a.scan = { token, result: r.data, color: prof ? prof.color : 0, error: "",
-        msg: action === "drink" ? "잔 사용 ✓" : action === "reward" ? "보상 제공 완료 🎁" : (r.data.entered_today ? "입장 확인 ✓ · 도장 찍었어요" : "입장 확인 ✓") };
+        msg: action === "drink" ? "잔 사용 ✓" : action === "reward" ? "보상 제공 완료 🎁"
+          : r.data.kind === "oneday" ? `입장 확인 ✓ · ${new Date(Date.now() + TICKET.hours * 3600e3).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false })}까지 (${TICKET.hours}시간)`
+          : (r.data.entered_today ? "입장 확인 ✓ · 도장 찍었어요" : "입장 확인 ✓") };
       vibrate(20);
       sfx("success");
       passCache.at = 0;
@@ -10396,7 +10444,7 @@
       const have = new Set(d.plans.map((p) => String(p.name || "").replace(/\s+/g, "")));
       const todo = rows.filter((row) => !have.has(row.name.replace(/\s+/g, "")));
       if (!todo.length) { toast("운영안 상품 7종이 이미 다 있어요."); return; }
-      if (!await btConfirm(`하우스 패스 운영안의 상품을 넣을까요?\n\n${todo.map((r) => `· ${r.name} ${passWon(r.price)}`).join("\n")}\n\n(이미 있는 ${rows.length - todo.length}개는 건너뛰고, 나중에 하나씩 고칠 수 있어요)`, { yes: "넣기" })) return;
+      if (!await btConfirm(`입장권 상품을 넣을까요?\n\n${todo.map((r) => `· ${r.name} ${passWon(r.price)}`).join("\n")}\n\n(이미 있는 ${rows.length - todo.length}개는 건너뛰고, 나중에 하나씩 고칠 수 있어요)`, { yes: "넣기" })) return;
       let n = 0;
       for (const row of todo) {
         const r = await Sync.passSavePlan(Object.assign({ bar_key: a.barKey, active: true }, row));
@@ -12132,7 +12180,7 @@
           ? "조건에 맞는 바가 없어요."
           : (isAdmin()
             ? "아직 연계된 가게가 없어요.<br>위의 <b>연계 가게만</b> 버튼을 눌러 전체 목록에서 가게를 찾고, 운영자를 지정하세요."
-            : "아직 연계된 바가 없어요.<br>하우스 패스를 운영하는 바가 여기 보여요."))}</div>`);
+            : "아직 연계된 바가 없어요.<br>입장권을 파는 바가 여기 보여요."))}</div>`);
 
     const retry = $("#locfail-retry");
     if (retry) retry.addEventListener("click", () => turnOnNearby(null));
