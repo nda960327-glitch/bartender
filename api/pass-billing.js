@@ -73,8 +73,16 @@ function ticketOrder(body) {
   const hookah = Math.max(0, Math.min(TICKET.maxHookah, Math.floor(Number(body.hookah) || 0)));
   return { party, hookah };
 }
-function ticketPrice(base, party, hookah) {
-  return base * party + TICKET.hookah * hookah - (party === 1 && hookah === 1 ? TICKET.soloOff : 0);
+// 가게 설정(supabase/pass-ticket.sql)에 후카 값이 있으면 그걸 씁니다
+function ticketRule(st) {
+  const hookah = st && st.hookah_price != null ? Number(st.hookah_price) : TICKET.hookah;
+  const set = st && st.hookah_set_price != null ? Number(st.hookah_set_price) : null;
+  return { hookah, set };
+}
+function ticketPrice(base, party, hookah, rule) {
+  const r = rule || { hookah: TICKET.hookah, set: null };
+  const off = r.set != null ? Math.max(0, base + r.hookah - r.set) : TICKET.soloOff;
+  return base * party + r.hookah * hookah - (party === 1 && hookah === 1 ? off : 0);
 }
 const ticketLabel = (name, party, hookah) => name + (party > 1 || hookah ? ` · ${party}명` : "") + (hookah ? ` · 후카 ${hookah}대` : "");
 
@@ -160,7 +168,7 @@ async function confirm(me, body) {
     if (offers[0] && offers[0].oneday_price != null) expected = Math.min(expected, +offers[0].oneday_price);
     // 인원 · 후카 (입장권)
     order = ticketOrder(body);
-    expected = ticketPrice(expected, order.party, order.hookah);
+    expected = ticketPrice(expected, order.party, order.hookah, ticketRule(st));
   }
   if (Number(body.amount) !== expected) return { error: "결제 금액이 상품 가격과 달라요. (1회 결제 " + expected.toLocaleString("ko-KR") + "원)" };
 

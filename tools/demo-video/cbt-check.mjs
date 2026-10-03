@@ -79,6 +79,18 @@ await page.screenshot({ path: OUT + "cbt-3-result.png" });
 await click("#cbt-list");
 await page.waitForSelector(".cbt-stats", { visible: true });
 check("목록에 성적 카드", (await text(".cbt-stats")).includes("고객서비스영어"));
+check("최근 7일 막대 · 오늘 20문항", (await text(".cbt-week .today")).includes("20"), (await text(".cbt-week .today")).replace(/\n/g, " "));
+check("모의고사 카드에 연속·오늘", (await text("#cbt-mock")).includes("연속 1일") && (await text("#cbt-mock")).includes("오늘 1회"), (await text("#cbt-mock")).replace(/\n/g, " "));
+check("기출문제 묶음 제목", (await text(".cbt-past-head")).includes("기출문제"));
+await click("#cbt-log");
+await page.waitForSelector(".cbt-log-row", { visible: true });
+const logDay = await text(".cbt-log-list[data-p=\"days\"] .cbt-log-row");
+check("기록: 오늘 날짜 · 1회 · 20문항 · 10%", logDay.includes("1회") && logDay.includes("20문항") && logDay.includes("10%"), logDay.replace(/\n/g, " "));
+await page.$$eval(".cbt-log-tabs button", (b) => b[1].click()); await wait(200);
+const logTest = await text(".cbt-log-list[data-p=\"tests\"] .cbt-log-row");
+check("기록: 시험 탭에 3과목 10점", logTest.includes("고객서비스영어") && logTest.includes("10점"), logTest.replace(/\n/g, " "));
+await page.screenshot({ path: OUT + "cbt-5-log.png" });
+await page.$eval(".sheet-close", (e) => e.click()); await wait(300);
 check("오답노트 18문항", (await text("#cbt-wrongnote")).includes("18개"), (await text("#cbt-wrongnote")).replace(/\n/g, " "));
 check("이어 풀기 카드는 사라짐", !(await page.$(".cbt-resume")));
 await page.screenshot({ path: OUT + "cbt-4-home.png", fullPage: false });
@@ -102,6 +114,13 @@ await page.waitForSelector(".cbt-q", { visible: true });
 check("모의고사 60문항 60분", (await text("#cbt-count")).trim() === "0/60" && /^(59|60):/.test(await text("#cbt-timer")));
 const subj = await page.evaluate(() => { const c = [0, 0, 0]; /* 과목 배분 */ return JSON.parse(localStorage.getItem("bartalk_cbtRun")).refs.map((r) => +r.split("#")[1]).reduce((c, i) => { c[i < 30 ? 0 : i < 50 ? 1 : 2]++; return c; }, c); });
 check("과목 배분 30·20·10", subj.join() === "30,20,10", subj.join());
+// 미니 모의고사
+await click("#view-cbt .back-btn"); await yes(); await wait(400);
+await click("#cbt-mini"); await yes(); await pickMode(false);
+await page.waitForSelector(".cbt-q", { visible: true });
+check("미니 모의고사 30문항 30분", (await text("#cbt-count")).trim() === "0/30" && /^(29|30):/.test(await text("#cbt-timer")), (await text("#cbt-count")) + " " + (await text("#cbt-timer")));
+const msubj = await page.evaluate(() => JSON.parse(localStorage.getItem("bartalk_cbtRun")).refs.map((r) => +r.split("#")[1]).reduce((c, i) => { c[i < 30 ? 0 : i < 50 ? 1 : 2]++; return c; }, [0, 0, 0]));
+check("미니 배분 15·10·5", msubj.join() === "15,10,5", msubj.join());
 
 // 6) 회차 그대로 — 최고 점수 기록
 await click("#view-cbt .back-btn"); await yes(); await wait(400);

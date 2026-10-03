@@ -2241,6 +2241,15 @@
       } catch (e) { return { ok: false, error: (e && e.message) || "저장하지 못했어요." }; }
     },
     // 지표 내역용 — 이달 + 최근 14일 QR 스캔 기록 (운영자만 읽혀요)
+    // 입장권의 첫 입장 시각 (손님 본인 기록만 읽혀요 — pass_visits_read 정책)
+    async passEntryTime(passId) {
+      if (!ready()) return { ok: false, error: "offline" };
+      try {
+        var res = await sb.from("pass_visits").select("at").eq("pass_id", passId).eq("action", "enter").order("at", { ascending: true }).limit(1);
+        if (res.error) return { ok: false, error: rpcMsg(res.error) };
+        return { ok: true, at: res.data && res.data[0] ? res.data[0].at : null };
+      } catch (e) { return { ok: false, error: (e && e.message) || "불러오지 못했어요." }; }
+    },
     async passVisitsRecent(barKey) {
       if (!ready()) return { ok: false, error: "offline" };
       try {

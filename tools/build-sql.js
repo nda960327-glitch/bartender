@@ -18,6 +18,7 @@ const ORDER = [
   ["guard.sql", "방어선 — 요청 횟수 제한 · 칸 잠금 · 기록 · 장애 보상 · 수기 기록"],
   ["pass-offer.sql", "빈자리 알림 · 스캔 보너스"],
   ["pass-gift.sql", "잔 선물 링크"],
+  ["pass-ticket.sql", "입장권 — 가게별 후카 가격"],
 ];
 
 const dir = path.join(__dirname, "..", "supabase");

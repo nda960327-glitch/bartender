@@ -106,7 +106,7 @@
   /* 지금 돌아가는 앱 파일의 번호. sw.js 의 VERSION 과 같이 올립니다.
      화면에 찍어두면 "새 기능이 안 보인다"가 배포 문제인지 캐시 문제인지
      물어보지 않고도 구분됩니다. */
-  const APP_BUILD = "2.69.0";
+  const APP_BUILD = "2.70.1";
 
   /* ---------- 앱으로 받기 ----------
    * 안드로이드 폰에서 웹으로 들어온 사람에게만 보여줍니다.
@@ -7615,7 +7615,7 @@
    * 풀던 시험은 답을 고를 때마다 기기에 저장해서, 앱이 꺼져도 이어서 풀 수 있어요.
    *   cbtRun   풀던 시험 (문제 목록·고른 답·남은 시간)
    *   cbtHist  본 시험 기록 (최근 50개)   cbtBest 회차별 최고 점수   cbtWrong 오답노트 */
-  const CBT_KEEP = 50;
+  const CBT_KEEP = 300;   // 기록은 넉넉히 (하루 10번씩 한 달)
   const cbtLabel = (r) => r.label || `${r.year}년 ${r.round}회`;
   const cbtRealRounds = () => window.CBT_DATA.rounds.filter((r) => !r.mock);
   const cbtPassN = (n) => (n === 60 ? CBT_PASS : Math.ceil(n * 0.6));
@@ -7643,10 +7643,13 @@
   }
   const buildPlainRound = (r) => cbtRoundOf(r.id, cbtLabel(r), "round", r.questions.map((_, i) => `${r.id}#${i}`));
   /* 랜덤 모의고사 — 모든 회차를 섞되 실제 시험처럼 과목 배분(주류학 30 · 주장관리 20 · 영어 10)을 지켜요. */
-  function buildMockRound() {
+  // mini = 30문항 (과목 배분은 절반씩: 15 · 10 · 5, 30분)
+  function buildMockRound(mini) {
     const refs = [];
-    CBT_SUBJECTS.forEach(([, a, b], s) => refs.push(...shuffle(cbtPool(s)).slice(0, b - a)));
-    return cbtRoundOf("mock-" + Date.now().toString(36), "랜덤 모의고사", "mock", refs);
+    CBT_SUBJECTS.forEach(([, a, b], s) => refs.push(...shuffle(cbtPool(s)).slice(0, mini ? (b - a) / 2 : b - a)));
+    return mini
+      ? cbtRoundOf("mini-" + Date.now().toString(36), "랜덤 미니 모의고사", "mini", refs)
+      : cbtRoundOf("mock-" + Date.now().toString(36), "랜덤 모의고사", "mock", refs);
   }
   function buildSubjectRound(s) {
     const refs = shuffle(cbtPool(s)).slice(0, 20);
@@ -7659,7 +7662,7 @@
   function rebuildRound(r) {   // "새로 섞기"
     if (r.kind === "subject") return buildSubjectRound(r.subj);
     if (r.kind === "wrong") return buildWrongRound();
-    return buildMockRound();
+    return buildMockRound(r.kind === "mini");
   }
 
   /* ----- 저장 · 이어 풀기 ----- */
@@ -7712,7 +7715,72 @@
       best: exams.length ? Math.max(...exams.map((h) => cbtPct(h.c, 60))) : null,
       avg: exams.length ? Math.round(exams.reduce((s, h) => s + cbtPct(h.c, 60), 0) / exams.length) : null,
       passes: exams.filter((h) => h.c >= CBT_PASS).length,
+      days: cbtDays(hist),
+      streak: cbtStreak(hist),
+      today: hist.filter((h) => cbtDayKey(h.t) === cbtDayKey(Date.now())).length,
     };
+  }
+  const cbtDayKey = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  // 날짜별 공부량: { "2026-10-03": { tests, q, ok, ms } }
+  function cbtDays(hist) {
+    const out = {};
+    hist.forEach((h) => {
+      const k = cbtDayKey(h.t);
+      const d = out[k] || (out[k] = { tests: 0, q: 0, ok: 0, ms: 0 });
+      d.tests++;
+      d.q += h.q != null ? h.q : h.n;
+      d.ok += h.c;
+      d.ms += h.ms || 0;
+    });
+    return out;
+  }
+  // 오늘(또는 어제)까지 며칠 연속으로 풀었는지
+  function cbtStreak(hist) {
+    const have = new Set(hist.map((h) => cbtDayKey(h.t)));
+    const d = new Date();
+    if (!have.has(cbtDayKey(d))) d.setDate(d.getDate() - 1);
+    let n = 0;
+    while (have.has(cbtDayKey(d))) { n++; d.setDate(d.getDate() - 1); }
+    return n;
+  }
+  const cbtMin = (ms) => Math.max(ms ? 1 : 0, Math.round(ms / 60000));
+  const cbtWeekday = (k) => "일월화수목금토"[new Date(k + "T12:00:00").getDay()];
+  function cbtWeekHTML(days) {
+    const keys = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - 6 + i); return cbtDayKey(d); });
+    const max = Math.max(10, ...keys.map((k) => (days[k] ? days[k].q : 0)));
+    return `<div class="cbt-week">${keys.map((k, i) => {
+      const q = days[k] ? days[k].q : 0;
+      return `<div class="${i === 6 ? "today" : ""}"><i style="height:${Math.round((q / max) * 100)}%"></i><b>${q || ""}</b><span>${i === 6 ? "오늘" : cbtWeekday(k)}</span></div>`;
+    }).join("")}</div>`;
+  }
+  // 내 기록 — 날짜별로 얼마나 공부했는지, 시험마다 몇 점이었는지
+  function openCbtLog() {
+    const st = cbtStats();
+    const dayKeys = Object.keys(st.days).sort().reverse();
+    const total = dayKeys.reduce((s, k) => { s.q += st.days[k].q; s.ok += st.days[k].ok; s.ms += st.days[k].ms; return s; }, { q: 0, ok: 0, ms: 0 });
+    const hist = st.hist.slice().reverse();
+    openSheetHTML(`
+      <h3>내 CBT 기록</h3>
+      <div class="cbt-log-sum">
+        <div><span>공부한 날</span><b>${dayKeys.length}<small>일</small></b></div>
+        <div><span>푼 문제</span><b>${total.q}<small>문항</small></b></div>
+        <div><span>정답률</span><b>${cbtPct(total.ok, total.q)}<small>%</small></b></div>
+        <div><span>공부 시간</span><b>${total.ms >= 3600e3 ? (total.ms / 3600e3).toFixed(1) + "<small>시간</small>" : cbtMin(total.ms) + "<small>분</small>"}</b></div>
+      </div>
+      <div class="cbt-log-tabs"><button class="on" data-t="days">날짜별 공부</button><button data-t="tests">시험 기록 ${hist.length}</button></div>
+      <div class="cbt-log-list" data-p="days">
+        ${dayKeys.map((k) => { const d = st.days[k]; const [, m, dd] = k.split("-");
+          return `<div class="cbt-log-row"><div><b>${+m}월 ${+dd}일 (${cbtWeekday(k)})</b><span>${d.tests}회 · ${d.q}문항 · ${cbtMin(d.ms)}분</span></div><em class="${cbtPct(d.ok, d.q) >= 60 ? "ok" : "no"}">${cbtPct(d.ok, d.q)}%</em></div>`; }).join("")}
+      </div>
+      <div class="cbt-log-list" data-p="tests" hidden>
+        ${hist.map((h) => { const d = new Date(h.t); const sc = cbtPct(h.c, h.n);
+          return `<div class="cbt-log-row"><div><b>${esc(h.label || "시험")}${h.study ? " · 학습" : ""}</b><span>${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")} · ${h.c}/${h.n} · ${cbtMin(h.ms || 0)}분</span></div><em class="${sc >= 60 ? "ok" : "no"}">${sc}점</em></div>`; }).join("")}
+      </div>
+      <p class="cbt-stat-note">이 기기에 저장돼요. 끝까지 푼(제출한) 시험만 기록돼요.</p>`,
+    (bd) => bd.querySelectorAll(".cbt-log-tabs button").forEach((b) => b.addEventListener("click", () => {
+      bd.querySelectorAll(".cbt-log-tabs button").forEach((x) => x.classList.toggle("on", x === b));
+      bd.querySelectorAll(".cbt-log-list").forEach((x) => { x.hidden = x.dataset.p !== b.dataset.t; });
+    })));
   }
 
   const CBT_MODES = ["⏱ 실전 모드 — 타이머, 끝나고 채점", "📖 학습 모드 — 한 문제씩 정답·해설 바로 확인"];
@@ -7746,9 +7814,19 @@
           <button class="big-btn accent ready" id="cbt-resume">이어서 풀기</button>
         </div>` : ""}
       <div class="cbt-intro">
-        <h2>조주기능사 필기 기출</h2>
-        <p><b>실전</b>: 타이머 · 끝나고 채점 · <b>학습</b>: 한 문제씩 정답과 해설 확인.<br>풀다가 앱이 꺼져도 이어서 풀 수 있어요.</p>
+        <h2>조주기능사 필기</h2>
+        <p>모의고사를 자주 풀수록 붙어요. 풀다가 앱이 꺼져도 이어서 풀 수 있어요.</p>
       </div>
+      <button class="cbt-mock pressable" id="cbt-mock">
+        <span class="cbt-mock-ic">🎲</span>
+        <span class="cbt-mock-body"><b>랜덤 모의고사</b><span>실제 시험처럼 60문항 · 60분 · 매번 새로 뽑아요${st.streak ? ` · 🔥 연속 ${st.streak}일` : ""}${st.today ? ` · 오늘 ${st.today}회` : ""}</span></span>
+        <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+      <button class="cbt-mini pressable" id="cbt-mini">
+        <span class="cbt-mock-ic">⚡</span>
+        <span class="cbt-mock-body"><b>랜덤 미니 모의고사</b><span>30문항 · 30분 · 짬날 때 빠르게</span></span>
+        <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
       ${st.hist.length ? `
         <div class="cbt-stats">
           <div class="cbt-stat-row">
@@ -7764,13 +7842,10 @@
               <b>${n ? cbtPct(c, n) + "%" : "–"}</b>
             </div>`).join("")}
           ${weak && weak.p < 60 ? `<p class="cbt-tip">💡 <b>${CBT_SUBJECTS[weak.s][0]}</b> 정답률이 60%에 못 미쳐요. 과목별 시험으로 먼저 채워보세요.</p>` : ""}
+          <div class="cbt-week-head"><span>최근 7일 푼 문제</span><button class="link-btn" id="cbt-log">기록 전체 보기 ›</button></div>
+          ${cbtWeekHTML(st.days)}
           <p class="cbt-stat-note">점수는 60문항 실전 기준 · 정답률은 지금까지 푼 모든 문제 기준</p>
         </div>` : ""}
-      <button class="cbt-mock pressable" id="cbt-mock">
-        <span class="cbt-mock-ic">🎲</span>
-        <span class="cbt-mock-body"><b>랜덤 모의고사</b><span>${years[years.length - 1]}~${years[0]}년 ${nAll}문항에서 매번 새로 60문항 · 과목 배분은 실제 시험과 같게</span></span>
-        <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
-      </button>
       <div class="comment-sec-title">과목별 시험 <small class="cbt-sec-sub">과목마다 20문항씩 뽑아요</small></div>
       <div class="cbt-subj-btns">
         ${CBT_SUBJECTS.map(([name, a, b], s) => `
@@ -7784,6 +7859,7 @@
           <span>📕</span><span><b>오답노트</b><small>틀렸던 문제 ${wrongN}개 · 맞히면 목록에서 빠져요</small></span>
           <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
         </button>` : ""}
+      <div class="cbt-past-head"><b>기출문제</b><span>${years[years.length - 1]}~${years[0]}년 ${rounds.length}회분 · ${nAll}문항 · 회차 그대로 풀기</span></div>
       ${years.map((y) => `
         <div class="comment-sec-title">${y}년</div>
         <div class="cbt-rounds">
@@ -7809,7 +7885,10 @@
       const r = rounds.find((x) => x.id === b.dataset.id);
       cbtAsk(cbtLabel(r), () => buildPlainRound(r));
     })));
-    $("#cbt-mock").addEventListener("click", () => guard(() => cbtAsk("랜덤 모의고사", buildMockRound)));
+    $("#cbt-mock").addEventListener("click", () => guard(() => cbtAsk("랜덤 모의고사", () => buildMockRound(false))));
+    $("#cbt-mini").addEventListener("click", () => guard(() => cbtAsk("랜덤 미니 모의고사", () => buildMockRound(true))));
+    const logBtn = $("#cbt-log");
+    if (logBtn) logBtn.addEventListener("click", openCbtLog);
     $$("#cbt-area .cbt-subj-btn").forEach((b) => b.addEventListener("click", () => guard(() =>
       cbtAsk(`${+b.dataset.s + 1}과목 ${CBT_SUBJECTS[+b.dataset.s][0]}`, () => buildSubjectRound(+b.dataset.s)))));
     const wn = $("#cbt-wrongnote");
@@ -7965,7 +8044,8 @@
       });
       const c = qs.filter((q, i) => ex.picks[i] === q.a).length;
       const hist = store.get("cbtHist", []);
-      hist.push({ t: Date.now(), label: ex.r.label, kind: ex.r.kind, n: qs.length, c, by, study: ex.study });
+      const solved = by.reduce((s, x) => s + x[1], 0);
+      hist.push({ t: Date.now(), label: ex.r.label, kind: ex.r.kind, n: qs.length, c, q: solved, by, study: ex.study, ms: Math.max(0, ex.usedMs || 0) });
       store.set("cbtHist", hist.slice(-CBT_KEEP));
       if (ex.r.kind === "round" && !ex.study) {
         const best = store.get("cbtBest", {});
@@ -8033,7 +8113,7 @@
       <div class="cbt-result-btns">
         ${wrong.length ? `<button class="big-btn accent ready" id="cbt-rewrong">틀린 ${wrong.length}문제만 다시 풀기</button>` : ""}
         <button class="big-btn${wrong.length ? "" : " accent ready"}" id="cbt-retry">${ex.r.kind === "round" ? "이 회차 다시 풀기" : "같은 문제 다시 풀기"}${ex.study ? " (학습)" : ""}</button>
-        ${["mock", "subject", "wrong"].includes(ex.r.kind) ? '<button class="big-btn" id="cbt-remock">🎲 새로 뽑아서 풀기</button>' : ""}
+        ${["mock", "mini", "subject", "wrong"].includes(ex.r.kind) ? '<button class="big-btn" id="cbt-remock">🎲 새로 뽑아서 풀기</button>' : ""}
         <button class="big-btn" id="cbt-list">시험 목록</button>
       </div>`;
     $("#cbt-area").scrollTop = 0;
@@ -8554,7 +8634,16 @@
   const TICKET_ONLY = CFG.TICKET_ONLY !== false;
   const isTicket = (p) => p && p.kind === "oneday";
   const ticketUnlimited = (p) => (p.drinks_per_day || 0) >= 90;
-  const ticketPrice = (base, party, hookah) => base * party + TICKET.hookah * hookah - (party === 1 && hookah === 1 ? TICKET.soloOff : 0);
+  // st = 가게 설정. hookah_price · hookah_set_price 가 있으면 그 값 (supabase/pass-ticket.sql)
+  const ticketRule = (st) => ({
+    hookah: st && st.hookah_price != null ? +st.hookah_price : TICKET.hookah,
+    set: st && st.hookah_set_price != null ? +st.hookah_set_price : null,
+  });
+  const ticketPrice = (base, party, hookah, rule) => {
+    const r = rule || { hookah: TICKET.hookah, set: null };
+    const off = r.set != null ? Math.max(0, base + r.hookah - r.set) : TICKET.soloOff;
+    return base * party + r.hookah * hookah - (party === 1 && hookah === 1 ? off : 0);
+  };
   const PASS_PRESET_PLANS = [
     { name: "입장권", price: 38000, kind: "oneday", days: "all", drinks_per_day: 99, monthly_cap: null, team_size: 1, duration_days: 2, max_members: null, sort: 1,
       note: `${TICKET.hours}시간 동안 기본 칵테일 무제한 · 후카 포함 ${(38000 + TICKET.hookah - TICKET.soloOff).toLocaleString("ko-KR")}원 · 후카 1대 추가 ${TICKET.hookah.toLocaleString("ko-KR")}원(2~3인 공유)` },
@@ -9103,11 +9192,17 @@
 7. 상품 바꾸기(업그레이드) — 새 상품이 승인되는 날부터 새 패스가 시작되고 기존 패스는 그날 끝나요. 기존 패스의 남은 일수는 일할 계산해 차액에서 빼드려요.
 8. 가게 사정(휴업·폐업)으로 이용할 수 없으면 남은 기간만큼 연장하거나 일할 환불해요.
 9. 환불은 결제한 수단으로, 요청일부터 영업일 3일 안에 처리해요.`;
-  const refundText = (p) => (p && p.refund_policy && p.refund_policy.trim()) || PASS_REFUND_DEFAULT;
+  const TICKET_REFUND_DEFAULT = `1. 입장 확인 전 — 언제든 전액 환불해요.
+2. 기간 안에 못 왔다면 — 이용 기간이 끝난 날부터 7일 안에 요청하면 전액 환불해요.
+3. 입장 확인 후 — 이용 시간을 다 쓰지 않았거나 일행 일부가 오지 않아도 환불되지 않아요. 인원이 바뀌면 입장 전에 가게에 알려주세요.
+4. 가게 사정으로 못 쓴 경우 — 휴업·만석 등으로 이용하지 못했다면 전액 환불해요.
+5. 무제한 상품이라도 취한 손님에게는 주류 제공을 멈추거나 줄일 수 있고, 이때는 환불되지 않아요.
+6. 미성년자가 포함돼 일부 인원의 입장이 거절되면 그 인원 몫은 환불해요.`;
+  const refundText = (p) => (p && p.refund_policy && p.refund_policy.trim()) || (p && (isTicket(p) || TICKET_ONLY) ? TICKET_REFUND_DEFAULT : PASS_REFUND_DEFAULT);
   function openRefundPolicy(p) {
     openSheetHTML(`
-      <h3>환불·해지 규정</h3>
-      <p class="sheet-sub">${esc(p && p.bar_name ? p.bar_name : "이 가게")}의 하우스 패스 규정이에요.</p>
+      <h3>환불 규정</h3>
+      <p class="sheet-sub">${esc(p && p.bar_name ? p.bar_name : "이 가게")}의 입장권 환불 규정이에요.</p>
       <div class="refund-text">${escMsg(refundText(p))}</div>`);
   }
   // 남은 기간의 가치와 업그레이드 차액 (안내용 추정치 — 실제 금액은 가게가 정해요)
@@ -9323,7 +9418,7 @@
               <span>${passActive(mine) ? `${fmtDay(mine.ends_at)}까지 · 탭해서 QR 보기` : mine.replaces_id ? "바꾸기 승인 대기 · 기존 패스는 그대로 써요" : "가게에서 결제하면 운영자가 승인해요"}</span></span>
             <svg viewBox="0 0 24 24" class="chev-r"><path d="M9 6l6 6-6 6"/></svg>
           </button>
-          ${passActive(mine) && !mine.team_id ? `<div class="pass-links"><button class="text-btn" id="bar-pass-upgrade">⬆️ 상품 바꾸기</button><button class="text-btn" id="bar-pass-policy">환불·해지 규정</button></div>` : ""}` : ""}
+          ${passActive(mine) && !mine.team_id ? `<div class="pass-links"><button class="text-btn" id="bar-pass-upgrade">⬆️ 상품 바꾸기</button><button class="text-btn" id="bar-pass-policy">환불 규정</button></div>` : ""}` : ""}
         ${on && !mine && r.plans.length ? `
           <div class="pass-plans">
             ${(TICKET_ONLY && !r.owner ? r.plans.filter(isTicket) : r.plans).map((p) => `
@@ -9486,7 +9581,8 @@
       </div>
 
       ${live && offerLive(r.offer) ? offerBanner(r.offer, true) : ""}
-      ${live ? `
+      ${live && isTicket(p) ? ticketCardHTML(p) : ""}
+      ${live && !isTicket(p) ? `
       <div class="card pass-stats">
         <div class="ps-row"><span>오늘 잔</span><b>${p.today_drinks} <small>/ ${p.drinks_per_day}${offerLive(r.offer) && r.offer.bonus_drinks ? ` +${r.offer.bonus_drinks}` : ""}</small></b></div>
         ${p.monthly_cap ? `<div class="ps-row"><span>이달 잔</span><b>${p.month_drinks} <small>/ ${p.monthly_cap}</small></b></div>` : `<div class="ps-row"><span>이달 잔</span><b>${p.month_drinks}</b></div>`}
@@ -9569,7 +9665,7 @@
       renderMyGifts(p);
     }
 
-    if (live) startPassQr(p.id);
+    if (live) startPassQr(p.id); if (isTicket(p)) startTicketClock(p);
     const inv = $("#pass-invite");
     if (inv && p.invite_code) inv.addEventListener("click", () => copyText(p.invite_code, "초대 코드를 복사했어요."));
     const cancel = $("#pass-cancel");
@@ -9624,6 +9720,44 @@
     }));
   }
 
+  /* ---------- 입장권: 인원 · 후카 · 남은 시간 ----------
+   * 입장 시각은 서버의 입장 기록(pass_visits)에서 가져와요. 손님은 자기 기록만 읽을 수 있어요. */
+  let ticketClock = null;
+  const ticketParty = (p) => { const m = /(\d+)명/.exec(p.plan_name || ""); return p.team_size > 1 ? p.team_size : m ? +m[1] : 1; };
+  const ticketHookah = (p) => { const m = /후카 (\d+)대/.exec(p.plan_name || ""); return m ? +m[1] : 0; };
+  const hhmm = (t) => new Date(t).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
+  function ticketCardHTML(p) {
+    const h = ticketHookah(p);
+    return `
+      <div class="card tk-live">
+        <div class="tk-live-row"><span>인원</span><b>${ticketParty(p)}명</b><span>후카</span><b>${h ? h + "대" : "없음"}</b></div>
+        <div class="tk-clock" id="tk-clock"><b>입장 전</b><span>가게에서 QR을 보여주면 그때부터 ${TICKET.hours}시간이에요.</span></div>
+        <p class="pass-note">${fmtDay(p.ends_at)}까지 쓸 수 있어요 · 입장 전에는 전액 환불</p>
+      </div>`;
+  }
+  async function startTicketClock(p) {
+    clearInterval(ticketClock);
+    const r = await Sync.passEntryTime(p.id);
+    if (!r.ok || !r.at) return;
+    const start = new Date(r.at).getTime(), end = start + TICKET.hours * 3600e3;
+    const paint = () => {
+      const el = $("#tk-clock");
+      if (!el || state.view !== "pass" || state.curPass !== p.id) { clearInterval(ticketClock); return; }
+      const left = end - Date.now();
+      if (left <= 0) {
+        el.className = "tk-clock over";
+        el.innerHTML = `<b>이용 시간이 끝났어요</b><span>${hhmm(start)} 입장 · ${hhmm(end)}까지였어요. 오늘도 고마워요 🍸</span>`;
+        clearInterval(ticketClock);
+        return;
+      }
+      const hh = Math.floor(left / 3600e3), mm = Math.floor(left / 60000) % 60, ss = Math.floor(left / 1000) % 60;
+      el.className = "tk-clock on" + (left < 15 * 60000 ? " soon" : "");
+      el.innerHTML = `<b>${hh}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}</b><span>${hhmm(start)} 입장 · <b>${hhmm(end)}까지</b>${left < 15 * 60000 ? " · 곧 끝나요" : ""}</span>`;
+    };
+    paint();
+    ticketClock = setInterval(paint, 1000);
+  }
+
   async function startPassQr(id) {
     const ok = await lazyData(QR_LIB, "QRCode");
     const paint = async () => {
@@ -9659,21 +9793,22 @@
    * 한 사람이 일행 몫까지 한 번에 끊어요. QR 하나로 같이 입장합니다. */
   function openTicketSheet(b, key, plan, base) {
     const o = { party: 1, hookah: 0 };
-    const total = () => ticketPrice(base, o.party, o.hookah);
+    const rule = ticketRule(passCache.byBar[key] && passCache.byBar[key].settings);
+    const total = () => ticketPrice(base, o.party, o.hookah, rule);
     const bd = openSheetHTML(`
       <h3>${esc(b.name)} 입장권</h3>
       <p class="sheet-sub">${ticketUnlimited(plan) ? `입장 후 ${TICKET.hours}시간 동안 기본 칵테일 무제한` : esc(passPlanLine(plan))}</p>
       <div class="tk-menu">
         <div><span>기본</span><b>${passWon(base)}</b><small>1인</small></div>
-        <div><span>후카 포함</span><b>${passWon(ticketPrice(base, 1, 1))}</b><small>1인 + 후카 1대</small></div>
-        <div><span>후카 추가</span><b>${passWon(TICKET.hookah)}</b><small>1대 · 2~3인 공유</small></div>
+        <div><span>후카 포함</span><b>${passWon(ticketPrice(base, 1, 1, rule))}</b><small>1인 + 후카 1대</small></div>
+        <div><span>후카 추가</span><b>${passWon(rule.hookah)}</b><small>1대 · 2~3인 공유</small></div>
       </div>
       <div class="tk-row">
         <div><b>인원</b><span>일행 몫까지 한 번에 끊을 수 있어요</span></div>
         <div class="tk-step"><button data-k="party" data-d="-1" aria-label="인원 줄이기">−</button><b id="tk-party">1</b><button data-k="party" data-d="1" aria-label="인원 늘리기">+</button></div>
       </div>
       <div class="tk-row">
-        <div><b>후카</b><span>인원과 무관하게 1대 ${passWon(TICKET.hookah)}</span></div>
+        <div><b>후카</b><span>인원과 무관하게 1대 ${passWon(rule.hookah)}</span></div>
         <div class="tk-step"><button data-k="hookah" data-d="-1" aria-label="후카 줄이기">−</button><b id="tk-hookah">0</b><button data-k="hookah" data-d="1" aria-label="후카 늘리기">+</button></div>
       </div>
       <div class="tk-total"><span id="tk-detail"></span><b id="tk-sum"></b></div>
@@ -9685,8 +9820,9 @@
       bd.querySelector("#tk-party").textContent = o.party;
       bd.querySelector("#tk-hookah").textContent = o.hookah;
       const bits = [`기본 ${passWon(base)} × ${o.party}명`];
-      if (o.hookah) bits.push(`후카 ${passWon(TICKET.hookah)} × ${o.hookah}대`);
-      if (o.party === 1 && o.hookah === 1) bits.push(`세트 할인 −${passWon(TICKET.soloOff)}`);
+      if (o.hookah) bits.push(`후카 ${passWon(rule.hookah)} × ${o.hookah}대`);
+      const off = base + rule.hookah * o.hookah - t;
+      if (off > 0 && o.party === 1) bits.push(`세트 할인 −${passWon(off)}`);
       bd.querySelector("#tk-detail").textContent = bits.join(" + ").replace("+ 세트", "· 세트");
       bd.querySelector("#tk-sum").textContent = passWon(t);
       bd.querySelector("#tk-per").textContent = o.party > 1 ? `1인당 ${passWon(Math.round(t / o.party / 100) * 100)}꼴` : "";
@@ -10349,7 +10485,7 @@
           <button class="toggle ${st.enabled ? "on" : ""}" id="pa-enabled" role="switch" aria-checked="${!!st.enabled}"><span class="knob"></span></button>
         </div>
         <p class="pass-note">${st.enabled ? "가게 페이지에 상품이 보이고 신청을 받아요." : "꺼져 있으면 손님에게 안 보여요. 상품을 먼저 만들고 켜세요."}</p>
-        <label class="form-label">월 구독 매출 목표 (원) <span class="label-opt">운영자 화면과 홈에 달성률로 보여요</span></label>
+        <label class="form-label">월 매출 목표 (원) <span class="label-opt">운영자 화면과 홈에 달성률로 보여요</span></label>
         <input class="input" id="pa-target" type="number" min="0" step="100000" value="${passGoal(a.barKey, st)}" inputmode="numeric">
         <label class="form-label">도장 목표 (이달 n번째 방문에 보상)</label>
         <input class="input" id="pa-goal" type="number" min="2" max="10" value="${st.stamp_goal || 4}" inputmode="numeric">
@@ -10362,7 +10498,12 @@
           <label class="form-label">위약금 (%)<input class="input" id="pa-penalty" type="number" min="0" max="100" value="${st.refund_penalty_pct != null ? st.refund_penalty_pct : REFUND_PENALTY_DEFAULT}" inputmode="numeric"></label>
         </div>
         <p class="pass-note">해지 때 이용한 잔은 이 가격으로 빼요. 보통 비회원 단품가(클래식 15,000원)로 잡아요.</p>
-        <label class="form-label">"이번 한 번만" 결제 할증 (%) <span class="label-opt">정기 구독을 기본으로 만들어요</span></label>
+        <div class="pe-grid">
+          <label class="form-label">후카 1대 가격 (원)<input class="input" id="pa-hookah" type="number" min="0" step="1000" value="${st.hookah_price != null ? st.hookah_price : TICKET.hookah}" inputmode="numeric"></label>
+          <label class="form-label">1인 + 후카 세트 (원)<input class="input" id="pa-hookah-set" type="number" min="0" step="1000" value="${st.hookah_set_price != null ? st.hookah_set_price : 38000 + TICKET.hookah - TICKET.soloOff}" inputmode="numeric"></label>
+        </div>
+        <p class="pass-note">입장권을 살 때 쓰는 값이에요. 후카는 인원과 상관없이 대수로 받고, 혼자 오면서 후카 1대를 고르면 세트 값이 돼요.</p>
+        <label class="form-label">"이번 한 번만" 결제 할증 (%) <span class="label-opt">예전 월정액 상품에만 써요</span></label>
         <input class="input" id="pa-once" type="number" min="0" max="100" value="${st.once_markup_pct != null ? st.once_markup_pct : ONCE_MARKUP_DEFAULT}" inputmode="numeric">
         <p class="pass-note">카드 자동결제(정기)는 정가, 한 번만 내는 결제는 이만큼 더 받아요. 라이트 39,000원이면 한 번만 결제는 ${passWon(Math.round(39000 * (1 + (st.once_markup_pct != null ? +st.once_markup_pct : ONCE_MARKUP_DEFAULT) / 100) / 100) * 100)}. 0이면 같은 가격.</p>
         <label class="form-label">환불·해지 규정 <span class="label-opt">비우면 기본 규정</span></label>
@@ -10431,7 +10572,7 @@
     $("#pa-partner-terms").addEventListener("click", () => openDoc("partner"));
     $("#pa-save").addEventListener("click", async () => {
       const goal = Math.max(2, Math.min(10, +$("#pa-goal").value || 4));
-      const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: !!st.enabled, stamp_goal: goal, special_drink: $("#pa-special").value.trim(), notice: $("#pa-notice").value.trim(), refund_policy: $("#pa-refund").value.trim(), refund_drink_price: Math.max(0, +$("#pa-drink-price").value || 0), refund_penalty_pct: Math.max(0, Math.min(100, +$("#pa-penalty").value || 0)), once_markup_pct: Math.max(0, Math.min(100, +$("#pa-once").value || 0)), goal_monthly: Math.max(0, +$("#pa-target").value || 0) });
+      const r = await Sync.passSaveSettings({ bar_key: a.barKey, bar_name: a.barName, enabled: !!st.enabled, stamp_goal: goal, special_drink: $("#pa-special").value.trim(), notice: $("#pa-notice").value.trim(), refund_policy: $("#pa-refund").value.trim(), refund_drink_price: Math.max(0, +$("#pa-drink-price").value || 0), refund_penalty_pct: Math.max(0, Math.min(100, +$("#pa-penalty").value || 0)), once_markup_pct: Math.max(0, Math.min(100, +$("#pa-once").value || 0)), hookah_price: Math.max(0, +$("#pa-hookah").value || 0), hookah_set_price: Math.max(0, +$("#pa-hookah-set").value || 0) || null, goal_monthly: Math.max(0, +$("#pa-target").value || 0) });
       if (!r.ok) { passFail(r); return; }
       try { localStorage.setItem("bt_pass_goal_" + a.barKey, String(Math.max(0, +$("#pa-target").value || 0))); } catch {}
       d.settings = Object.assign({}, r.settings, r.settings && r.settings.goal_monthly == null ? { goal_monthly: Math.max(0, +$("#pa-target").value || 0) } : {}); passCache.byBar = {}; toast("저장했어요."); renderPassAdminRevenue();

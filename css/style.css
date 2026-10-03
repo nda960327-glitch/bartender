@@ -1941,6 +1941,37 @@ select.input { appearance: auto; }
 .cbt-mock-body b { font-size: 16px; font-weight: 800; }
 .cbt-mock-body span { font-size: 12.5px; line-height: 1.45; opacity: .92; word-break: keep-all; }
 .cbt-mock .chev-r { color: #fff; opacity: .8; }
+.cbt-mini {
+  display: flex; align-items: center; gap: 14px; width: calc(100% - 40px); margin: 10px 20px 4px; padding: 14px 18px;
+  border: 1px solid var(--line); border-radius: 18px; background: var(--bg); color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.cbt-mini .cbt-mock-body span { color: var(--text-sub); opacity: 1; }
+.cbt-mini .chev-r { color: var(--text-muted); }
+.cbt-past-head { display: flex; flex-direction: column; gap: 3px; margin: 22px 20px 0; padding-top: 18px; border-top: 1px solid var(--line); }
+.cbt-past-head b { font-size: 18px; font-weight: 800; }
+.cbt-past-head span { font-size: 12.5px; color: var(--text-sub); }
+.cbt-week-head { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 12.5px; color: var(--text-sub); }
+.cbt-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; height: 74px; margin-top: 8px; }
+.cbt-week > div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px; min-width: 0; }
+.cbt-week i { display: block; width: 70%; min-height: 3px; border-radius: 4px; background: #2eb872; opacity: .75; }
+.cbt-week .today i { opacity: 1; background: var(--accent); }
+.cbt-week b { font-size: 10.5px; font-weight: 700; color: var(--text-sub); order: -1; }
+.cbt-week span { font-size: 11px; color: var(--text-muted); }
+.cbt-week .today span { color: var(--accent); font-weight: 700; }
+.cbt-log-sum { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 4px 0 14px; text-align: center; }
+.cbt-log-sum span { display: block; font-size: 11.5px; color: var(--text-sub); }
+.cbt-log-sum b { font-size: 19px; font-weight: 800; }
+.cbt-log-sum small { font-size: 11px; font-weight: 600; color: var(--text-sub); }
+.cbt-log-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+.cbt-log-tabs button { flex: 1; height: 38px; border: none; border-radius: 10px; background: var(--chip-bg); color: var(--text-sub); font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+.cbt-log-tabs button.on { background: var(--text); color: var(--bg); }
+.cbt-log-list { max-height: 44vh; overflow-y: auto; }
+.cbt-log-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--line); }
+.cbt-log-row b { display: block; font-size: 14.5px; font-weight: 700; }
+.cbt-log-row span { font-size: 12.5px; color: var(--text-sub); }
+.cbt-log-row em { flex-shrink: 0; font-style: normal; font-size: 16px; font-weight: 800; }
+.cbt-log-row em.ok { color: #2eb872; }
+.cbt-log-row em.no { color: var(--accent); }
 .cbt-rounds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 4px 20px 8px; }
 .cbt-round {
   display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
@@ -2921,3 +2952,17 @@ html.sbfix .toggle.on {
 .tk-total span { font-size: 12.5px; color: var(--text-sub); line-height: 1.5; word-break: keep-all; }
 .tk-total b { flex-shrink: 0; font-size: 22px; font-weight: 800; color: var(--accent); }
 .tk-per { min-height: 18px; margin-bottom: 10px; text-align: right; font-size: 12.5px; color: var(--text-sub); }
+
+/* 입장권 — 손님 화면 */
+.tk-live { padding: 16px; }
+.tk-live-row { display: grid; grid-template-columns: auto 1fr auto 1fr; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+.tk-live-row span { font-size: 13px; color: var(--text-sub); }
+.tk-live-row b { font-size: 18px; font-weight: 800; }
+.tk-clock { padding: 14px 16px; border-radius: 14px; background: var(--bg-gray); text-align: center; }
+.tk-clock > b { display: block; font-size: 17px; font-weight: 800; }
+.tk-clock span { display: block; margin-top: 4px; font-size: 13px; color: var(--text-sub); line-height: 1.5; }
+.tk-clock.on { background: rgba(46,184,114,.12); }
+.tk-clock.on > b { font-size: 34px; letter-spacing: .5px; color: #1f7a4d; font-variant-numeric: tabular-nums; }
+.tk-clock.soon { background: var(--accent-soft); }
+.tk-clock.soon > b { color: var(--accent); }
+.tk-clock.over > b { color: var(--text-sub); }
